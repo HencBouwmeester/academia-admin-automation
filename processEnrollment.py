@@ -60,7 +60,8 @@ def processEnrollment(filename):
 if __name__ == "__main__":
 
     import argparse
-    from os import path
+    from os import path, remove, rename
+    import datetime as dt
 
     # Set up command line parsing
     parser = argparse.ArgumentParser(
@@ -73,6 +74,28 @@ if __name__ == "__main__":
     # check to see if the file was downloaded
     assert path.exists(filename), "File does not exist: {:s}".format(filename)
 
-    # Run the program, defaulting to Math and CompSci for convenience
-    processEnrollment(filename)
+    # parse the filename from the information in the csv file
+    count = 0
+    with open(filename, "r") as fp:
+        for line in fp:
+            count += 1
+            if count < 8:
+                if count == 5:
+                    items = line.split()
+                    reportName = items[0].strip()
+                    reportDate = dt.datetime.strptime(items[6][:-1].strip(), "%d-%b-%Y")
+                if count == 7:
+                    items = line.split()
+                    reportTerm = items[1].strip()
+            else:
+                break
 
+    newfilename = "{:s}_{:s}_{:s}.csv".format(reportName,
+                                              reportTerm,
+                                              dt.datetime.strftime(reportDate, "%Y%m%d"))
+
+    rename(filename, newfilename)
+    print("Report renamed as {:s}".format(newfilename))
+
+    processEnrollment(newfilename)
+    print("Report converted to Excel as {:s}".format(newfilename[:-3] + "xlsx"))
