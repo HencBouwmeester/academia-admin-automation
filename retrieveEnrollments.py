@@ -253,10 +253,10 @@ if __name__ == "__main__":
 
         rename(filepath + filename, filepath + newfilename)
         print()
-        print("Report downloaded to {:s}.".format(filepath + newfilename))
+        print("Report downloaded to {:s}".format(filepath + newfilename))
 
         # Provide formatted Excel output
         if args.excel:
             processEnrollment(filepath + newfilename)
-            print("Report converted to Excel as {:s}.".format(filepath + newfilename[:-3] + "xlsx"))
+            print("Report converted to Excel as {:s}".format(filepath + newfilename[:-3] + "xlsx"))
 
