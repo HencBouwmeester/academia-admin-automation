@@ -183,7 +183,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("-c", "--cancel", help="Include canceled classes", action="store_true")
     parser.add_argument("--excel", help="Provide formatted Excel output", action="store_true")
-    parser.add_argument("no_download", metavar="no-download", nargs=1, help="Do not retrieve the SWRCGSR query", action="store_true")
     args = parser.parse_args()
 
     # info.txt file is a plain text file that provides the parameters for the
