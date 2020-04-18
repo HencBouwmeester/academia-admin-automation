@@ -74,7 +74,10 @@ if __name__ == "__main__":
     files=glob.glob(current_path + "/*.csv")
     nf = len(files)
 
-    campusCodes = ["M", "I", "O", "D", "S"]
+    # this is our filter to remove extraneous lines since each course must be
+    # assigned to a campus
+    campus = {"M": "Main", "D": "DIME", "F":"Metro South", "I": "Online", "O": "Extended", "S": "Metro South"}
+    campusCodes = list(campus.keys())
     rawdata = []
     for filename in files:
         current = readcsv(filename)
@@ -151,13 +154,16 @@ if __name__ == "__main__":
     # Enrollment for each CRN by date for non-stacked CRNs
     for CRN in data.CRN.unique():
 
-        current_data = data[data.CRN == CRN]
+        current_data = data[data.CRN == CRN].sort_values(["Date"])
 
         # collect course and max capacity
-        current_subj = current_data['Subj'].unique()[0]
-        current_CourseNumber = current_data['CourseNumber'].unique()[0]
         maxenrollment = current_data['Max'].max()
-        course = "{:s} {:s} ({:d})".format(current_subj, current_CourseNumber, CRN)
+        course = "{:s} ({:d})".format(current_data.Course.unique()[0], CRN)
+        DayTimeLoc = "{:s} {:s} {:s} ({:s})".format(current_data.Days.unique()[0],
+                                                            current_data.Time.unique()[0],
+                                                            current_data.Location.unique()[0],
+                                                            campus[current_data.Campus.unique()[0]])
+        figtitle = "Enrollment for {:s}\n {:s}".format(course, DayTimeLoc)
 
         if not CRN in stackedCRNsFlat:
 
@@ -168,36 +174,39 @@ if __name__ == "__main__":
 
             # Create figure and plot space
             fig, ax = plt.subplots(figsize=(6, 6))
+            ax.set_axisbelow(True)
+            ax.yaxis.grid(color='gray', linestyle='dashed')
             formatter = mdates.DateFormatter("%m-%d")
             ax.xaxis.set_major_formatter(formatter)
             ax.bar(x_values,
                    y_values,
                    linewidth = 1,
-                   edgecolor = ["white"]*M)
+                   edgecolor = "white")
             ax.bar(x_values,
                    w_values,
                    bottom = y_values,
                    color="gray",
                    linewidth = 1,
-                   edgecolor = ["white"]*M)
+                   edgecolor = "white")
             ax.set(xlabel="Date",
                    ylabel="Enrollment",
-                   title="Enrollment for {:s}".format(course, CRN))
+                   title=figtitle)
 
 
             # set max on y to make graphs comparable if less that 45
             # highest value needs to include the wait list
-            plt.ylim(0,max(45,max([sum(y) for y in zip(y_values, w_values)])+5))
+            plt.ylim(0,int(max(45,max([sum(y) for y in zip(y_values, w_values)])*1.05)))
 
-            # set minimum enrollment dependent on lower or upper division
+            # set minimum enrollment dependent on lower or upper division and maximum enrollment
             if int(course.split()[1][0]) >= 3:
                 m = u_minenrollment
             else:
                 m = l_minenrollment
-            plt.plot([min(x_values), max(x_values)],[m, m],'--', color = "gray")
+            m = min(m, maxenrollment)
+            plt.plot([min(x_values), max(x_values)],[m, m],'--', color = "lightgreen")
 
             # set maximum enrollment based on room capacity
-            plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "gray")
+            plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "lightcoral")
 
             # create filename and save the graph as a PDF
             figname = current_path + "/graphs/" + course + ".pdf"
@@ -218,6 +227,8 @@ if __name__ == "__main__":
 
         # Create figure and plot space
         fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color='gray', linestyle='dashed')
         formatter = mdates.DateFormatter("%m-%d")
         ax.xaxis.set_major_formatter(formatter)
 
@@ -236,9 +247,8 @@ if __name__ == "__main__":
 
             current_data = stackedData[stackedData.CRN == CRN]
 
-            current_subj = current_data['Subj'].unique()[0]
-            current_CourseNumber = current_data['CourseNumber'].unique()[0]
-            course += "{:s} {:s} ({:d}), ".format(current_subj, current_CourseNumber, CRN)
+            # combine the names of the courses
+            course += "{:s} ({:d}), ".format(current_data.Course.unique()[0], CRN)
 
             y_values = current_data.Enrollment.tolist()
             ax.bar(x_values,
@@ -247,7 +257,7 @@ if __name__ == "__main__":
                    label = CRN,
                    color = colors[j],
                    linewidth = 1,
-                   edgecolor = ["white"]*M)
+                   edgecolor = "white")
             b = [sum(y) for y in zip(b, y_values)]
 
         # remove trailing comma and space
@@ -262,27 +272,28 @@ if __name__ == "__main__":
                linewidth = 1,
                label = "Wait List",
                color = "#D3D3D3",
-               edgecolor = ["white"]*M)
+               edgecolor = "white")
 
         # set a title for the figure
         ax.set(xlabel="Date",
                ylabel="Enrollment",
-               title="Enrollment for {:s}".format(course))
+               title="Enrollment for\n{:s}".format(course))
 
 
         # set max on y to make graphs comparable if less that 45
         # highest value needs to include the wait list
-        plt.ylim(0,max(45,max([sum(y) for y in zip(b, w_values)])+5))
+        plt.ylim(0,int(max(45,max([sum(y) for y in zip(b, w_values)])*1.05)))
 
         # set minimum enrollment dependent on lower or upper division
         if int(course.split()[1][0]) >= 3:
             m = u_minenrollment
         else:
             m = l_minenrollment
-        plt.plot([min(x_values), max(x_values)],[m, m],'--', color = "gray")
+        m = min(m, maxenrollment)
+        plt.plot([min(x_values), max(x_values)],[m, m],'--', color = "lightgreen")
 
         # set maximum enrollment based on room capacity
-        plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "gray")
+        plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "lightcoral")
 
         # include a legend of all the CRNs
         plt.legend(loc="upper left")
@@ -308,6 +319,8 @@ if __name__ == "__main__":
 
             # Create figure and plot space
             fig, ax = plt.subplots(figsize=(6, 6))
+            ax.set_axisbelow(True)
+            ax.yaxis.grid(color='gray', linestyle='dashed')
             formatter = mdates.DateFormatter("%m-%d")
             ax.xaxis.set_major_formatter(formatter)
 
@@ -330,7 +343,7 @@ if __name__ == "__main__":
                        label = CRN,
                        color = colors[j],
                        linewidth = 1,
-                       edgecolor = ["white"]*M)
+                       edgecolor = "white")
                 b = [sum(y) for y in zip(b, y_values)]
 
             w_values = combinedDataTotals.Wait.tolist()
@@ -342,7 +355,7 @@ if __name__ == "__main__":
                    linewidth = 1,
                    label = "Wait List",
                    color = "#D3D3D3",
-                   edgecolor = ["white"]*M)
+                   edgecolor = "white")
 
             # set a title for the figure
             ax.set(xlabel="Date",
@@ -352,10 +365,10 @@ if __name__ == "__main__":
 
             # set max on y to make graphs comparable if less that 45
             # highest value needs to include the wait list
-            plt.ylim(0,max(maxenrollment, max([sum(y) for y in zip(b, w_values)]))+5)
+            plt.ylim(0,int(max(maxenrollment, max([sum(y) for y in zip(b, w_values)]))*1.05))
 
             # set maximum enrollment based on room capacity
-            plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "gray")
+            plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "lightcoral")
 
             # include a legend of all the CRNs
             plt.legend(loc="upper left")
@@ -369,13 +382,15 @@ if __name__ == "__main__":
 
         # filter data per stack
         stackedData = data[data["CourseNumber"].isin(stack)]
+
+        # get totals for each date
         stackedDataTotals = stackedData.groupby("Date", sort=False).sum()
 
         # combine the names of the courses
-        Courses = stackedData["Subj"].str.cat(stackedData["CourseNumber"], sep=" ")
         course = ""
-        for item in Courses.unique():
+        for item in stackedData.Course.unique():
             course += item + "/"
+        # remove trailing characters
         course = course[:-1]
 
         # compute the total maximum enrollment for all course in stack
@@ -383,6 +398,8 @@ if __name__ == "__main__":
 
         # Create figure and plot space
         fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color='gray', linestyle='dashed')
         formatter = mdates.DateFormatter("%m-%d")
         ax.xaxis.set_major_formatter(formatter)
 
@@ -406,7 +423,7 @@ if __name__ == "__main__":
                    label = CourseNumber,
                    color = colors[j],
                    linewidth = 1,
-                   edgecolor = ["white"]*M)
+                   edgecolor = "white")
             b = [sum(y) for y in zip(b, y_values)]
 
         w_values = stackedDataTotals.Wait.tolist()
@@ -418,7 +435,7 @@ if __name__ == "__main__":
                linewidth = 1,
                label = "Wait List",
                color = "#D3D3D3",
-               edgecolor = ["white"]*M)
+               edgecolor = "white")
 
         # set a title for the figure
         ax.set(xlabel="Date",
@@ -428,10 +445,10 @@ if __name__ == "__main__":
 
         # set max on y to make graphs comparable if less that 45
         # highest value needs to include the wait list
-        plt.ylim(0,max(maxenrollment, max([sum(y) for y in zip(b, w_values)]))+5)
+        plt.ylim(0,int(max(maxenrollment, max([sum(y) for y in zip(b, w_values)]))*1.05))
 
         # set maximum enrollment based on room capacity
-        plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "gray")
+        plt.plot([min(x_values), max(x_values)],[maxenrollment, maxenrollment],'--', color = "lightcoral")
 
         # include a legend of all the CRNs
         plt.legend(loc="upper left")
