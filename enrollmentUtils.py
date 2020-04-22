@@ -163,11 +163,12 @@ def convertAMPMtime(timeslot):
         starthour = int(timeslot[0:2])
         endhour = int(timeslot[5:7])
         if timeslot[-3:-1] == "PM":
-            starthour = starthour + 12 if starthour < 11 else starthour
             endhour = endhour + 12 if endhour < 12 else endhour
-        timeslot = str(starthour).zfill(2) + ":" + \
-                      timeslot[2:4] + "-" + \
-                      str(endhour).zfill(2) + ":" + timeslot[7:9]
+            starthour = starthour + 12 if starthour+12 < endhour else starthour
+        timeslot = "{:s}:{:s}-{:s}:{:s}".format(str(starthour).zfill(2),
+                                                timeslot[2:4],
+                                                str(endhour).zfill(2),
+                                                timeslot[7:9])
     except ValueError: # catch the TBA times
         timeslot = timeslot[:-1]
 
