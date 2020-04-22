@@ -275,9 +275,15 @@ if __name__ == "__main__":
                edgecolor = "white")
 
         # set a title for the figure
+        DayTimeLoc = "{:s} {:s} {:s} ({:s})".format(current_data.Days.unique()[0],
+                                                            current_data.Time.unique()[0],
+                                                            current_data.Location.unique()[0],
+                                                            campus[current_data.Campus.unique()[0]])
+        figtitle = "Enrollment for {:s}\n {:s}".format(course, DayTimeLoc)
         ax.set(xlabel="Date",
                ylabel="Enrollment",
-               title="Enrollment for\n{:s}".format(course))
+               title = figtitle)
+               # title="Enrollment for\n{:s}".format(course))
 
 
         # set max on y to make graphs comparable if less that 45
