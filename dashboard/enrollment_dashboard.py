@@ -191,12 +191,15 @@ class EnrollmentData:
         return self.df["CHP"].sum()
 
     def enrollment_by_instructor(self):
-        return (
+        _df = (
             self.df.groupby("Instructor")
-            .agg({"Enrolled": "sum"})
-            .sort_values(("Enrolled"), ascending=False)
+            .agg(enrl_sum=("Enrolled", "sum"), enrl_avg=("Enrolled", "mean"))
+            .rename(columns={"enrl_sum":"Total", "enrl_avg":"Avg"})
+            .sort_values(("Instructor"), ascending=True)
             .reset_index()
         )
+        _df["Avg"] = _df["Avg"].round(2)
+        return _df
 
     def credits_by_instructor(self):
         return (
@@ -206,21 +209,11 @@ class EnrollmentData:
             .reset_index()
         )
 
-    def table_avg_enrollment_by_instructor(self):
-        _df = (
-            self.df.groupby("Instructor")
-            .agg({"Enrolled": "mean"})
-            .sort_values(("Enrolled"), ascending=False)
-            .reset_index()
-        )
-        _df["Enrolled"] = _df["Enrolled"].round(2)
-        return _df
-
     def chp_by_course(self):
         return (
             self.df.groupby("Course")
-            .agg({"CHP": "sum"})
-            .sort_values(("CHP"), ascending=False)
+            .agg({"CHP": "sum", "Enrolled": "sum", "Max": "sum"})
+            .sort_values(("Course"), ascending=True)
             .reset_index()
         )
 
@@ -401,7 +394,6 @@ class EnrollmentData:
                 title="Enrollment per Course",
                 hover_data={"Ratio": True},
             )
-            # .update_xaxes(categoryorder="max descending")
             .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
         )
 
@@ -870,8 +862,8 @@ def parse_contents(contents, filename, date):
                     html.Div(  # div-lvl-5
                         [
                             dcc.Graph(
-                                figure=data.graph_enrollment_by_instructor(),
-                                id="individual_graph",
+                              figure=data.graph_ratio_course(),
+                              id="main_graph_2"
                             )
                         ],
                         className="pretty_container six columns",
@@ -894,6 +886,7 @@ def parse_contents(contents, filename, date):
                                     for i in data.enrollment_by_instructor().columns
                                 ],
                                 data=data.enrollment_by_instructor().to_dict("records"),
+                                fixed_rows={"headers": True, "data": 0},
                                 style_data_conditional=[
                                     {
                                         "if": {"row_index": "odd"},
@@ -909,43 +902,11 @@ def parse_contents(contents, filename, date):
                                 style_cell={"font-family": "sans-serif"},
                             ),
                         ],
-                        className="pretty_container three columns",
+                        className="pretty_container one-third column",
                     ),
                     html.Div(  # div-lvl-5
                         [
-                            html.H6(
-                                "Avg Enrl by Instructor",
-                                id="avg_enrollment_by_instructor_id",
-                            ),
-                            dash_table.DataTable(  # div-lvl-6
-                                id="avg_enrollment_data_table",
-                                columns=[
-                                    {"name": i, "id": i}
-                                    for i in data.table_avg_enrollment_by_instructor().columns
-                                ],
-                                data=data.table_avg_enrollment_by_instructor().to_dict(
-                                    "records"
-                                ),
-                                style_data_conditional=[
-                                    {
-                                        "if": {"row_index": "odd"},
-                                        "backgroundColor": "rgb(248, 248, 248)",
-                                    }
-                                ],
-                                style_header={
-                                    "backgroundColor": "rgb(230, 230, 230)",
-                                    "fontWeight": "bold",
-                                },
-                                page_action="none",
-                                style_table={"height": "400px", "overflowY": "auto"},
-                                style_cell={"font-family": "sans-serif"},
-                            ),
-                        ],
-                        className="pretty_container three columns",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6("CHP by Course", id="chp_by_course_id"),
+                            html.H6("Course CHP and Enrollment", id="chp_by_course_id"),
                             dash_table.DataTable(  # div-lvl-6
                                 id="chp_by_course_data_table",
                                 columns=[
@@ -953,6 +914,7 @@ def parse_contents(contents, filename, date):
                                     for i in data.chp_by_course().columns
                                 ],
                                 data=data.chp_by_course().to_dict("records"),
+                                fixed_rows={"headers": True, "data": 0},
                                 style_data_conditional=[
                                     {
                                         "if": {"row_index": "odd"},
@@ -968,11 +930,11 @@ def parse_contents(contents, filename, date):
                                 style_cell={"font-family": "sans-serif"},
                             ),
                         ],
-                        className="pretty_container three columns",
+                        className="pretty_container one-third column",
                     ),
                     html.Div(  # div-lvl-5
                         [dcc.Graph(figure=data.graph_f2f(), id="graph_f2f")],
-                        className="pretty_container five columns",
+                        className="pretty_container one-third column",
                     ),
                 ],
                 className="row flex-display",
@@ -982,7 +944,8 @@ def parse_contents(contents, filename, date):
                     html.Div(  # div-lvl-5
                         [
                             dcc.Graph(  # div-lvl-6
-                                figure=data.graph_ratio_course(), id="main_graph_2"
+                                figure=data.graph_enrollment_by_instructor(),
+                                id="individual_graph",
                             )
                         ],
                         className="pretty_container six columns",
@@ -1003,6 +966,23 @@ def parse_contents(contents, filename, date):
                 [
                     html.Div(  # div-lvl-5
                         [
+                            dcc.RadioItems(
+                                id='filter-query-read-write',
+                                options=[
+                                    {'label': 'Read filter_query', 'value': 'read'},
+                                    {'label': 'Write to filter_query', 'value': 'write'}
+                                ],
+                                value='read'
+                            ),
+
+                            html.Br(),
+
+                            dcc.Input(id='filter-query-input', placeholder='Enter filter query'),
+
+                            html.Div(id='filter-query-output'),
+
+                            html.Hr(),
+
                             dash_table.DataTable(  # div-lvl-6
                                 id="datatable-filtering",
                                 columns=[
@@ -1064,7 +1044,9 @@ def parse_contents(contents, filename, date):
                                     "fontWeight": "bold",
                                 },
                                 style_cell={"font-family": "sans-serif"},
-                            )
+                            ),
+                            html.Hr(),
+                            html.Div(id='datatable-query-structure', style={'whitespace': 'pre'})
                         ],
                         className="pretty_container twelve columns",
                     )
@@ -1103,7 +1085,6 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         Output('percent_f2f_text', "children"),
         Output('individual_graph', "figure"),
         Output('enrollment_data_table', "data"),
-        Output('avg_enrollment_data_table', "data"),
         Output('chp_by_course_data_table', "data"),
         Output('graph_f2f', "figure"),
         Output('main_graph_2', "figure"),
@@ -1123,7 +1104,6 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         State('percent_f2f_text', "children"),
         State('individual_graph', "figure"),
         State('enrollment_data_table', "data"),
-        State('avg_enrollment_data_table', "data"),
         State('chp_by_course_data_table', "data"),
         State('graph_f2f', "figure"),
         State('main_graph_2', "figure"),
@@ -1141,7 +1121,6 @@ def test_update(filtered_data, term_code,
                 percent_f2f_text,
                 individual_graph_fig,
                 enrollment_data_table,
-                avg_enrollment_data_table,
                 chp_by_course_data_table,
                 graph_f2f_fig,
                 main_graph_2_fig,
@@ -1168,7 +1147,6 @@ def test_update(filtered_data, term_code,
             f"{data.percent_f2f()}",
             individual_graph_fig,
             data.enrollment_by_instructor().to_dict("records"),
-            data.table_avg_enrollment_by_instructor().to_dict("records"),
             data.chp_by_course().to_dict("records"),
             graph_f2f_fig,
             main_graph_2_fig,
@@ -1186,18 +1164,49 @@ def test_update(filtered_data, term_code,
             percent_f2f_text,
             individual_graph_fig,
             enrollment_data_table,
-            avg_enrollment_data_table,
             chp_by_course_data_table,
             graph_f2f_fig,
             main_graph_2_fig,
             individual_graph_2_fig,
         ]
 
+@app.callback(
+    [Output('filter-query-input', 'style'),
+     Output('filter-query-output', 'style')],
+    [Input('filter-query-read-write', 'value')]
+)
+def query_input_output(val):
+    input_style = {'width': '100%'}
+    output_style = {}
+    if val == 'read':
+        input_style.update(display='none')
+        output_style.update(display='inline-block')
+    else:
+        input_style.update(display='inline-block')
+        output_style.update(display='none')
+    return input_style, output_style
 
 
+@app.callback(
+    Output('datatable-filtering', 'filter_query'),
+    [Input('filter-query-input', 'value')]
+)
+def write_query(query):
+    if query is None:
+        return ''
+    return query
 
 
+@app.callback(
+    Output('filter-query-output', 'children'),
+    [Input('datatable-filtering', 'filter_query')]
+)
+def read_query(query):
+    if query is None:
+        return "No filter query"
+    return dcc.Markdown('`filter_query = "{}"`'.format(query))
 
 # Main
 if __name__ == "__main__":
+    # app.run_server(debug=True, host='172.16.0.153')
     app.run_server(debug=True)
