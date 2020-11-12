@@ -223,7 +223,10 @@ if __name__ == "__main__":
         stackedDataTotals = data[data["CRN"].isin(stack)].groupby("Date", sort=False).sum()
 
         # compute the total maximum enrollment for all course in stack
-        maxenrollment = max(stackedDataTotals.Max.tolist())
+        try:
+            maxenrollment = max(stackedDataTotals.Max.tolist())
+        except ValueError:
+            print("Please remove the following stacked class:", stack)
 
         # Create figure and plot space
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -316,6 +319,8 @@ if __name__ == "__main__":
         combinedDataTotals = combinedData.groupby("Date", sort=False).sum()
         CRNs = combinedData.CRN.unique()
 
+        print(CRNs)
+
         N = len(CRNs)
 
         if N > 1:
@@ -336,6 +341,9 @@ if __name__ == "__main__":
 
             x_values = combinedDataTotals.index.tolist()
             M = len(x_values)
+
+
+            # If a class is added and we don't have the data, how do we handle the extra dates that are blank?
 
             # create a bar plot for each CRN stacked on the previous one
             b = M*[0]
