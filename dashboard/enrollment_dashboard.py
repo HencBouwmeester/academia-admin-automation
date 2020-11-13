@@ -898,8 +898,27 @@ def parse_contents(contents, filename, date):
                                     "fontWeight": "bold",
                                 },
                                 page_action="none",
+                                sort_action="native",
                                 style_table={"height": "400px", "overflowY": "auto"},
                                 style_cell={"font-family": "sans-serif"},
+                                style_cell_conditional=[
+                                    {
+                                        'if': {'column_id': 'Instructor'},
+                                        'textAlign': 'left',
+                                        'minWidth': '140px', 'width': '140px', 'maxWidth': '140px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Total'},
+                                        'minWidth': '60px', 'width': '60px', 'maxWidth': '60px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Avg'},
+                                        'minWidth': '60px', 'width': '60px', 'maxWidth': '60px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                ]
                             ),
                         ],
                         className="pretty_container one-third column",
@@ -926,8 +945,32 @@ def parse_contents(contents, filename, date):
                                     "fontWeight": "bold",
                                 },
                                 page_action="none",
+                                sort_action="native",
                                 style_table={"height": "400px", "overflowY": "auto"},
                                 style_cell={"font-family": "sans-serif"},
+                                style_cell_conditional=[
+                                    {
+                                        'if': {'column_id': 'Course'},
+                                        'textAlign': 'left',
+                                        'minWidth': '100px', 'width': '100px', 'maxWidth': '100px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'CHP'},
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Enrolled'},
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Max'},
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                ]
                             ),
                         ],
                         className="pretty_container one-third column",
@@ -988,12 +1031,8 @@ def parse_contents(contents, filename, date):
                                 columns=[
                                     {"name": "CRN", "id": "CRN", "type": "numeric"},
                                     {"name": "Course", "id": "Course", "type": "text"},
+                                    { "name": "Section", "id": "Section", "type": "text", },
                                     {"name": "Title", "id": "Title", "type": "text"},
-                                    {
-                                        "name": "Section",
-                                        "id": "Section",
-                                        "type": "text",
-                                    },
                                     {"name": "Credit", "id": "Credit", "type": "text"},
                                     {"name": "Status", "id": "S", "type": "text"},
                                     {"name": "Days", "id": "Days", "type": "text"},
@@ -1001,11 +1040,7 @@ def parse_contents(contents, filename, date):
                                     {"name": "Loc", "id": "Loc", "type": "text"},
                                     {"name": "Campus", "id": "Campus", "type": "text"},
                                     {"name": "Max", "id": "Max", "type": "numeric"},
-                                    {
-                                        "name": "Enrolled",
-                                        "id": "Enrolled",
-                                        "type": "numeric",
-                                    },
+                                    {"name": "Enrld", "id": "Enrolled", "type": "numeric", },
                                     {"name": "CHP", "id": "CHP", "type": "numeric"},
                                     {
                                         "name": "Ratio",
@@ -1013,26 +1048,104 @@ def parse_contents(contents, filename, date):
                                         "type": "numeric",
                                         "format": FormatTemplate.percentage(1),
                                     },
+                                    { "name": "Instructor", "id": "Instructor", "type": "text", },
+                                ],
+                                style_cell_conditional=[
                                     {
-                                        "name": "Instructor",
-                                        "id": "Instructor",
-                                        "type": "text",
+                                        'if': {'column_id': 'CRN'},
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Course'},
+                                        'textAlign': 'right',
+                                        'minWidth': '90px', 'width': '90px', 'maxWidth': '90px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Section'},
+                                        'textAlign': 'left',
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Title'},
+                                        'textAlign': 'left',
+                                        'minWidth': '140px', 'width': '140px', 'maxWidth': '140px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Credit'},
+                                        'minWidth': '70px', 'width': '70px', 'maxWidth': '70px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'S'},
+                                        'textAlign': 'center',
+                                        'minWidth': '70px', 'width': '70px', 'maxWidth': '70px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Days'},
+                                        'minWidth': '60px', 'width': '60px', 'maxWidth': '60px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Time'},
+                                        'textAlign': 'center',
+                                        'minWidth': '120px', 'width': '120px', 'maxWidth': '120px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Loc'},
+                                        'textAlign': 'center',
+                                        'minWidth': '80px', 'width': '80px', 'maxWidth': '80px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Campus'},
+                                        'textAlign': 'center',
+                                        'minWidth': '75px', 'width': '75px', 'maxWidth': '75px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Max'},
+                                        'minWidth': '55px', 'width': '55px', 'maxWidth': '55px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Enrolled'},
+                                        'minWidth': '60px', 'width': '60px', 'maxWidth': '60px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Ratio'},
+                                        'minWidth': '65px', 'width': '65px', 'maxWidth': '65px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'CHP'},
+                                        'minWidth': '55px', 'width': '55px', 'maxWidth': '55px',
+                                        'whiteSpace': 'normal'
+                                    },
+                                    {
+                                        'if': {'column_id': 'Instructor'},
+                                        'textAlign': 'left',
+                                        'minWidth': '140px', 'width': '140px', 'maxWidth': '140px',
+                                        'whiteSpace': 'normal'
                                     },
                                 ],
                                 data=data.df.to_dict("records"),
                                 # data=data.df_raw.to_dict("records"),
                                 # editable=True,
                                 page_action="native",
+                                sort_action="native",
                                 filter_action="native",
                                 fixed_rows={"headers": True, "data": 0},
                                 style_table={
                                     "overflowX": "scroll",
                                     "maxHeight": "600px",
                                 },
-                                style_cell_conditional=[
-                                    {"if": {"column_id": c}, "textAlign": "left"}
-                                    for c in ["Date", "Region"]
-                                ],
                                 style_data_conditional=[
                                     {
                                         "if": {"row_index": "odd"},
@@ -1110,7 +1223,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         State('individual_graph_2', "figure"),
     ],
 )
-def test_update(filtered_data, term_code,
+def update_after_filter(filtered_data, term_code,
                 main_graph_fig,
                 total_sections_text,
                 avg_enrollment_text,
