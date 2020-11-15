@@ -13,6 +13,7 @@ import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
 
 # Include pretty graph formatting
 pio.templates.default = "plotly_white"
@@ -156,97 +157,137 @@ class EnrollmentData:
 
     def __init__(self, df, term_code):
 
-        # convert time from 12hr to 24hr
-        df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
+        if not df.empty:
+            # convert time from 12hr to 24hr
+            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
 
-        # fill Nan with zeros
-        df["Enrolled"] = df["Enrolled"].fillna(0)
-        df["Rcap"] = df["Rcap"].fillna(0)
-        df["Full"] = df["Full"].fillna(0)
+            # fill Nan with zeros
+            df["Enrolled"] = df["Enrolled"].fillna(0)
+            df["Rcap"] = df["Rcap"].fillna(0)
+            df["Full"] = df["Full"].fillna(0)
 
-        # Helper columns
-        df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
-        df.loc[:, "Course"] = df["Subject"] + df["Number"]
-        df.loc[:, "Ratio"] = df["Enrolled"] / df["Max"]
+            # Helper columns
+            df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
+            df.loc[:, "Course"] = df["Subject"] + df["Number"]
+            df.loc[:, "Ratio"] = df["Enrolled"] / df["Max"]
 
-        self.df_raw = df
-        self.df = df[df["S"] == "A"]  # keep only active classes
+            self.df_raw = df
+            self.df = df[df["S"] == "A"]  # keep only active classes
 
-        self.term_code = term_code
-        if term_code[-2:] == "30":
-            self.report_term = "Spring " + term_code[0:4]
-        elif term_code[-2:] == "40":
-            self.report_term = "Summer " + term_code[0:4]
-        elif term_code[-2:] == "50":
-            self.report_term = "Fall " + term_code[0:4]
+            self.term_code = term_code
+            if term_code[-2:] == "30":
+                self.report_term = "Spring " + term_code[0:4]
+            elif term_code[-2:] == "40":
+                self.report_term = "Summer " + term_code[0:4]
+            elif term_code[-2:] == "50":
+                self.report_term = "Fall " + term_code[0:4]
 
     # Calculate Stats and Graphs
     def total_sections(self):
-        return self.df["CRN"].nunique()
+        try:
+            return self.df["CRN"].nunique()
+        except AttributeError:
+            return 0
 
     def avg_enrollment(self):
-        return round(self.df["Enrolled"].mean(), 2)
+        try:
+            return round(self.df["Enrolled"].mean(), 2)
+        except AttributeError:
+            return 0.00
 
     def total_CHP(self):
-        return self.df["CHP"].sum()
+        try:
+            return self.df["CHP"].sum()
+        except AttributeError:
+            return 0.00
 
     def enrollment_by_instructor(self):
-        _df = (
-            self.df.groupby("Instructor")
-            .agg(enrl_sum=("Enrolled", "sum"), enrl_avg=("Enrolled", "mean"))
-            .rename(columns={"enrl_sum":"Total", "enrl_avg":"Avg"})
-            .sort_values(("Instructor"), ascending=True)
-            .reset_index()
-        )
-        _df["Avg"] = _df["Avg"].round(2)
-        return _df
+        try:
+            _df = (
+                self.df.groupby("Instructor")
+                .agg(enrl_sum=("Enrolled", "sum"), enrl_avg=("Enrolled", "mean"))
+                .rename(columns={"enrl_sum":"Total", "enrl_avg":"Avg"})
+                .sort_values(("Instructor"), ascending=True)
+                .reset_index()
+            )
+            _df["Avg"] = _df["Avg"].round(2)
+            return _df
+        except AttributeError:
+            return pd.DataFrame()
 
     def credits_by_instructor(self):
-        return (
-            self.df.groupby("Instructor")
-            .agg({"Credit": "sum"})
-            .sort_values(("Credit"), ascending=False)
-            .reset_index()
-        )
+        try:
+            return (
+                self.df.groupby("Instructor")
+                .agg({"Credit": "sum"})
+                .sort_values(("Credit"), ascending=False)
+                .reset_index()
+            )
+        except AttributeError:
+            return pd.DataFrame()
 
     def chp_by_course(self):
-        return (
-            self.df.groupby("Course")
-            .agg({"CHP": "sum", "Enrolled": "sum", "Max": "sum"})
-            .sort_values(("Course"), ascending=True)
-            .reset_index()
-        )
+        try:
+            return (
+                self.df.groupby("Course")
+                .agg({"CHP": "sum", "Enrolled": "sum", "Max": "sum"})
+                .sort_values(("Course"), ascending=True)
+                .reset_index()
+            )
+        except AttributeError:
+            return pd.DataFrame()
 
     def avg_fill_rate(self):
-        return round(self.df["Ratio"].mean(), 2)
+        try:
+            return round(self.df["Ratio"].mean(), 2)
+        except AttributeError:
+            return 0.00
 
     def courses_over_85_percent(self):
-        return self.df[self.df["Ratio"] >= 0.85].loc[
-            :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
-        ]
+        try:
+            return self.df[self.df["Ratio"] >= 0.85].loc[
+                :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
+            ]
+        except AttributeError:
+            return pd.DataFrame()
 
     def courses_under_40_percent(self):
-        return self.df[self.df["Ratio"] <= 0.40].loc[
-            :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
-        ]
+        try:
+            return self.df[self.df["Ratio"] <= 0.40].loc[
+                :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
+            ]
+        except AttributeError:
+            return pd.DataFrame()
 
     def courses_under_13_enrolled(self):
-        return self.df[self.df["Enrolled"] < 13].loc[
-            :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
-        ]
+        try:
+            return self.df[self.df["Enrolled"] < 13].loc[
+                :, ["Course", "Enrolled", "Max", "Days", "Time", "Instructor"]
+            ]
+        except AttributeError:
+            return pd.DataFrame()
 
     def courses_with_waitlists(self):
-        return self.df[self.df["WList"] > 0].loc[
-            :, ["Course", "Enrolled", "WList", "Max", "Days", "Time", "Instructor"]
-        ]
+        try:
+            return self.df[self.df["WList"] > 0].loc[
+                :, ["Course", "Enrolled", "WList", "Max", "Days", "Time", "Instructor"]
+            ]
+        except AttributeError:
+            return pd.DataFrame()
 
     def average_waitlist(self):
-        return round(self.df["WList"].mean(), 2)
+        try:
+            return round(self.df["WList"].mean(), 2)
+        except AttributeError:
+            return 0.00
 
     def avg_enrollment_by_instructor(self):
-        return round(
-            self.df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2
-        )
+        try:
+            return round(
+                self.df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2
+            )
+        except AttributeError:
+            return 0.00
 
     # Face to Face vs Online
     def f2f_df(self):
@@ -292,13 +333,16 @@ class EnrollmentData:
         return f2f_df2
 
     def percent_f2f(self):
-        _a = self.f2f_df2()[self.f2f_df2()["Loc"] == "F2F"].CHP.values[0]
-        _b = self.f2f_df2()[self.f2f_df2()["Loc"] == "Online"].CHP.values[0]
-        d = _a + _b
-        if d != 0:
-            return round(_a / (_a + _b), 2)
-        else:
-            return 0.0
+        try:
+            _a = self.f2f_df2()[self.f2f_df2()["Loc"] == "F2F"].CHP.values[0]
+            _b = self.f2f_df2()[self.f2f_df2()["Loc"] == "Online"].CHP.values[0]
+            d = _a + _b
+            if d != 0:
+                return round(_a / (_a + _b), 2)
+            else:
+                return 0.00
+        except AttributeError:
+            return 0.00
 
     def full_f2f_df(self):
         full_f2f_df = self.df.groupby("Loc").sum()
@@ -314,41 +358,66 @@ class EnrollmentData:
             :, ["Course", "Ratio", "Enrolled", "Max", "Days", "Time", "Instructor"]
         ].sort_values(by=["Max", "Enrolled", "Ratio"], axis=0, ascending=False)
 
+
+    blankFigure={
+        'data': [],
+        'layout': go.Layout(
+            xaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            },
+            yaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            }
+        )
+    }
+
     # Prepare graphs
     def graph_enrollment_by_instructor(self):
-        return (
-            px.bar(
-                self.df,
-                x="Instructor",
-                y="Enrolled",
-                color="Ratio",
-                title="Enrollment by Instructor",
-                color_continuous_scale=px.colors.sequential.RdBu,
-                hover_name="CRN",
-                hover_data={
-                    "Course": True,
-                    "Enrolled": True,
-                    "Instructor": True,
-                    "Ratio": False,
-                },
+        try:
+            return (
+                px.bar(
+                    self.df,
+                    x="Instructor",
+                    y="Enrolled",
+                    color="Ratio",
+                    title="Enrollment by Instructor",
+                    color_continuous_scale=px.colors.sequential.RdBu,
+                    hover_name="CRN",
+                    hover_data={
+                        "Course": True,
+                        "Enrolled": True,
+                        "Instructor": True,
+                        "Ratio": False,
+                    },
+                )
+                .update_xaxes(categoryorder="category ascending")
+                .update_layout(showlegend=False, xaxis_type="category")
             )
-            .update_xaxes(categoryorder="category ascending")
-            .update_layout(showlegend=False, xaxis_type="category")
-        )
+        except AttributeError:
+            return self.blankFigure
 
     def graph_chp_by_course(self):
-        return (
-            px.bar(
-                self.df,
-                x="Course",
-                y="CHP",
-                title="Credit Hour Production by Course",
-                color="Ratio",
-                color_continuous_scale=px.colors.sequential.RdBu,
+        try:
+            return (
+                px.bar(
+                    self.df,
+                    x="Course",
+                    y="CHP",
+                    title="Credit Hour Production by Course",
+                    color="Ratio",
+                    color_continuous_scale=px.colors.sequential.RdBu,
+                )
+                .update_xaxes(categoryorder="category descending")
+                .update_layout(showlegend=False)
             )
-            .update_xaxes(categoryorder="category descending")
-            .update_layout(showlegend=False)
-        )
+        except AttributeError:
+            return self.blankFigure
 
     def graph_chp_by_course_treemap(self):
         return px.treemap(
@@ -360,62 +429,71 @@ class EnrollmentData:
         )
 
     def graph_f2f(self):
-        return (
-            px.bar(
-                self.full_f2f_df(),
-                x="Online",
-                y="CHP",
-                color="Loc",
-                title="CHP online and F2F",
+        try:
+            return (
+                px.bar(
+                    self.full_f2f_df(),
+                    x="Online",
+                    y="CHP",
+                    color="Loc",
+                    title="CHP online and F2F",
+                )
+                .update_xaxes(categoryorder="total descending")
+                .update_layout(showlegend=False)
             )
-            .update_xaxes(categoryorder="total descending")
-            .update_layout(showlegend=False)
-        )
+        except AttributeError:
+            return self.blankFigure
 
     def graph_ratio_course(self):
-        _df = (
-            self.df.groupby("Course")
-            .agg(
-                {
-                    "Instructor": "size",
-                    "Credit": "sum",
-                    "Enrolled": "sum",
-                    "Max": "sum",
-                    "CHP": "sum",
-                    "Ratio": "mean",
-                }
+        try:
+            _df = (
+                self.df.groupby("Course")
+                .agg(
+                    {
+                        "Instructor": "size",
+                        "Credit": "sum",
+                        "Enrolled": "sum",
+                        "Max": "sum",
+                        "CHP": "sum",
+                        "Ratio": "mean",
+                    }
+                )
+                .sort_values("Course", ascending=False)
             )
-            .sort_values("Course", ascending=False)
-        )
-        return (
-            px.bar(
-                _df,
-                y=["Max", "Enrolled"],
-                title="Enrollment per Course",
-                hover_data={"Ratio": True},
+            return (
+                px.bar(
+                    _df,
+                    y=["Max", "Enrolled"],
+                    title="Enrollment per Course",
+                    hover_data={"Ratio": True},
+                )
+                .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
             )
-            .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
-        )
+        except AttributeError:
+            return self.blankFigure
 
     def graph_ratio_crn(self):
-        return (
-            px.bar(
-                self.df,
-                x="CRN",
-                y=["Max", "Enrolled"],
-                title="Enrollment per Section",
-                hover_name="CRN",
-                hover_data={
-                    "Course": True,
-                    "CRN": False,
-                    "Instructor": True,
-                    "Ratio": True,
-                    "variable": False,
-                },
+        try:
+            return (
+                px.bar(
+                    self.df,
+                    x="CRN",
+                    y=["Max", "Enrolled"],
+                    title="Enrollment per Section",
+                    hover_name="CRN",
+                    hover_data={
+                        "Course": True,
+                        "CRN": False,
+                        "Instructor": True,
+                        "Ratio": True,
+                        "variable": False,
+                    },
+                )
+                .update_xaxes(categoryorder="max descending", showticklabels=True)
+                .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
             )
-            .update_xaxes(categoryorder="max descending", showticklabels=True)
-            .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
-        )
+        except AttributeError:
+            return self.blankFigure
 
     # Output Excel files
     def to_excel(self):
