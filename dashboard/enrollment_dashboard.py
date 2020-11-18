@@ -14,6 +14,7 @@ import base64
 import io
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Include pretty graph formatting
 pio.templates.default = "plotly_white"
@@ -359,6 +360,7 @@ class EnrollmentData:
         ].sort_values(by=["Max", "Enrolled", "Ratio"], axis=0, ascending=False)
 
 
+    # blank figure when no data is present
     blankFigure={
         'data': [],
         'layout': go.Layout(
@@ -428,18 +430,49 @@ class EnrollmentData:
             title="Credit Hour Production",
         )
 
-    def graph_f2f(self):
+    def graph_f2f(self, toggle):
         try:
-            return (
-                px.bar(
-                    self.full_f2f_df(),
-                    x="Online",
-                    y="CHP",
-                    color="Loc",
-                    title="CHP online and F2F",
-                )
-                .update_xaxes(categoryorder="total descending")
-                .update_layout(showlegend=False)
+            _df = self.df[["Loc", toggle]]
+            _df = _df.groupby("Loc", as_index=False).sum()
+            t = _df[toggle].sum()
+            o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T"])][toggle].sum()
+            s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
+
+            fig = make_subplots(rows=2,
+                                cols=1,
+                                specs=[[{'type':'domain'}], [{'type':'domain'}]],
+                                vertical_spacing=0.15,
+                               )
+            fig.add_trace(go.Pie(labels=["Async", "Sync"],
+                                 values=[o-s, s],
+                                 name="Async vs Sync"),
+                          1, 1)
+            fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 values=[t-o, o],
+                                 name="F2F vs Online"),
+                          2, 1)
+            fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+            return fig.update_layout(
+                title_text=toggle +" Ratios",
+                showlegend=False,
+                annotations=[
+                    dict(
+                        text='Async<br />vs<br />Sync',
+                        x=0.5, y=0.785,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    ),
+                    dict(
+                        text='F2F<br />vs<br />Online',
+                        x=0.5, y=0.215,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    )
+                ]
             )
         except AttributeError:
             return self.blankFigure
@@ -454,6 +487,7 @@ class EnrollmentData:
                         "Credit": "sum",
                         "Enrolled": "sum",
                         "Max": "sum",
+                        "WList": "sum",
                         "CHP": "sum",
                         "Ratio": "mean",
                     }
@@ -465,9 +499,14 @@ class EnrollmentData:
                     _df,
                     y=["Max", "Enrolled"],
                     title="Enrollment per Course",
-                    hover_data={"Ratio": True},
+                    hover_data={"Ratio": True, "WList": True},
                 )
-                .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
+                .update_layout(
+                    showlegend=False,
+                    xaxis_type="category",
+                    yaxis_title="Enrolled",
+                    barmode="overlay",
+                )
             )
         except AttributeError:
             return self.blankFigure
@@ -487,10 +526,16 @@ class EnrollmentData:
                         "Instructor": True,
                         "Ratio": True,
                         "variable": False,
+                        "WList": True,
                     },
                 )
                 .update_xaxes(categoryorder="max descending", showticklabels=True)
-                .update_layout(showlegend=False, xaxis_type="category", barmode="overlay")
+                .update_layout(
+                    showlegend=False,
+                    xaxis_type="category",
+                    yaxis_title="Enrolled",
+                    barmode="overlay",
+                )
             )
         except AttributeError:
             return self.blankFigure
@@ -1054,7 +1099,19 @@ def parse_contents(contents, filename, date):
                         className="pretty_container one-third column",
                     ),
                     html.Div(  # div-lvl-5
-                        [dcc.Graph(figure=data.graph_f2f(), id="graph_f2f")],
+                             [
+                                 dcc.Graph(figure=data.graph_f2f("Max"), id="graph_f2f"),
+                                 html.B("Enrollment:"),
+                                 dcc.RadioItems(
+                                     id='enrollment-max-actual',
+                                     options=[
+                                         {'label': 'Max', 'value': 'Max'},
+                                         {'label': 'Actual', 'value': 'Enrolled'}
+                                     ],
+                                     labelStyle={'display': 'inline-block'},
+                                     value='Max'
+                                 ),
+                             ],
                         className="pretty_container one-third column",
                     ),
                 ],
@@ -1283,7 +1340,9 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
     ],
     [
         Input('datatable-filtering', "derived_viewport_data"),
-        Input('excel-download', 'download')],
+        Input('excel-download', 'download'),
+        Input('enrollment-max-actual', 'value'),
+    ],
     [
         State('main_graph', "figure"),
         State('total_sections_text', "children"),
@@ -1301,7 +1360,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         State('individual_graph_2', "figure"),
     ],
 )
-def update_after_filter(filtered_data, term_code,
+def update_after_filter(filtered_data, term_code, toggle,
                 main_graph_fig,
                 total_sections_text,
                 avg_enrollment_text,
@@ -1323,7 +1382,7 @@ def update_after_filter(filtered_data, term_code,
         main_graph_fig = data.graph_ratio_crn()
         individual_graph_fig = data.graph_enrollment_by_instructor()
 
-        graph_f2f_fig = data.graph_f2f()
+        graph_f2f_fig = data.graph_f2f(toggle)
         main_graph_2_fig = data.graph_ratio_course()
         individual_graph_2_fig = data.graph_chp_by_course()
 
@@ -1396,6 +1455,7 @@ def read_query(query):
     if query is None:
         return "No filter query"
     return dcc.Markdown('`filter_query = "{}"`'.format(query))
+
 
 # Main
 if __name__ == "__main__":
