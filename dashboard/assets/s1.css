@@ -107,6 +107,10 @@
     width: 100%;
     margin-left: 0;
   }
+  .full-width.column {
+    width: 100%;
+    margin-left: 10px;
+  }
 
   .one-third.column {
     width: 30.6666666667%;

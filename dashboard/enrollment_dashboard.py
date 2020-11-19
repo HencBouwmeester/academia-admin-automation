@@ -900,75 +900,89 @@ def parse_contents(contents, filename, date):
                 className="row flex-display",
                 style={"margin-bottom": "25px"},
             ),
-            html.Div(  # div-lvl-4, second row: statistics
+            html.Div(
                 [
-                    html.Div(  # div-lvl-5
+                    html.Div(
                         [
-                            html.H6(
-                                f"{data.total_sections()}", id="total_sections_text"
+                            html.Div(  # div-lvl-4, second row: statistics
+                                [
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(
+                                                f"{data.total_sections()}", id="total_sections_text"
+                                            ),
+                                            html.P("Total Sections"),
+                                        ],
+                                        id="sections",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(
+                                                f"{data.avg_enrollment()}", id="avg_enrollment_text"
+                                            ),
+                                            html.P("Average Enrollment by Section"),
+                                        ],
+                                        id="avg_enrollment",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(f"{data.total_CHP()}", id="total_CHP_text"),
+                                            html.P("Total Credit Hour Production"),
+                                        ],
+                                        id="total_CHP",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(f"{data.avg_fill_rate()}", id="avg_fill_rate_text"),
+                                            html.P("Average Fill Rate"),
+                                        ],
+                                        id="avg_fill_rate",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(
+                                                f"{data.avg_enrollment_by_instructor()}",
+                                                id="avg_enrollment_by_instructor_text",
+                                            ),
+                                            html.P("Average Enrollment per Instructor"),
+                                        ],
+                                        id="avg_enrollment_by_instructor",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(
+                                                f"{data.average_waitlist()}",
+                                                id="avg_waitlist_text"
+                                            ),
+                                            html.P("Average Waitlist"),
+                                        ],
+                                        id="avg_waitlist",
+                                        className="mini_container",
+                                    ),
+                                    html.Div(  # div-lvl-5
+                                        [
+                                            html.H6(
+                                                f"{data.percent_f2f()}",
+                                                id="percent_f2f_text"
+                                            ),
+                                            html.P("Percent F2F Classes"),
+                                        ],
+                                        id="percent_f2f",
+                                        className="mini_container",
+                                    ),
+                                ],
+                                className="row container-display",
                             ),
-                            html.P("Total Sections"),
-                        ],
-                        id="sections",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(
-                                f"{data.avg_enrollment()}", id="avg_enrollment_text"
-                            ),
-                            html.P("Average Enrollment by Section"),
-                        ],
-                        id="avg_enrollment",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(f"{data.total_CHP()}", id="total_CHP_text"),
-                            html.P("Total Credit Hour Production"),
-                        ],
-                        id="total_CHP",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(f"{data.avg_fill_rate()}", id="avg_fill_rate_text"),
-                            html.P("Average Fill Rate"),
-                        ],
-                        id="avg_fill_rate",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(
-                                f"{data.avg_enrollment_by_instructor()}",
-                                id="avg_enrollment_by_instructor_text",
-                            ),
-                            html.P("Average Enrollment per Instructor"),
-                        ],
-                        id="avg_enrollment_by_instructor",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(
-                                f"{data.average_waitlist()}", id="avg_waitlist_text"
-                            ),
-                            html.P("Average Waitlist"),
-                        ],
-                        id="avg_waitlist",
-                        className="mini_container",
-                    ),
-                    html.Div(  # div-lvl-5
-                        [
-                            html.H6(f"{data.percent_f2f()}", id="percent_f2f_text"),
-                            html.P("Percent F2F Classes"),
-                        ],
-                        id="percent_f2f",
-                        className="mini_container",
-                    ),
+                    ],
+                    className="twelve columns",
+                ),
                 ],
-                className="row container-display",
+                className="row flex-display",
             ),
             html.Div(  # div-lvl-4, third row: graphs
                 [
@@ -1044,7 +1058,7 @@ def parse_contents(contents, filename, date):
                                 ]
                             ),
                         ],
-                        className="pretty_container one-third column",
+                        className="pretty_container four columns",
                     ),
                     html.Div(  # div-lvl-5
                         [
@@ -1096,12 +1110,12 @@ def parse_contents(contents, filename, date):
                                 ]
                             ),
                         ],
-                        className="pretty_container one-third column",
+                        className="pretty_container four columns",
                     ),
                     html.Div(  # div-lvl-5
                              [
                                  dcc.Graph(figure=data.graph_f2f("Max"), id="graph_f2f"),
-                                 html.B("Enrollment:"),
+                                 html.P("Enrollment:", className="control_label"),
                                  dcc.RadioItems(
                                      id='enrollment-max-actual',
                                      options=[
@@ -1109,10 +1123,11 @@ def parse_contents(contents, filename, date):
                                          {'label': 'Actual', 'value': 'Enrolled'}
                                      ],
                                      labelStyle={'display': 'inline-block'},
+                                     className="dcc_control",
                                      value='Max'
                                  ),
                              ],
-                        className="pretty_container one-third column",
+                        className="pretty_container four columns",
                     ),
                 ],
                 className="row flex-display",
@@ -1140,6 +1155,23 @@ def parse_contents(contents, filename, date):
                 ],
                 className="row flex-display",
             ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+
+                        ],
+                        className="pretty_container five columns",
+                    ),
+                    html.Div(
+                        [
+
+                        ],
+                        className="pretty_container seven columns",
+                    ),
+                ],
+                className="row flex-display",
+            ),
             html.Div(  # div-lvl-4, seventh row: datatable
                 [
                     html.Div(  # div-lvl-5
@@ -1150,12 +1182,17 @@ def parse_contents(contents, filename, date):
                                     {'label': 'Read filter_query', 'value': 'read'},
                                     {'label': 'Write to filter_query', 'value': 'write'}
                                 ],
+                                className="dcc_control",
                                 value='read'
                             ),
 
                             html.Br(),
 
-                            dcc.Input(id='filter-query-input', placeholder='Enter filter query'),
+                            dcc.Input(
+                                id='filter-query-input',
+                                placeholder='Enter filter query',
+                                className="dcc_control",
+                            ),
 
                             html.Div(id='filter-query-output'),
 
@@ -1228,7 +1265,7 @@ def parse_contents(contents, filename, date):
                                     {
                                         'if': {'column_id': 'Time'},
                                         'textAlign': 'center',
-                                        'minWidth': '120px', 'width': '120px', 'maxWidth': '120px',
+                                        'minWidth': '115px', 'width': '115px', 'maxWidth': '115px',
                                         'whiteSpace': 'normal'
                                     },
                                     {
@@ -1266,7 +1303,7 @@ def parse_contents(contents, filename, date):
                                     {
                                         'if': {'column_id': 'Instructor'},
                                         'textAlign': 'left',
-                                        'minWidth': '140px', 'width': '140px', 'maxWidth': '140px',
+                                        'minWidth': '120px', 'width': '120px', 'maxWidth': '120px',
                                         'whiteSpace': 'normal'
                                     },
                                 ],
@@ -1293,11 +1330,11 @@ def parse_contents(contents, filename, date):
                                 },
                                 style_cell={"font-family": "sans-serif"},
                             ),
-                            html.Hr(),
-                            html.Div(id='datatable-query-structure', style={'whitespace': 'pre'})
+                            # html.Hr(),
+                            # html.Div(id='datatable-query-structure', style={'whitespace': 'pre'})
                         ],
-                        className="pretty_container twelve columns",
-                    )
+                        className="pretty_container full-width column",
+                    ),
                 ],
                 className="row flex-display",
             ),
