@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Import required libraries
 import dash
 import pandas as pd
@@ -102,6 +104,38 @@ app.layout = html.Div(
 )
 
 # Helper Functions
+def data_bars(column_data, column_apply):
+    n_bins = 100
+    bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]
+    ranges = [100 * i for i in bounds]
+    styles = []
+    for i in range(1, len(bounds)):
+        min_bound = ranges[i - 1]
+        max_bound = ranges[i]
+        max_bound_percentage = bounds[i] * 100
+        styles.append({
+            'if': {
+                'filter_query': (
+                    '{{{column}}} >= {min_bound}' +
+                    (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
+                ).format(column=column_data, min_bound=min_bound, max_bound=max_bound),
+                'column_id': column_apply
+            },
+            'background': (
+                """
+                    linear-gradient(90deg,
+                    #CACACA 0%,
+                    #CACACA {max_bound_percentage}%,
+                    white {max_bound_percentage}%,
+                    white 100%)
+                """.format(max_bound_percentage=max_bound_percentage)
+            ),
+            'paddingBottom': 2,
+            'paddingTop': 2
+        })
+
+    return styles
+
 def convertAMPMtime(timeslot):
     """Convert time format from 12hr to 24hr and account for TBA times.
 
@@ -211,18 +245,18 @@ def tidy_csv(file_contents):
 
     return tidy_txt(io.StringIO("\n".join(_list)))
 
-def to_excel(data):
-    _df = data.df.copy()
+def to_excel(df, report_term):
+    _df = df.copy()
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
         xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
     )
     _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
-    _df.to_excel(writer, sheet_name=data.report_term, index=False)
+    _df.to_excel(writer, sheet_name=report_term, index=False)
 
     workbook = writer.book
-    worksheet = writer.sheets[data.report_term]
+    worksheet = writer.sheets[report_term]
 
     bold = workbook.add_format({"bold": True})
 
@@ -305,35 +339,6 @@ def to_excel(data):
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
     return f"data:{media_type};base64,{data}"
 
-class EnrollmentData:
-
-    def __init__(self, df, term_code):
-
-        if not df.empty:
-            # convert time from 12hr to 24hr
-            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
-
-            # fill Nan with zeros
-            df["Enrolled"] = df["Enrolled"].fillna(0)
-            df["Rcap"] = df["Rcap"].fillna(0)
-            df["Full"] = df["Full"].fillna(0)
-
-            # Helper columns
-            df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
-            df.loc[:, "Course"] = df["Subject"] + df["Number"]
-            df.loc[:, "Ratio"] = 100 * df["Enrolled"] / df["Max"]
-
-            self.df = df
-
-            self.term_code = term_code
-            if term_code[-2:] == "30":
-                self.report_term = "Spring " + term_code[0:4]
-            elif term_code[-2:] == "40":
-                self.report_term = "Summer " + term_code[0:4]
-            elif term_code[-2:] == "50":
-                self.report_term = "Fall " + term_code[0:4]
-
-
 def parse_contents(contents, filename, date):
     """Assess filetype of uploaded file and pass to appropriate processing functions,
     then return html of enrollment statistics.
@@ -362,7 +367,24 @@ def parse_contents(contents, filename, date):
         print(e)
         return html.Div(["There was an error processing this file."])
 
-    data = EnrollmentData(df, term_code)
+    df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
+
+    # fill Nan with zeros
+    df["Enrolled"] = df["Enrolled"].fillna(0)
+    df["Rcap"] = df["Rcap"].fillna(0)
+    df["Full"] = df["Full"].fillna(0)
+
+    # Helper columns
+    df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
+    df.loc[:, "Course"] = df["Subject"] + df["Number"]
+    df.loc[:, "Ratio"] = 100 * df["Enrolled"] / df["Max"]
+
+    if term_code[-2:] == "30":
+        report_term = "Spring " + term_code[0:4]
+    elif term_code[-2:] == "40":
+        report_term = "Summer " + term_code[0:4]
+    elif term_code[-2:] == "50":
+        report_term = "Fall " + term_code[0:4]
 
     # blank figure when no data is present
     blankFigure={
@@ -437,21 +459,21 @@ def parse_contents(contents, filename, date):
                                     [
                                         html.H6(
                                             "0.00",
-                                            id="avg_fill_rate_text"),
-                                        html.P("Average Fill Rate"),
+                                            id="avg_enrollment_by_instructor_text",
+                                        ),
+                                        html.P("Average Enrollment per Instructor"),
                                     ],
-                                    id="avg_fill_rate",
+                                    id="avg_enrollment_by_instructor",
                                     className="mini_container",
                                 ),
                                 html.Div(
                                     [
                                         html.H6(
                                             "0.00",
-                                            id="avg_enrollment_by_instructor_text",
-                                        ),
-                                        html.P("Average Enrollment per Instructor"),
+                                            id="avg_fill_rate_text"),
+                                        html.P("Average Fill Rate"),
                                     ],
-                                    id="avg_enrollment_by_instructor",
+                                    id="avg_fill_rate",
                                     className="mini_container",
                                 ),
                                 html.Div(
@@ -501,16 +523,36 @@ def parse_contents(contents, filename, date):
             [
                 html.Div(
                     [
-                        # place holder
+                        html.Div(
+                            [
+                                # place holder
+                            ],
+                            id="enrl_by_instructor",
+                            style={
+                                'width': '96%',
+                                'display': 'block',
+                                'marginLeft': 'auto',
+                                'marginRight': 'auto',
+                            }
+                        ),
                     ],
-                    id="enrl_by_instructor",
                     className="pretty_container four columns",
                 ),
                 html.Div(
                     [
-                        # place holder
+                        html.Div(
+                            [
+                                # place holder
+                            ],
+                            id="chp_by_course",
+                            style={
+                                'width': '96%',
+                                'display': 'block',
+                                'marginLeft': 'auto',
+                                'marginRight': 'auto',
+                            }
+                        ),
                     ],
-                    id="chp_by_course",
                     className="pretty_container four columns",
                 ),
                 html.Div(
@@ -563,86 +605,116 @@ def parse_contents(contents, filename, date):
             [
                 html.Div(
                     [
-                        dcc.RadioItems(
-                            id='filter-query-read-write',
-                            options=[
-                                {'label': 'Read filter_query', 'value': 'read'},
-                                {'label': 'Write to filter_query', 'value': 'write'}
+                        html.Div(
+                            [
+                                dcc.RadioItems(
+                                    id='filter-query-read-write',
+                                    options=[
+                                        {'label': 'Read filter_query', 'value': 'read'},
+                                        {'label': 'Write to filter_query', 'value': 'write'}
+                                    ],
+                                    className="dcc_control",
+                                    value='read'
+                                ),
+
+                                html.Br(),
+
+                                dcc.Input(
+                                    id='filter-query-input',
+                                    placeholder='Enter filter query',
+                                    className="dcc_control",
+                                ),
+
+                                html.Div(id='filter-query-output'),
+
+                                html.Hr(),
                             ],
-                            className="dcc_control",
-                            value='read'
                         ),
-
-                        html.Br(),
-
-                        dcc.Input(
-                            id='filter-query-input',
-                            placeholder='Enter filter query',
-                            className="dcc_control",
+                        html.Div(
+                            [
+                                dash_table.DataTable(
+                                    id="datatable-filtering",
+                                    data=df.to_dict("records"),
+                                    columns=[{'name': n, 'id': i} for n,i in zip([
+                                        "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
+                                        "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
+                                        "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
+                                    ],[*df.columns[:6],*df.columns[7:-3]])],
+                                    style_header={
+                                        "backgroundColor": "rgb(230, 230, 230)",
+                                        "fontWeight": "bold",
+                                    },
+                                    style_cell={"font-family": "sans-serif", "font-size": "1rem"},
+                                    style_cell_conditional=[
+                                        {
+                                            'if': {'column_id': i},
+                                            'textAlign': 'left',
+                                            'minWidth': w, 'width': w, 'maxWidth': w,
+                                            'whiteSpace': 'normal'
+                                        }
+                                        for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
+                                                       ['3.5%', '5%', '4%', '4%', '2%', '4%',
+                                                        '10%', '5%', '4%', '4%', '5%', '5%', '5%',
+                                                        '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
+                                    ],
+                                    sort_action="native",
+                                    filter_action="native",
+                                    fixed_rows={"headers": True, "data": 0},
+                                    page_size=5000,
+                                    style_data_conditional=[
+                                        *data_bars('Ratio', 'Max'),
+                                        {
+                                            "if": {"row_index": "odd"},
+                                            "backgroundColor": "rgb(248, 248, 248)",
+                                        },
+                                        {
+                                            'if': {
+                                                'filter_query': '{WList} > 0',
+                                                'column_id': 'WList'
+                                            },
+                                            'backgroundColor': '#FFEB9C',
+                                            'color': '#9C6500'
+                                        },
+                                        {
+                                            'if': {
+                                                'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
+                                                'column_id': 'Enrolled'
+                                            },
+                                            'backgroundColor': '#FFC7CE',
+                                            'color': '#9C0006'
+                                        },
+                                        {
+                                            'if': {
+                                                'filter_query': '{Ratio} > 80',
+                                                'column_id': 'Enrolled'
+                                            },
+                                            'backgroundColor': '#C6EFCE',
+                                            'color': '#006100'
+                                        },
+                                        {
+                                            'if': {
+                                                'filter_query': '{Ratio} > 94',
+                                                'column_id': 'Enrolled'
+                                            },
+                                            'backgroundColor': '#008000',
+                                            'color': 'white'
+                                        },
+                                        {
+                                            'if': {
+                                                'filter_query': '{S} contains C',
+                                            },
+                                            'backgroundColor': '#FF4136',
+                                        },
+                                    ],
+                                )
+                            ],
+                            style={
+                                'width': '98%',
+                                'display': 'block',
+                                'marginLeft': 'auto',
+                                'marginRight': 'auto',
+                            }
                         ),
-
-                        html.Div(id='filter-query-output'),
-
-                        html.Hr(),
-
-                        dash_table.DataTable(
-                            id="datatable-filtering",
-                            data=data.df.to_dict("records"),
-                            columns=[{'name': n, 'id': i} for n,i in zip([
-                                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title",
-                                "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
-                                "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
-                            ],df.columns[:-3])],
-                            style_cell_conditional=[
-                                {
-                                    'if': {'column_id': i},
-                                    'textAlign': 'left',
-                                    'minWidth': w, 'width': w, 'maxWidth': w,
-                                    'whiteSpace': 'normal'
-                                }
-                                for i,w in zip(df.columns[:-3],
-                                               ['4%', '4%', '4%', '3%', '2%', '3%', '2%',
-                                                '11%', '5%', '4%', '4%', '4%', '4%', '4%',
-                                                '9%', '6%', '4%', '4%', '9%', '11%'])],
-                            sort_action="native",
-                            filter_action="native",
-                            fixed_rows={"headers": True, "data": 0},
-                            page_size=300,
-                            style_data_conditional=[
-                                {
-                                    'if': {
-                                        'filter_query': '{WList} > 0',
-                                        'column_id': 'WList'
-                                    },
-                                    'backgroundColor': '#FFEB9C',
-                                    'color': '#9C6500'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{Enrolled} < 10',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#FFC7CE',
-                                    'color': '#9C0006'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{Ratio} > 80',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#C6EFCE',
-                                    'color': '#006100'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{Ratio} > 94',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#008000',
-                                    'color': 'white'
-                                }
-                            ]
-                        )
                     ],
                     className="pretty_container full-width column",
                 ),
@@ -650,7 +722,7 @@ def parse_contents(contents, filename, date):
             className="row flex-display",
         ),
     ]
-    return html_layout, data
+    return html_layout, df, term_code, report_term
 
 @app.callback(
     [Output("output-data-upload", "children"),
@@ -662,10 +734,10 @@ def update_output(contents, name, date):
     """When files are selected, call parse-contents and return the new html elements."""
 
     if contents is not None:
-        data_children, data = parse_contents(contents, name, date)
+        data_children, df, term_code, report_term = parse_contents(contents, name, date)
         title_children = [
             html.H3(
-                "SWRCGSR Enrollment for " + data.report_term,
+                "SWRCGSR Enrollment for " + report_term,
                 id="title-report-semester",
                 style={"margin-bottom": "0px"},
             ),
@@ -677,9 +749,9 @@ def update_output(contents, name, date):
                 "Download Excel Data",
                 id="excel-download",
                 download="SWRCGSR_{0}.xlsx".format(
-                    data.term_code
+                    term_code
                 ),
-                href=to_excel(data),
+                href=to_excel(df, report_term),
                 target="_blank",
             ),
         ]
