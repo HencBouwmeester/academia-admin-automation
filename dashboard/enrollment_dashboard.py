@@ -469,7 +469,7 @@ def parse_contents(contents, filename, date):
                                 html.Div(
                                     [
                                         html.H6(
-                                            "0.00",
+                                            "0.00%",
                                             id="avg_fill_rate_text"),
                                         html.P("Average Fill Rate"),
                                     ],
@@ -789,7 +789,7 @@ def update_stats(data):
             df["Course"].nunique(),
             df["CHP"].sum(),
             round(df["Enrolled"].mean(), 2),
-            round(df["Ratio"].mean(), 2),
+            "{}%".format(round(df["Ratio"].mean(), 2)),
             round(df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2),
             round(df["WList"].mean(), 2),
         ]
