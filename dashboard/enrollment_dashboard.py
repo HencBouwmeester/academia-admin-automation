@@ -23,6 +23,7 @@ pio.templates.default = "plotly_white"
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
 )
+server = app.server
 
 app.title = "Enrollment Report Statistics"
 
