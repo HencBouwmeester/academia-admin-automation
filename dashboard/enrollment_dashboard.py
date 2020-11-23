@@ -602,35 +602,66 @@ def parse_contents(contents, filename, date):
             ],
             className="row flex-display",
         ),
-        html.Div(
-            [
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                dcc.RadioItems(
-                                    id='filter-query-read-write',
-                                    options=[
-                                        {'label': 'Read filter_query', 'value': 'read'},
-                                        {'label': 'Write to filter_query', 'value': 'write'}
-                                    ],
-                                    className="dcc_control",
-                                    value='read'
-                                ),
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.Label([
+                            "Predefined Queries:",
+                            dcc.Dropdown(
+                                id='filter-query-dropdown',
+                                options=[
+                                    {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                                    {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
+                                    {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                                    {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                                    {'label': 'Active Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                                    {'label': 'Active Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                                    {'label': 'Active Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                                    {'label': 'Active Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                                    {'label': 'Active Asynchronous Math', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                                    {'label': 'Active Synchronous Math', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                                    {'label': 'Active Face-To-Face Math', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                                    {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                                ],
+                                placeholder='Select a query',
+                                value='',
+                            ),
+                        ]),
+                    ], style={'margin-left': '5px',}),
 
-                                html.Br(),
+                    html.Br(),
 
-                                dcc.Input(
-                                    id='filter-query-input',
-                                    placeholder='Enter filter query',
-                                    className="dcc_control",
-                                ),
+                    html.Div([
+                        html.Label([
+                            "Custom Queries:",
+                            dcc.RadioItems(
+                                id='filter-query-read-write',
+                                options=[
+                                    {'label': 'Read filter_query', 'value': 'read'},
+                                    {'label': 'Write to filter_query', 'value': 'write'}
+                                ],
+                                className="dcc_control",
+                                value='read'
+                            ),
+                        ]),
+                    ], style={'margin-left': '5px',}),
 
-                                html.Div(id='filter-query-output'),
+                    html.Br(),
 
-                                html.Hr(),
-                            ],
+                    html.Div([
+                        dcc.Input(
+                            id='filter-query-input',
+                            placeholder='Enter filter query',
+                            className="dcc_control",
                         ),
+                    ], style={'margin-left': '5px',}),
+                    html.Br(),
+                    html.Div(id='filter-query-output'),
+
+                    html.Hr(),
+                ],
+                ),
                         html.Div(
                             [
                                 dash_table.DataTable(
@@ -803,11 +834,11 @@ def update_stats(data):
     [Input('filter-query-read-write', 'value')]
 )
 def query_input_output(val):
-    input_style = {'width': '100%'}
-    output_style = {}
+    input_style = {'width': '100%', 'height': '35px'}
+    output_style = {'height': '35px'}
     if val == 'read':
         input_style.update(display='none')
-        output_style.update(display='inline-block')
+        output_style.update(display='inline-block', marginLeft='15px')
     else:
         input_style.update(display='inline-block')
         output_style.update(display='none')
@@ -829,7 +860,15 @@ def write_query(query):
 def read_query(query):
     if query is None:
         return "No filter query"
-    return dcc.Markdown('`filter_query = "{}"`'.format(query))
+    return html.P('filter_query = "{}"'.format(query)),
+
+@app.callback(
+    Output('filter-query-input', 'value'),
+    Input('filter-query-dropdown', 'value')
+)
+def read_query_dropdown(query):
+    if query is not None:
+        return query
 
 @app.callback(
     Output('max_v_enrl_by_crn_graph', 'figure'),
