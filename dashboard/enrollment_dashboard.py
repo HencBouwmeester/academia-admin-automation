@@ -8,13 +8,13 @@ import dash_html_components as html
 import plotly.express as px
 import plotly.io as pio
 import dash_table
-import dash_table.FormatTemplate as FormatTemplate
 import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import datetime
 
 # Include pretty graph formatting
 pio.templates.default = "plotly_white"
@@ -43,65 +43,60 @@ app.config.update({
 df = pd.DataFrame()
 
 # Create app layout
-app.layout = html.Div(
-    [
-        dcc.Store(id="aggregate_data"),
-        # empty Div to trigger javascript file for graph resizing
-        html.Div(id="output-clientside"),
-        html.Div(
-            [
-                html.Div(
-                    [
-                        html.Img(
-                            id="msudenver-logo",
-                            src="assets/msudenver-logo.png",
-                        ),
-                    ],
-                    className="two columns",
+app.layout = html.Div([
+    dcc.Store(id="aggregate_data"),
+    # empty Div to trigger javascript file for graph resizing
+    html.Div(id="output-clientside"),
+    html.Div([
+        html.Div([
+            html.Img(
+                id="msudenver-logo",
+                src=app.get_asset_url('msudenver-logo.png'),
+
+            ),
+        ],
+            className="two columns",
+        ),
+        html.Div([
+            html.Div([
+                html.H3(
+                    "SWRCGSR Enrollment",
+                    id="title-report-semester",
+                    style={"margin-bottom": "0px"},
                 ),
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.H3(
-                                    "SWRCGSR Enrollment",
-                                    id="title-report-semester",
-                                    style={"margin-bottom": "0px"},
-                                ),
-                                html.H5(
-                                    "Statistics and Graphs",
-                                    style={"margin-top": "0px"}
-                                ),
-                            ],
-                            id="main_title",
-                        )
-                    ],
-                    className="seven columns",
-                    id="title",
-                ),
-                html.Div(
-                    [
-                        dcc.Upload(
-                            id="upload-data",
-                            children=html.Div(
-                                ["Drag and Drop or ", html.A("Select Files")]
-                            ),
-                            multiple=False,
-                            accept=".txt, .csv",
-                        )
-                    ],
-                    className="three columns",
-                    id="button",
+                html.H5(
+                    "Statistics and Graphs",
+                    style={"margin-top": "0px"}
                 ),
             ],
-            id="header",
-            className="row flex-display",
-            style={"margin-bottom": "25px"},
+                id="main_title",
+            )
+        ],
+            className="seven columns",
+            id="title",
         ),
-        html.Div(id="output-data-upload"),
+        html.Div([
+            dcc.Upload(
+                id="upload-data",
+                children=html.Div(
+                    ["Drag and Drop or ", html.A("Select Files")]
+                ),
+                multiple=False,
+                accept=".txt, .csv",
+            )
+        ],
+            className="three columns",
+            id="button",
+        ),
     ],
-    id="mainContainer",
-    style={"display": "flex", "flex-direction": "column"},
+        id="header",
+        className="row flex-display",
+        style={"margin-bottom": "25px"},
+    ),
+    html.Div(id="output-data-upload"),
+],
+id="mainContainer",
+style={"display": "flex", "flex-direction": "column"},
 )
 
 # Helper Functions
@@ -194,6 +189,17 @@ def tidy_txt(file_contents):
         (121, 140),
     ]
 
+    # read the data date from the file
+    for i in range(5):
+        line = file_contents.readline()
+        if i == 4:
+            d = line.split()[-1]
+            break
+    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
+
+    # reset to the start of the IO stream
+    file_contents.seek(0)
+
     _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     # read the report Term and Year from file
@@ -218,7 +224,7 @@ def tidy_txt(file_contents):
         ["Credit", "Max", "Enrolled", "WCap", "WList"]
     ].apply(pd.to_numeric, errors="coerce")
 
-    return _df, term_code
+    return _df, term_code, data_date
 
 def tidy_csv(file_contents):
     """ Converts the CSV format to the TXT format from Banner
@@ -360,10 +366,10 @@ def parse_contents(contents, filename, date):
     try:
         if "txt" in filename:
             # Assume that the user uploaded a banner fixed width file with .txt extension
-            df, term_code = tidy_txt(io.StringIO(decoded.decode("utf-8")))
+            df, term_code, data_date = tidy_txt(io.StringIO(decoded.decode("utf-8")))
         elif "csv" in filename:
             # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
-            df, term_code = tidy_csv(io.StringIO(decoded.decode("utf-8")))
+            df, term_code, data_date = tidy_csv(io.StringIO(decoded.decode("utf-8")))
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."])
@@ -407,199 +413,179 @@ def parse_contents(contents, filename, date):
     }
 
     html_layout = [
-        html.Div(
-            [
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0",
-                                            id="total_sections_text"
-                                        ),
-                                        html.P("Total Sections"),
-                                    ],
-                                    id="sections",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0",
-                                            id="total_courses_text"
-                                        ),
-                                        html.P("Total Courses"),
-                                    ],
-                                    id="total_courses",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0",
-                                            id="total_CHP_text"),
-                                        html.P("Total Credit Hour Production"),
-                                    ],
-                                    id="total_CHP",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0.0",
-                                            id="avg_enrollment_text"
-                                        ),
-                                        html.P("Average Enrollment by CRN"),
-                                    ],
-                                    id="avg_enrollment",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0.00",
-                                            id="avg_enrollment_by_instructor_text",
-                                        ),
-                                        html.P("Average Enrollment per Instructor"),
-                                    ],
-                                    id="avg_enrollment_by_instructor",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0.00%",
-                                            id="avg_fill_rate_text"),
-                                        html.P("Average Fill Rate"),
-                                    ],
-                                    id="avg_fill_rate",
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [
-                                        html.H6(
-                                            "0.00",
-                                            id="avg_waitlist_text"
-                                        ),
-                                        html.P("Average Waitlist"),
-                                    ],
-                                    id="avg_waitlist",
-                                    className="mini_container",
-                                ),
-                            ],
-                            className="row container-display",
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.H6(
+                            "0",
+                            id="total_sections_text"
                         ),
+                        html.P("Total Sections"),
                     ],
-                    className="twelve columns",
+                        id="sections",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0",
+                            id="total_courses_text"
+                        ),
+                        html.P("Total Courses"),
+                    ],
+                        id="total_courses",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0",
+                            id="total_CHP_text"),
+                        html.P("Total Credit Hour Production"),
+                    ],
+                        id="total_CHP",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0.0",
+                            id="avg_enrollment_text"
+                        ),
+                        html.P("Average Enrollment by CRN"),
+                    ],
+                        id="avg_enrollment",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0.00",
+                            id="avg_enrollment_by_instructor_text",
+                        ),
+                        html.P("Average Enrollment per Instructor"),
+                    ],
+                        id="avg_enrollment_by_instructor",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0.00%",
+                            id="avg_fill_rate_text"),
+                        html.P("Average Fill Rate"),
+                    ],
+                        id="avg_fill_rate",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0.00",
+                            id="avg_waitlist_text"
+                        ),
+                        html.P("Average Waitlist"),
+                    ],
+                        id="avg_waitlist",
+                        className="mini_container",
+                    ),
+                ],
+                    className="row container-display",
                 ),
             ],
+                className="twelve columns",
+            ),
+        ],
             className="row flex-display",
         ),
-        html.Div(
-            [
-                html.Div(
-                    [
-                        dcc.Graph(
-                            figure=blankFigure,
-                            id="max_v_enrl_by_crn_graph"
-                        )
-                    ],
-                    className="pretty_container six columns",
-                ),
-                html.Div(
-                    [
-                        dcc.Graph(
-                            figure=blankFigure,
-                            id="max_v_enrl_by_course_graph"
-                        )
-                    ],
-                    className="pretty_container six columns",
-                ),
+        html.Div([
+            html.Div([
+                dcc.Graph(
+                    figure=blankFigure,
+                    id="max_v_enrl_by_crn_graph"
+                )
             ],
+                className="pretty_container six columns",
+            ),
+            html.Div([
+                dcc.Graph(
+                    figure=blankFigure,
+                    id="max_v_enrl_by_course_graph"
+                )
+            ],
+                className="pretty_container six columns",
+            ),
+        ],
             className="row flex-display",
         ),
-        html.Div(
-            [
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                # place holder
-                            ],
-                            id="enrl_by_instructor",
-                            style={
-                                'width': '96%',
-                                'display': 'block',
-                                'marginLeft': 'auto',
-                                'marginRight': 'auto',
-                            }
-                        ),
-                    ],
-                    className="pretty_container four columns",
-                ),
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                # place holder
-                            ],
-                            id="chp_by_course",
-                            style={
-                                'width': '96%',
-                                'display': 'block',
-                                'marginLeft': 'auto',
-                                'marginRight': 'auto',
-                            }
-                        ),
-                    ],
-                    className="pretty_container four columns",
-                ),
-                html.Div(
-                    [
-                        dcc.Graph(
-                            figure=blankFigure,
-                            id="graph_f2f"
-                        ),
-                        html.P("Enrollment:", className="control_label"),
-                        dcc.RadioItems(
-                            id='enrollment-max-actual',
-                            options=[
-                                {'label': 'Max', 'value': 'Max'},
-                                {'label': 'Actual', 'value': 'Enrolled'}
-                            ],
-                            labelStyle={'display': 'inline-block'},
-                            className="dcc_control",
-                            value='Max'
-                        ),
-                         ],
-                    className="pretty_container four columns",
+        html.Div([
+            html.Div([
+                html.Div([
+                    # place holder
+                ],
+                    id="enrl_by_instructor",
+                    style={
+                        'width': '96%',
+                        'display': 'block',
+                        'marginLeft': 'auto',
+                        'marginRight': 'auto',
+                    }
                 ),
             ],
+                className="pretty_container four columns",
+            ),
+            html.Div([
+                html.Div([
+                    # place holder
+                ],
+                    id="chp_by_course",
+                    style={
+                        'width': '96%',
+                        'display': 'block',
+                        'marginLeft': 'auto',
+                        'marginRight': 'auto',
+                    }
+                ),
+            ],
+                className="pretty_container four columns",
+            ),
+            html.Div([
+                dcc.Graph(
+                    figure=blankFigure,
+                    id="graph_f2f"
+                ),
+                html.Label([
+                    "Enrollment:",
+                    dcc.RadioItems(
+                        id='enrollment-max-actual',
+                        options=[
+                            {'label': 'Max', 'value': 'Max'},
+                            {'label': 'Actual', 'value': 'Enrolled'}
+                        ],
+                        labelStyle={'display': 'inline-block'},
+                        className="dcc_control",
+                        value='Max'
+                    ),
+                ]),
+            ],
+                className="pretty_container four columns",
+            ),
+        ],
             className="row flex-display",
         ),
-        html.Div(
-            [
-                html.Div(
-                    [
-                        dcc.Graph(
-                            figure=blankFigure,
-                            id="enrl_by_instructor_graph",
-                        )
-                    ],
-                    className="pretty_container six columns",
-                ),
-                html.Div(
-                    [
-                        dcc.Graph(
-                            figure=blankFigure,
-                            id="chp_by_course_graph",
-                        )
-                    ],
-                    className="pretty_container six columns",
-                ),
+        html.Div([
+            html.Div([
+                dcc.Graph(
+                    figure=blankFigure,
+                    id="enrl_by_instructor_graph",
+                )
             ],
+                className="pretty_container six columns",
+            ),
+            html.Div([
+                dcc.Graph(
+                    figure=blankFigure,
+                    id="chp_by_course_graph",
+                )
+            ],
+                className="pretty_container six columns",
+            ),
+        ],
             className="row flex-display",
         ),
         html.Div([
@@ -611,17 +597,23 @@ def parse_contents(contents, filename, date):
                             dcc.Dropdown(
                                 id='filter-query-dropdown',
                                 options=[
-                                    {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                                    {'label': 'Active Classes', 'value': '{S} contains A'},
                                     {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
+                                    {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
                                     {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
                                     {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                                    {'label': 'Active Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                                    {'label': 'Active Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                                    {'label': 'Active Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                                    {'label': 'Active Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                                    {'label': 'Active Asynchronous Math', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                                    {'label': 'Active Synchronous Math', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
-                                    {'label': 'Active Face-To-Face Math', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                                    {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
+                                    {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
+                                    {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                                    {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                                    {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                                    {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                                    {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                                    {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                                    {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                                    {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                                    {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                                    {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
                                     {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                                 ],
                                 placeholder='Select a query',
@@ -660,101 +652,99 @@ def parse_contents(contents, filename, date):
                     html.Div(id='filter-query-output'),
 
                     html.Hr(),
-                ],
-                ),
-                        html.Div(
-                            [
-                                dash_table.DataTable(
-                                    id="datatable-filtering",
-                                    data=df.to_dict("records"),
-                                    columns=[{'name': n, 'id': i} for n,i in zip([
-                                        "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
-                                        "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
-                                        "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
-                                    ],[*df.columns[:6],*df.columns[7:-3]])],
-                                    style_header={
-                                        "backgroundColor": "rgb(230, 230, 230)",
-                                        "fontWeight": "bold",
-                                    },
-                                    style_cell={"font-family": "sans-serif", "font-size": "1rem"},
-                                    style_cell_conditional=[
-                                        {
-                                            'if': {'column_id': i},
-                                            'textAlign': 'left',
-                                            'minWidth': w, 'width': w, 'maxWidth': w,
-                                            'whiteSpace': 'normal'
-                                        }
-                                        for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
-                                                       ['3.5%', '5%', '4%', '4%', '2%', '4%',
-                                                        '10%', '5%', '4%', '4%', '5%', '5%', '5%',
-                                                        '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
-                                    ],
-                                    sort_action="native",
-                                    filter_action="native",
-                                    fixed_rows={"headers": True, "data": 0},
-                                    page_size=5000,
-                                    style_data_conditional=[
-                                        *data_bars('Ratio', 'Max'),
-                                        {
-                                            "if": {"row_index": "odd"},
-                                            "backgroundColor": "rgb(248, 248, 248)",
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{WList} > 0',
-                                                'column_id': 'WList'
-                                            },
-                                            'backgroundColor': '#FFEB9C',
-                                            'color': '#9C6500'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
-                                                'column_id': 'Enrolled'
-                                            },
-                                            'backgroundColor': '#FFC7CE',
-                                            'color': '#9C0006'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{Ratio} > 80',
-                                                'column_id': 'Enrolled'
-                                            },
-                                            'backgroundColor': '#C6EFCE',
-                                            'color': '#006100'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{Ratio} > 94',
-                                                'column_id': 'Enrolled'
-                                            },
-                                            'backgroundColor': '#008000',
-                                            'color': 'white'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{S} contains C',
-                                            },
-                                            'backgroundColor': '#FF4136',
-                                        },
-                                    ],
-                                )
+                    ]),
+                    html.Div([
+                        dash_table.DataTable(
+                            id="datatable-filtering",
+                            data=df.to_dict("records"),
+                            columns=[{'name': n, 'id': i} for n,i in zip([
+                                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
+                                "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
+                                "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
+                            ],[*df.columns[:6],*df.columns[7:-3]])],
+                            style_header={
+                                "backgroundColor": "rgb(230, 230, 230)",
+                                "fontWeight": "bold",
+                            },
+                            style_cell={"font-family": "sans-serif", "font-size": "1rem"},
+                            style_cell_conditional=[
+                                {
+                                    'if': {'column_id': i},
+                                    'textAlign': 'left',
+                                    'minWidth': w, 'width': w, 'maxWidth': w,
+                                    'whiteSpace': 'normal'
+                                }
+                                for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
+                                               ['3.5%', '5%', '4%', '4%', '2%', '4%',
+                                                '10%', '5%', '4%', '4%', '5%', '5%', '5%',
+                                                '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
                             ],
-                            style={
-                                'width': '98%',
-                                'display': 'block',
-                                'marginLeft': 'auto',
-                                'marginRight': 'auto',
-                            }
-                        ),
-                    ],
-                    className="pretty_container full-width column",
+                            sort_action="native",
+                            filter_action="native",
+                            fixed_rows={"headers": True, "data": 0},
+                            page_size=5000,
+                            style_data_conditional=[
+                                *data_bars('Ratio', 'Max'),
+                                {
+                                    "if": {"row_index": "odd"},
+                                    "backgroundColor": "rgb(248, 248, 248)",
+                                },
+                                {
+                                    'if': {
+                                        'filter_query': '{WList} > 0',
+                                        'column_id': 'WList'
+                                    },
+                                    'backgroundColor': '#FFEB9C',
+                                    'color': '#9C6500'
+                                },
+                                {
+                                    'if': {
+                                        'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
+                                        'column_id': 'Enrolled'
+                                    },
+                                    'backgroundColor': '#FFC7CE',
+                                    'color': '#9C0006'
+                                },
+                                {
+                                    'if': {
+                                        'filter_query': '{Ratio} > 80',
+                                        'column_id': 'Enrolled'
+                                    },
+                                    'backgroundColor': '#C6EFCE',
+                                    'color': '#006100'
+                                },
+                                {
+                                    'if': {
+                                        'filter_query': '{Ratio} > 94',
+                                        'column_id': 'Enrolled'
+                                    },
+                                    'backgroundColor': '#008000',
+                                    'color': 'white'
+                                },
+                                {
+                                    'if': {
+                                        'filter_query': '{S} contains C',
+                                    },
+                                    'backgroundColor': '#FF4136',
+                                },
+                            ],
+                    )
+                ],
+                    style={
+                        'width': '98%',
+                        'display': 'block',
+                        'marginLeft': 'auto',
+                        'marginRight': 'auto',
+                    }
                 ),
             ],
+                className="pretty_container full-width column",
+            ),
+        ],
             className="row flex-display",
         ),
     ]
-    return html_layout, df, term_code, report_term
+    return html_layout, df, term_code, report_term, data_date
 
 @app.callback(
     [Output("output-data-upload", "children"),
@@ -766,7 +756,7 @@ def update_output(contents, name, date):
     """When files are selected, call parse-contents and return the new html elements."""
 
     if contents is not None:
-        data_children, df, term_code, report_term = parse_contents(contents, name, date)
+        data_children, df, term_code, report_term, data_date = parse_contents(contents, name, date)
         title_children = [
             html.H3(
                 "SWRCGSR Enrollment for " + report_term,
@@ -774,7 +764,7 @@ def update_output(contents, name, date):
                 style={"margin-bottom": "0px"},
             ),
             html.H5(
-                "Statistics and Graphs",
+                "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper(),
                 style={"margin-top": "0px"}
             ),
             html.A(
@@ -817,9 +807,9 @@ def update_stats(data):
     if data:
         df = pd.DataFrame(data)
         return [
-            df["CRN"].nunique(),
-            df["Course"].nunique(),
-            df["CHP"].sum(),
+            "{:,.0f}".format(df["CRN"].nunique()),
+            "{:,.0f}".format(df["Course"].nunique()),
+            "{:,.0f}".format(df["CHP"].sum()),
             round(df["Enrolled"].mean(), 2),
             "{}%".format(round(df["Ratio"].mean(), 2)),
             round(df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2),
