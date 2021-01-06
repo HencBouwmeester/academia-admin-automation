@@ -206,6 +206,64 @@ def tidy_txt(file_contents):
     term_code = str(_df.iloc[5][1])[3:] + str(_df.iloc[5][2])[:-2]
 
     _df.columns = _df.iloc[7]
+
+    # manual filtering of erroneous data which preserves data for MTH 1108/1109
+    _df = _df.dropna(how='all')
+    _df = _df[~_df["Subj"].str.contains("Subj", na=False)]
+    _df = _df[~_df["Subj"].str.contains("---", na=False)]
+    _df = _df[~_df["Subj"].str.contains("SWRC", na=False)]
+    _df = _df[~_df["Subj"].str.contains("Ter", na=False)]
+    _df = _df[~_df["Instructor"].str.contains("Page", na=False)]
+    _df = _df.drop(_df.index[_df["Loc"].str.startswith("BA", na=False)].tolist())
+    _df = _df[_df["Begin/End"].notna()]
+
+    # add columns for Access Table
+    _df.insert(len(_df.columns), "PTCR", 0)
+    _df["PTCR"] = _df["Credit"]
+    _df.insert(len(_df.columns), "MGLP", 0)
+    _df.insert(len(_df.columns), "Final", " ")
+    _df.insert(len(_df.columns), "PTFT", " ")
+    _df.insert(len(_df.columns), "Code", " ")
+    _df.insert(len(_df.columns), "OrigRoom", " ")
+    _df["OrigRoom"] = _df["Loc"]
+    _df.insert(len(_df.columns), "Bldg", " ")
+    _df.insert(len(_df.columns), "Room", " ")
+    _df.insert(len(_df.columns), "Dates", " ")
+    _df["Dates"] = _df["Begin/End"] + "/" + str(term_code[2:4])
+    _df.insert(len(_df.columns), "Class Start Date", " ")
+    _df.insert(len(_df.columns), "Class End Date", " ")
+    _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
+    _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
+    _df.insert(len(_df.columns), "Position Number", " ")
+
+    # reset index and remove old index column
+    _df = _df.reset_index()
+    _df = _df.drop([_df.columns[0]], axis=1)
+
+    # correct report to also include missing data for MTH 1109
+    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1109")].index.tolist():
+        for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
+            _df.loc[row + 1, col] = _df.loc[row, col]
+        _df.loc[row + 1, "Credit"] = 0
+        _df.loc[row + 1, "PTCR"] = 0
+
+    # correct report to also include missing data for MTH 1108
+    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1108")].index.tolist():
+        for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
+            _df.loc[row + 1, col] = _df.loc[row, col]
+        _df.loc[row + 1, "Credit"] = 0
+        _df.loc[row + 1, "PTCR"] = 0
+        row_dict = _df.loc[row].to_dict()
+        row_dict["Instructor"] = ","
+        row_dict["Credit"] = 0
+        row_dict["PTCR"] = 1
+        _df = _df.append(row_dict, ignore_index=True)
+
+    # add columns for Access Table
+    _df.insert(len(_df.columns), "Class", " ")
+    _df["Class"] = _df["Subj"] + " " + _df["Nmbr"]
+
+    # remove all rows with irrelevant data
     _df = _df[_df["CRN"].notna()]
     _df = _df[_df.CRN.apply(lambda x: x.isnumeric())]
     _df.rename(
@@ -223,6 +281,8 @@ def tidy_txt(file_contents):
     _df[["Credit", "Max", "Enrolled", "WCap", "WList"]] = _df[
         ["Credit", "Max", "Enrolled", "WCap", "WList"]
     ].apply(pd.to_numeric, errors="coerce")
+
+    _df = _df.sort_values(by=["Subject", "Number", "Section"])
 
     return _df, term_code, data_date
 
@@ -251,6 +311,40 @@ def tidy_csv(file_contents):
             line += char
 
     return tidy_txt(io.StringIO("\n".join(_list)))
+
+def to_access(df, report_term):
+    _df = df.copy()
+    _df = _df[_df["S"]=="A"]
+    _df.rename(
+        columns={
+            "Subject" :"Subj",
+            "Number"  :"Nmbr",
+            "Section" :"Sec",
+            "Credit"  :"CR",
+            "Enrolled":"Enrl",
+            "WList"   :"WLst",
+            "Full"    :"%Ful",
+        },
+        inplace=True,
+    )
+    cols = ["CRN", "Class", "Sec", "S", "Title", "CR", "MGLP", "PTCR", "Final",
+            "Days", "Time", "Instructor", "PTFT", "Code", "OrigRoom", "Bldg",
+            "Room", "Dates", "Class Start Date", "Class End Date", "Campus",
+            "Position Number"]
+    _df = _df[cols]
+    xlsx_io = io.BytesIO()
+    writer = pd.ExcelWriter(
+        xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
+    )
+    _df["Sec"] = _df["Sec"].apply(lambda x: '="{x:s}"'.format(x=x))
+    _df.to_excel(writer, sheet_name="Schedule", index=False)
+
+    # Save it
+    writer.save()
+    xlsx_io.seek(0)
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    data = base64.b64encode(xlsx_io.read()).decode("utf-8")
+    return f"data:{media_type};base64,{data}"
 
 def to_excel(df, report_term):
     _df = df.copy()
@@ -767,6 +861,7 @@ def update_output(contents, name, date):
                 "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper(),
                 style={"margin-top": "0px"}
             ),
+            html.Div([
             html.A(
                 "Download Excel Data",
                 id="excel-download",
@@ -776,6 +871,18 @@ def update_output(contents, name, date):
                 href=to_excel(df, report_term),
                 target="_blank",
             ),
+            ]),
+            html.Div([
+            html.A(
+                "Download Access Table",
+                id="access-download",
+                download="Schedule_{0}.xlsx".format(
+                    term_code
+                ),
+                href=to_access(df, report_term),
+                target="_blank",
+            ),
+            ]),
         ]
     else:
         data_children = []
