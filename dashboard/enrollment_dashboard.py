@@ -99,6 +99,7 @@ id="mainContainer",
 style={"display": "flex", "flex-direction": "column"},
 )
 
+
 # Helper Functions
 def data_bars(column_data, column_apply):
     n_bins = 100
@@ -131,6 +132,83 @@ def data_bars(column_data, column_apply):
         })
 
     return styles
+
+def updateTitles(df):
+    course_titles = [
+        ["MTH 1051", "Principles of Math in Chem Lab",],
+        ["MTH 1080", "Mathematics for Liberal Arts",],
+        ["MTH 1081", "Math. for Lib. Arts with Lab",],
+        ["MTH 1082", "Math. for Liberal Arts Lab",],
+        ["MTH 1101", "College Algebra for Calc Lab",],
+        ["MTH 1108", "College Algebra Stretch Part I",],
+        ["MTH 1109", "College Alg. Stretch Part II",],
+        ["MTH 1110", "College Algebra for Calculus",],
+        ["MTH 1111", "College Alg. for Calc with Lab",],
+        ["MTH 1112", "College Algebra thru Modeling",],
+        ["MTH 1115", "College Alg thru Mdlng w Lab",],
+        ["MTH 1116", "College Alg thru Mdlng Lab",],
+        ["MTH 1120", "College Trigonometry",],
+        ["MTH 1210", "Introduction to Statistics",],
+        ["MTH 1310", "Finite Math - Mgmt & Soc Scncs",],
+        ["MTH 1311", "Finite Math-Mgmt -with Lab",],
+        ["MTH 1312", "Finite Mathematics Lab",],
+        ["MTH 1320", "Calculus - Mgmt & Soc Sciences",],
+        ["MTH 1400", "Precalculus Mathematics",],
+        ["MTH 1410", "Calculus I",],
+        ["MTH 1610", "Integrated Mathematics I",],
+        ["MTH 2140", "Computational Matrix Algebra",],
+        ["MTH 2410", "Calculus II",],
+        ["MTH 2420", "Calculus III",],
+        ["MTH 2520", "R Programming",],
+        ["MTH 2620", "Integrated Mathematics II",],
+        ["MTH 3100", "Intro to Mathematical Proofs",],
+        ["MTH 3110", "Abstract Algebra I",],
+        ["MTH 3130", "Advd Matrix Mthds Phy Sciences",],
+        ["MTH 3140", "Linear Algebra",],
+        ["MTH 3170", "Discrete Math for Comp Science",],
+        ["MTH 3210", "Probability and Statistics",],
+        ["MTH 3220", "Statistical Methods",],
+        ["MTH 3240", "Environmental Statistics",],
+        ["MTH 3270", "Data Science",],
+        ["MTH 3420", "Differential Equations",],
+        ["MTH 3430", "Mathematical Modeling",],
+        ["MTH 3440", "Partial Differential Equations",],
+        ["MTH 3470", "Intro Discrete Math & Modeling",],
+        ["MTH 3510", "SAS Programming",],
+        ["MTH 3650", "Foundations of Geometry",],
+        ["MTH 4110", "Abstract Algebra II",],
+        ["MTH 4150", "Elementary Number Theory",],
+        ["MTH 4210", "Probability Theory",],
+        ["MTH 4230", "Regression/Computational Stats",],
+        ["MTH 4250", "Statistical Theory",],
+        ["MTH 4290", "Senior Statistics Project",],
+        ["MTH 4410", "Real Analysis I",],
+        ["MTH 4480", "Numerical Analysis I",],
+        ["MTH 4490", "Numerical Analysis II",],
+        ["MTH 4640", "History of Mathematics",],
+        ["MTL 3600", "Mathematics of Elem Curriculum",],
+        ["MTL 3620", "Mathematics of Secondary Curr",],
+        ["MTL 3630", "Teaching Secondary Mathematics",],
+        ["MTL 3638", "Secondry Mathematics Field Exp",],
+        ["MTL 3750", "Number & Alg in the K-8 Curric",],
+        ["MTL 3760", "Geom & Stats in the K-8 Curric",],
+        ["MTL 3850", "STEM Teaching and Learning",],
+        ["MTL 3858", "STEM Practicum",],
+        ["MTL 4690", "Stdnt Teach & Sem:Secndry 7-12",],
+        ["MTLM 5020", "Integrated Math II",],
+        ["MTLM 5600", "Math of the Elem Curriculum",],
+    ]
+
+    df_titles = pd.DataFrame(course_titles, columns=["Class", "Title"])
+
+    cols = df.columns
+    df = df.set_index("Class")
+    df.update(df_titles.set_index("Class"))
+    df.reset_index(inplace=True)
+    df = df[cols]
+
+
+    return df
 
 def convertAMPMtime(timeslot):
     """Convert time format from 12hr to 24hr and account for TBA times.
@@ -228,13 +306,15 @@ def tidy_txt(file_contents):
     _df["OrigRoom"] = _df["Loc"]
     _df.insert(len(_df.columns), "Bldg", " ")
     _df.insert(len(_df.columns), "Room", " ")
+    _df["Bldg"] = _df["Loc"].str.split(" ").str[0]
+    _df["Room"] = _df["Loc"].str.split(" ").str[1]
     _df.insert(len(_df.columns), "Dates", " ")
     _df["Dates"] = _df["Begin/End"] + "/" + str(term_code[2:4])
     _df.insert(len(_df.columns), "Class Start Date", " ")
     _df.insert(len(_df.columns), "Class End Date", " ")
     _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
     _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
-    _df.insert(len(_df.columns), "Position Number", " ")
+    _df.insert(len(_df.columns), "Position Num", " ")
 
     # reset index and remove old index column
     _df = _df.reset_index()
@@ -314,7 +394,14 @@ def tidy_csv(file_contents):
 
 def to_access(df, report_term):
     _df = df.copy()
+
+    # only use the active courses
     _df = _df[_df["S"]=="A"]
+
+    # update all titles to show full name
+    _df = updateTitles(_df)
+
+    # rename columns to match Access
     _df.rename(
         columns={
             "Subject" :"Subj",
@@ -327,16 +414,20 @@ def to_access(df, report_term):
         },
         inplace=True,
     )
+
+    # only grab needed columns and correct ordering
     cols = ["CRN", "Class", "Sec", "S", "Title", "CR", "MGLP", "PTCR", "Final",
             "Days", "Time", "Instructor", "PTFT", "Code", "OrigRoom", "Bldg",
             "Room", "Dates", "Class Start Date", "Class End Date", "Campus",
-            "Position Number"]
+            "Position Num"]
     _df = _df[cols]
+
+    # setup the IO stream
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
         xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
     )
-    _df["Sec"] = _df["Sec"].apply(lambda x: '="{x:s}"'.format(x=x))
+    # _df["Sec"] = _df["Sec"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df.to_excel(writer, sheet_name="Schedule", index=False)
 
     # Save it
