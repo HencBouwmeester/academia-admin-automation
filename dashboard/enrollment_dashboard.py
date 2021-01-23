@@ -298,10 +298,7 @@ def tidy_txt(file_contents):
     # add columns for Access Table
     _df.insert(len(_df.columns), "PTCR", 0)
     _df["PTCR"] = _df["Credit"]
-    _df.insert(len(_df.columns), "MGLP", 0)
-    _df.insert(len(_df.columns), "Final", " ")
-    _df.insert(len(_df.columns), "PTFT", " ")
-    _df.insert(len(_df.columns), "Code", " ")
+    _df.insert(len(_df.columns), "Final", "Y")
     _df.insert(len(_df.columns), "OrigRoom", " ")
     _df["OrigRoom"] = _df["Loc"]
     _df.insert(len(_df.columns), "Bldg", " ")
@@ -314,11 +311,14 @@ def tidy_txt(file_contents):
     _df.insert(len(_df.columns), "Class End Date", " ")
     _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
     _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
-    _df.insert(len(_df.columns), "Position Num", " ")
 
     # reset index and remove old index column
     _df = _df.reset_index()
     _df = _df.drop([_df.columns[0]], axis=1)
+
+    # change all online final flags to N since they do not need a room
+    for row in _df[_df["Cam"].str.startswith("I", na=False)].index.tolist():
+        _df.loc[row, "Final"] = "N"
 
     # correct report to also include missing data for MTH 1109
     for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1109")].index.tolist():
@@ -416,10 +416,9 @@ def to_access(df, report_term):
     )
 
     # only grab needed columns and correct ordering
-    cols = ["CRN", "Class", "Sec", "S", "Title", "CR", "MGLP", "PTCR", "Final",
-            "Days", "Time", "Instructor", "PTFT", "Code", "OrigRoom", "Bldg",
-            "Room", "Dates", "Class Start Date", "Class End Date", "Campus",
-            "Position Num"]
+    cols = ["CRN", "Class", "Sec", "S", "Title", "CR", "PTCR", "Final",
+            "Days", "Time", "Instructor", "OrigRoom", "Bldg",
+            "Room", "Dates", "Class Start Date", "Class End Date", "Campus"]
     _df = _df[cols]
 
     # setup the IO stream
@@ -439,6 +438,13 @@ def to_access(df, report_term):
 
 def to_excel(df, report_term):
     _df = df.copy()
+
+    # only grab needed columns and correct ordering
+    cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
+            "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
+            "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio"]
+    _df = _df[cols]
+
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
         xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
