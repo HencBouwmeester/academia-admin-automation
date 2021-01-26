@@ -321,14 +321,14 @@ def tidy_txt(file_contents):
         _df.loc[row, "Final"] = "N"
 
     # correct report to also include missing data for MTH 1109
-    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1109")].index.tolist():
+    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1109") & _df["S"].str.contains("A")].index.tolist():
         for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
             _df.loc[row + 1, col] = _df.loc[row, col]
         _df.loc[row + 1, "Credit"] = 0
         _df.loc[row + 1, "PTCR"] = 0
 
     # correct report to also include missing data for MTH 1108
-    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1108")].index.tolist():
+    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1108") & _df["S"].str.contains("A")].index.tolist():
         for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
             _df.loc[row + 1, col] = _df.loc[row, col]
         _df.loc[row + 1, "Credit"] = 0
