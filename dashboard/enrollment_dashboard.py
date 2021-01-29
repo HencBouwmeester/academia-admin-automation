@@ -62,11 +62,11 @@ app.layout = html.Div([
                 html.H3(
                     "SWRCGSR Enrollment",
                     id="title-report-semester",
-                    style={"margin-bottom": "0px"},
+                    style={"marginBottom": "0px"},
                 ),
                 html.H5(
                     "Statistics and Graphs",
-                    style={"margin-top": "0px"}
+                    style={"marginTop": "0px"}
                 ),
             ],
                 id="main_title",
@@ -82,7 +82,7 @@ app.layout = html.Div([
                     ["Drag and Drop or ", html.A("Select Files")]
                 ),
                 multiple=False,
-                accept=".txt, .csv",
+                accept=".txt, .csv, .xlsx",
             )
         ],
             className="three columns",
@@ -91,12 +91,12 @@ app.layout = html.Div([
     ],
         id="header",
         className="row flex-display",
-        style={"margin-bottom": "25px"},
+        style={"marginBottom": "25px"},
     ),
     html.Div(id="output-data-upload"),
 ],
 id="mainContainer",
-style={"display": "flex", "flex-direction": "column"},
+style={"display": "flex", "flexDirection": "column"},
 )
 
 
@@ -392,6 +392,77 @@ def tidy_csv(file_contents):
 
     return tidy_txt(io.StringIO("\n".join(_list)))
 
+def tidy_xlsx(file_contents):
+    """ Converts an Excel Spreadsheet
+
+    Make sure that you copy and paste all data as values before trying to import.
+
+    Args:
+        file_contents:
+            input decoded filestream of SWRCGSR output from an uploaded textfile.
+
+    Returns:
+        Dataframe.
+    """
+
+    term_code = "190000"
+    d = "02-FEB-1900"
+    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
+    _df = pd.read_excel(file_contents,
+                        engine='openpyxl',
+                        converters={
+                            'Subject':str,
+                            'Number':str,
+                            'CRN':str,
+                            'Section':str,
+                            'S':str,
+                            'Campus':str,
+                            'Title':str,
+                            'Days':str,
+                            'Time':str,
+                            'Loc':str,
+                            'Begin/End':str,
+                            'Instructor':str,
+                        })
+    _df.insert(len(_df.columns), "Class", " ")
+    _df["Class"] = _df["Subject"] + " " + _df["Number"]
+
+    _df.rename(
+        columns={
+            "Subj": "Subject",
+            "Nmbr": "Number",
+            "Sec": "Section",
+            "Cam": "Campus",
+            "Enrl": "Enrolled",
+            "WLst": "WList",
+            "%Ful": "Full",
+        },
+        inplace=True,
+    )
+
+    # add columns for Access Table
+    _df.insert(len(_df.columns), "PTCR", 0)
+    _df["PTCR"] = _df["Credit"]
+    _df.insert(len(_df.columns), "Final", "Y")
+    _df.insert(len(_df.columns), "OrigRoom", " ")
+    _df["OrigRoom"] = _df["Loc"]
+    _df.insert(len(_df.columns), "Bldg", " ")
+    _df.insert(len(_df.columns), "Room", " ")
+    _df["Bldg"] = _df["Loc"].str.split(" ").str[0]
+    _df["Room"] = _df["Loc"].str.split(" ").str[1]
+    _df.insert(len(_df.columns), "Dates", " ")
+    _df["Dates"] = _df["Begin/End"] + "/" + str(term_code[2:4])
+    _df.insert(len(_df.columns), "Class Start Date", " ")
+    _df.insert(len(_df.columns), "Class End Date", " ")
+    _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
+    _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
+
+    # there might be CRNs that are unknown (blank)
+    _df["CRN"] = _df["CRN"].fillna("99999")
+
+    return _df, term_code, data_date
+
+
 def to_access(df, report_term):
     _df = df.copy()
 
@@ -558,14 +629,17 @@ def parse_contents(contents, filename, date):
         if "txt" in filename:
             # Assume that the user uploaded a banner fixed width file with .txt extension
             df, term_code, data_date = tidy_txt(io.StringIO(decoded.decode("utf-8")))
+            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
         elif "csv" in filename:
             # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
             df, term_code, data_date = tidy_csv(io.StringIO(decoded.decode("utf-8")))
+            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
+        elif "xlsx" in filename:
+            df, term_code, data_date = tidy_xlsx(io.BytesIO(decoded))
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."])
 
-    df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
 
     # fill Nan with zeros
     df["Enrolled"] = df["Enrolled"].fillna(0)
@@ -583,6 +657,9 @@ def parse_contents(contents, filename, date):
         report_term = "Summer " + term_code[0:4]
     elif term_code[-2:] == "50":
         report_term = "Fall " + term_code[0:4]
+    else:
+        report_term = "Unknown " + term_code[0:4]
+
 
     # blank figure when no data is present
     blankFigure={
@@ -746,7 +823,8 @@ def parse_contents(contents, filename, date):
                         id='enrollment-max-actual',
                         options=[
                             {'label': 'Max', 'value': 'Max'},
-                            {'label': 'Actual', 'value': 'Enrolled'}
+                            {'label': 'Actual', 'value': 'Enrolled'},
+                            {'label': 'Sections', 'value': 'Section'},
                         ],
                         labelStyle={'display': 'inline-block'},
                         className="dcc_control",
@@ -811,7 +889,7 @@ def parse_contents(contents, filename, date):
                                 value='',
                             ),
                         ]),
-                    ], style={'margin-left': '5px',}),
+                    ], style={'marginLeft': '5px',}),
 
                     html.Br(),
 
@@ -828,7 +906,7 @@ def parse_contents(contents, filename, date):
                                 value='read'
                             ),
                         ]),
-                    ], style={'margin-left': '5px',}),
+                    ], style={'marginLeft': '5px',}),
 
                     html.Br(),
 
@@ -838,7 +916,7 @@ def parse_contents(contents, filename, date):
                             placeholder='Enter filter query',
                             className="dcc_control",
                         ),
-                    ], style={'margin-left': '5px',}),
+                    ], style={'marginLeft': '5px',}),
                     html.Br(),
                     html.Div(id='filter-query-output'),
 
@@ -952,11 +1030,11 @@ def update_output(contents, name, date):
             html.H3(
                 "SWRCGSR Enrollment for " + report_term,
                 id="title-report-semester",
-                style={"margin-bottom": "0px"},
+                style={"marginBottom": "0px"},
             ),
             html.H5(
                 "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper(),
-                style={"margin-top": "0px"}
+                style={"marginTop": "0px"}
             ),
             html.Div([
             html.A(
@@ -987,11 +1065,11 @@ def update_output(contents, name, date):
             html.H3(
                 "SWRCGSR Enrollment",
                 id="title-report-semester",
-                style={"margin-bottom": "0px"},
+                style={"marginBottom": "0px"},
             ),
             html.H5(
                 "Statistics and Graphs",
-                style={"margin-top": "0px"}
+                style={"marginTop": "0px"}
             ),
         ]
     return [data_children, title_children]
@@ -1148,48 +1226,91 @@ def max_v_enrl_by_course(data, fig):
 def graph_f2f(data, toggle, fig):
     if data:
         df = pd.DataFrame(data)
-        _df = df[["Loc", toggle]]
-        _df = _df.groupby("Loc", as_index=False).sum()
-        t = _df[toggle].sum()
-        o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T", "MOST  T"])][toggle].sum()
-        s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
+        if toggle in ["Max", "Enrolled"]:
+            _df = df[["Loc", toggle]]
+            _df = _df.groupby("Loc", as_index=False).sum()
+            t = _df[toggle].sum()
+            o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T", "MOST  T"])][toggle].sum()
+            s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
 
-        fig = make_subplots(rows=2,
-                            cols=1,
-                            specs=[[{'type':'domain'}], [{'type':'domain'}]],
-                            vertical_spacing=0.15,
-                           )
-        fig.add_trace(go.Pie(labels=["Async", "Sync"],
-                             values=[o-s, s],
-                             name="Async vs Sync"),
-                      1, 1)
-        fig.add_trace(go.Pie(labels=["F2F", "Online"],
-                             values=[t-o, o],
-                             name="F2F vs Online"),
-                      2, 1)
-        fig.update_traces(hole=.7, hoverinfo="label+value+percent")
-        return fig.update_layout(
-            title_text=toggle +" Ratios",
-            showlegend=False,
-            annotations=[
-                dict(
-                    text='Async<br />vs<br />Sync',
-                    x=0.5, y=0.785,
-                    font_size=10,
-                    showarrow=False,
-                    xanchor = "center",
-                    yanchor = "middle",
-                ),
-                dict(
-                    text='F2F<br />vs<br />Online',
-                    x=0.5, y=0.215,
-                    font_size=10,
-                    showarrow=False,
-                    xanchor = "center",
-                    yanchor = "middle",
-                )
-            ]
-        )
+            fig = make_subplots(rows=2,
+                                cols=1,
+                                specs=[[{'type':'domain'}], [{'type':'domain'}]],
+                                vertical_spacing=0.15,
+                               )
+            fig.add_trace(go.Pie(labels=["Async", "Sync"],
+                                 values=[o-s, s],
+                                 name="Async vs Sync"),
+                          1, 1)
+            fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 values=[t-o, o],
+                                 name="F2F vs Online"),
+                          2, 1)
+            fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+            return fig.update_layout(
+                title_text=toggle +" Ratios",
+                showlegend=False,
+                annotations=[
+                    dict(
+                        text='Async<br />vs<br />Sync',
+                        x=0.5, y=0.785,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    ),
+                    dict(
+                        text='F2F<br />vs<br />Online',
+                        x=0.5, y=0.215,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    )
+                ]
+            )
+
+        if toggle in ["Section"]:
+            _df = df[["Campus"]]
+            t = _df["Campus"].count()
+            o = _df[_df["Campus"].isin(["I"])]["Campus"].count()
+            s = _df[_df["Campus"].isin(["M"])]["Campus"].count()
+
+            fig = make_subplots(rows=2,
+                                cols=1,
+                                specs=[[{'type':'domain'}], [{'type':'domain'}]],
+                                vertical_spacing=0.15,
+                               )
+            fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 values=[t-o, o],
+                                 name="F2F vs Online"),
+                          2, 1)
+            fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+
+            return fig.update_layout(
+                title_text=toggle +" Ratios",
+                showlegend=False,
+                annotations=[
+                    dict(
+                        text='',
+                        x=0.5, y=0.785,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    ),
+                    dict(
+                        text='F2F<br />vs<br />Online',
+                        x=0.5, y=0.215,
+                        font_size=10,
+                        showarrow=False,
+                        xanchor = "center",
+                        yanchor = "middle",
+                    )
+                ]
+            )
     else:
         return fig
 
