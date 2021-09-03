@@ -32,13 +32,13 @@ app.config.update({
 })
 
 # specifics for the math.msudenver.edu server
-# """
+"""
 app.config.update({
    'url_base_pathname':'/dash/',
    'routes_pathname_prefix':'/dash/',
    'requests_pathname_prefix':'/dash/',
 })
-# """
+"""
 
 df = pd.DataFrame()
 
@@ -170,6 +170,7 @@ def updateTitles(df):
         ["MTH 3220", "Statistical Methods",],
         ["MTH 3240", "Environmental Statistics",],
         ["MTH 3270", "Data Science",],
+        ["MTH 3400", "Chaos & Nonlinear Dynamics",],
         ["MTH 3420", "Differential Equations",],
         ["MTH 3430", "Mathematical Modeling",],
         ["MTH 3440", "Partial Differential Equations",],
@@ -415,17 +416,35 @@ def tidy_xlsx(file_contents):
                             'Number':str,
                             'CRN':str,
                             'Section':str,
-                            'S':str,
                             'Campus':str,
                             'Title':str,
                             'Days':str,
                             'Time':str,
                             'Loc':str,
-                            'Begin/End':str,
                             'Instructor':str,
                         })
-    _df.insert(len(_df.columns), "Class", " ")
-    _df["Class"] = _df["Subject"] + " " + _df["Number"]
+
+    # create missing columns, if necessary
+    if not 'S' in _df.columns:
+        _df.insert(len(_df.columns), "S", "A")
+    if not 'Begin/End' in _df.columns:
+        _df.insert(len(_df.columns), "Begin/End", "01/01-01/01")
+    if not 'T' in _df.columns:
+        _df.insert(len(_df.columns), "T", 1)
+    if not 'WCap' in _df.columns:
+        _df.insert(len(_df.columns), "WCap", 0)
+    if not 'WList' in _df.columns:
+        _df.insert(len(_df.columns), "WList", 0)
+    if not 'Enrolled' in _df.columns:
+        _df.insert(len(_df.columns), "Enrolled", 0)
+    if not 'Rcap' in _df.columns:
+        _df.insert(len(_df.columns), "Rcap", 0)
+    if not 'Max' in _df.columns:
+        _df.insert(len(_df.columns), "Max", 1)
+    if not 'Full' in _df.columns:
+        _df.insert(len(_df.columns), "Full", 0)
+    if not 'Credit' in _df.columns:
+        _df.insert(len(_df.columns), "Credit", 3)
 
     _df.rename(
         columns={
@@ -439,6 +458,13 @@ def tidy_xlsx(file_contents):
         },
         inplace=True,
     )
+
+    _df = _df[["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
+              "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
+              "Rcap", "Full", "Begin/End", "Instructor"]]
+
+    _df.insert(len(_df.columns), "Class", " ")
+    _df["Class"] = _df["Subject"] + " " + _df["Number"]
 
     # add columns for Access Table
     _df.insert(len(_df.columns), "PTCR", 0)
@@ -457,8 +483,12 @@ def tidy_xlsx(file_contents):
     _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
     _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
 
-    # there might be CRNs that are unknown (blank)
-    _df["CRN"] = _df["CRN"].fillna("99999")
+    # there might be CRNs that are unknown (blank), so fill sequentially starting
+    # from 99999 and go down
+    i = 1
+    for row in _df[_df["CRN"].isna()].index.tolist():
+        _df.loc[row, "CRN"] = str(100000 - i)
+        i += 1
 
     return _df, term_code, data_date
 
@@ -867,12 +897,16 @@ def parse_contents(contents, filename, date):
                                 id='filter-query-dropdown',
                                 options=[
                                     {'label': 'Active Classes', 'value': '{S} contains A'},
-                                    {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
+                                    {'label': 'Active Math w/o Labs', 'value': '{S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                                    {'label': 'Active Unassigned Math w/o Labs', 'value': '{S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                                    {'label': 'Active Math Labs', 'value': '{S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                                    {'label': 'Active Unassigned Math Labs', 'value': '{S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                                    # {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
                                     {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
                                     {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
                                     {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                                    {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
-                                    {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
+                                    # {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
+                                    # {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
                                     {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
                                     {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
                                     {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
@@ -926,6 +960,7 @@ def parse_contents(contents, filename, date):
                         dash_table.DataTable(
                             id="datatable-filtering",
                             data=df.to_dict("records"),
+                            # export_format="csv",
                             columns=[{'name': n, 'id': i} for n,i in zip([
                                 "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
                                 "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
@@ -1226,12 +1261,19 @@ def max_v_enrl_by_course(data, fig):
 def graph_f2f(data, toggle, fig):
     if data:
         df = pd.DataFrame(data)
+
+        # remove the zero credit hour sections
+        df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
+
         if toggle in ["Max", "Enrolled"]:
             _df = df[["Loc", toggle]]
             _df = _df.groupby("Loc", as_index=False).sum()
             t = _df[toggle].sum()
-            o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T", "MOST  T"])][toggle].sum()
-            s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
+            # o = _df[_df["Loc"].str.startswith(["ASYN", "SYNC", "ONLI", "MOST"], na=False)][toggle].sum()
+            o = _df[_df["Loc"].str.startswith("ASYN", na=False)][toggle].sum() + _df[_df["Loc"].str.startswith("SYNC", na=False)][toggle].sum()+ _df[_df["Loc"].str.startswith("ONLI", na=False)][toggle].sum()+ _df[_df["Loc"].str.startswith("MOST", na=False)][toggle].sum()
+            # o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T", "MOST  T"])][toggle].sum()
+            # s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
+            s = _df[_df["Loc"].str.startswith("SYNC", na=False)][toggle].sum()
 
             fig = make_subplots(rows=2,
                                 cols=1,
@@ -1502,4 +1544,5 @@ def chp_by_course(data):
 # Main
 if __name__ == "__main__":
     # app.run_server(debug=True, host='172.16.0.153')
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='10.0.2.15')
+    # app.run_server(debug=True)
