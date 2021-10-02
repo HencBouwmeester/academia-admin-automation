@@ -55,7 +55,7 @@ app.layout = html.Div([
 
             ),
         ],
-            className="two columns",
+            className="three offset-right columns",
         ),
         html.Div([
             html.Div([
@@ -72,7 +72,7 @@ app.layout = html.Div([
                 id="main_title",
             )
         ],
-            className="seven columns",
+            className="six offset-left offset-right columns",
             id="title",
         ),
         html.Div([
@@ -85,7 +85,7 @@ app.layout = html.Div([
                 accept=".txt, .csv, .xlsx",
             )
         ],
-            className="three columns",
+            className="three offset-left columns",
             id="button",
         ),
     ],
@@ -160,6 +160,7 @@ def updateTitles(df):
         ["MTH 2410", "Calculus II",],
         ["MTH 2420", "Calculus III",],
         ["MTH 2520", "R Programming",],
+        ["MTH 2540", "Scientific Computing",],
         ["MTH 2620", "Integrated Mathematics II",],
         ["MTH 3100", "Intro to Mathematical Proofs",],
         ["MTH 3110", "Abstract Algebra I",],
@@ -187,17 +188,17 @@ def updateTitles(df):
         ["MTH 4480", "Numerical Analysis I",],
         ["MTH 4490", "Numerical Analysis II",],
         ["MTH 4640", "History of Mathematics",],
-        ["MTL 3600", "Mathematics of Elem Curriculum",],
-        ["MTL 3620", "Mathematics of Secondary Curr",],
+        ["MTL 3600", "Mathematics of Elementary Curriculum",],
+        ["MTL 3620", "Mathematics of Secondary Curriculum",],
         ["MTL 3630", "Teaching Secondary Mathematics",],
-        ["MTL 3638", "Secondry Mathematics Field Exp",],
-        ["MTL 3750", "Number & Alg in the K-8 Curric",],
-        ["MTL 3760", "Geom & Stats in the K-8 Curric",],
+        ["MTL 3638", "Secondry Mathematics Field Experience",],
+        ["MTL 3750", "Number & Alg in the K-8 Curriculum",],
+        ["MTL 3760", "Geom & Stats in the K-8 Curriculum",],
         ["MTL 3850", "STEM Teaching and Learning",],
         ["MTL 3858", "STEM Practicum",],
-        ["MTL 4690", "Stdnt Teach & Sem:Secndry 7-12",],
-        ["MTLM 5020", "Integrated Math II",],
-        ["MTLM 5600", "Math of the Elem Curriculum",],
+        ["MTL 4690", "Student Teaching & Seminar: Secondary 7-12",],
+        ["MTLM 5020", "Integrated Mathematics II",],
+        ["MTLM 5600", "Mathematics of the Elementary Curriculum",],
     ]
 
     df_titles = pd.DataFrame(course_titles, columns=["Class", "Title"])
@@ -343,6 +344,7 @@ def tidy_txt(file_contents):
     # add columns for Access Table
     _df.insert(len(_df.columns), "Class", " ")
     _df["Class"] = _df["Subj"] + " " + _df["Nmbr"]
+    _df = updateTitles(_df)
 
     # remove all rows with irrelevant data
     _df = _df[_df["CRN"].notna()]
@@ -798,7 +800,7 @@ def parse_contents(contents, filename, date):
                     id="max_v_enrl_by_crn_graph"
                 )
             ],
-                className="pretty_container six columns",
+                className="pretty_container six offset-right columns",
             ),
             html.Div([
                 dcc.Graph(
@@ -806,7 +808,7 @@ def parse_contents(contents, filename, date):
                     id="max_v_enrl_by_course_graph"
                 )
             ],
-                className="pretty_container six columns",
+                className="pretty_container six offset-left columns",
             ),
         ],
             className="row flex-display",
@@ -825,7 +827,7 @@ def parse_contents(contents, filename, date):
                     }
                 ),
             ],
-                className="pretty_container four columns",
+                className="pretty_container four offset-right columns",
             ),
             html.Div([
                 html.Div([
@@ -840,7 +842,7 @@ def parse_contents(contents, filename, date):
                     }
                 ),
             ],
-                className="pretty_container four columns",
+                className="pretty_container four offset-left offset-right columns",
             ),
             html.Div([
                 dcc.Graph(
@@ -862,7 +864,7 @@ def parse_contents(contents, filename, date):
                     ),
                 ]),
             ],
-                className="pretty_container four columns",
+                className="pretty_container four offset-left columns",
             ),
         ],
             className="row flex-display",
@@ -874,7 +876,7 @@ def parse_contents(contents, filename, date):
                     id="enrl_by_instructor_graph",
                 )
             ],
-                className="pretty_container six columns",
+                className="pretty_container six offset-right columns",
             ),
             html.Div([
                 dcc.Graph(
@@ -882,7 +884,7 @@ def parse_contents(contents, filename, date):
                     id="chp_by_course_graph",
                 )
             ],
-                className="pretty_container six columns",
+                className="pretty_container six offset-left columns",
             ),
         ],
             className="row flex-display",
@@ -896,6 +898,7 @@ def parse_contents(contents, filename, date):
                             dcc.Dropdown(
                                 id='filter-query-dropdown',
                                 options=[
+                                    {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
                                     {'label': 'Active Classes', 'value': '{S} contains A'},
                                     {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
                                     {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
@@ -979,8 +982,8 @@ def parse_contents(contents, filename, date):
                                     'whiteSpace': 'normal'
                                 }
                                 for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
-                                               ['3.5%', '5%', '4%', '4%', '2%', '4%',
-                                                '10%', '5%', '4%', '4%', '5%', '5%', '5%',
+                                               ['3.5%', '4%', '4%', '3%', '2%', '3%',
+                                                '18%', '4%', '3%', '4%', '4%', '4%', '4%',
                                                 '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
                             ],
                             sort_action="native",
@@ -1062,6 +1065,7 @@ def update_output(contents, name, date):
 
     if contents is not None:
         data_children, df, term_code, report_term, data_date = parse_contents(contents, name, date)
+
         title_children = [
             html.H3(
                 "SWRCGSR Enrollment for " + report_term,

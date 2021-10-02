@@ -1,108 +1,3 @@
-/* Grid
-–––––––––––––––––––––––––––––––––––––––––––––––––– */
-.container {
-  position: relative;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 20px;
-  box-sizing: border-box;
-}
-
-.column,
-.columns {
-  width: 100%;
-  float: left;
-  box-sizing: border-box;
-}
-
-
-.pretty_container {
-   border-radius: 5px;
-   background-color: #f9f9f9;
-   margin: 10px;
-   padding: 15px;
-   position: relative;
-   box-shadow: 2px 2px 2px lightgrey;
-}
-
-.mini_container {
-  border-radius: 5px;
-  background-color: #f9f9f9;
-  margin: 10px;
-  padding: 15px;
-  position: relative;
-  box-shadow: 2px 2px 2px lightgrey;
-}
-
-.full-width.column {
-   width: 100%;
-}
-
-.dcc_control {
-  margin: 0;
-  padding: 5px;
-  width: calc(100%-40px);
-}
-
-.control_label {
-  margin: 0;
-  padding: 10px;
-  padding-bottom: 0px;
-  marginBottom: 0px;
-  width: calc(100%-40px);
-}
-
-.flex-display {
-  display: flex;
-}
-
-#title {
-  text-align: center;
-}
-
-.container-display {
-  display: flex;
-}
-
-#msudenver-logo {
-  height: 60px;
-  width: auto;
-  position: absolute;
-  left: 5%;
-  margin-top: 20px;
-  margin-left: 10px;
-}
-
-#upload-data {
-  width: 100%;
-  height: 60px;
-  line-height: 60px;
-  border-width: 1px;
-  border-style: dashed;
-  border-radius: 5px;
-  text-align: center;
-  margin: 5px;
-  margin-top: 20px;
-  margin-right: 10px;
-  float: right;
-}
-
-.export {
-border-radius: 5px;
-border: 2px solid lightgrey;
-padding: 0 15px;
-/*font-family: ‘Poppins-Bold’;*/
-background-color:white;
-transition:.75s;
-}
-
-.export:hover {
-color:white;
-box-shadow: 0px 1px 3px lightgrey;
-background-color: lightgrey;
-}
-
 /* Base Styles
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 /* NOTE
@@ -192,220 +87,157 @@ a:hover {
   color: #0fa0ce;
 }
 
-/* Media Queries
+/* Grid
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
-/*
-Note: The best way to structure the use of media queries is to create the queries
-near the relevant code. For example, if you wanted to change the styles for buttons
-on small devices, paste the mobile query code up in the buttons section and style it
-there.
-*/
-
-/* Larger than mobile, screen sizes larger than 400px */
-@media (min-width: 400px) {
+.container {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
-
-/* Larger than tablet, for screens smaller than 768px */
-@media (max-width: 550px) {
-  .flex-display {
-    display: block !important;
-  }
-  .pretty_container {
-    margin: 0 !important;
-    margin-bottom: 25px !important;
-  }
-  .container-display {
-    display: flex;
-  }
-  .mini_container {
-    margin-bottom: 25px !important;
-    border-radius: 5px;
-    background-color: #f9f9f9;
-    padding: 15px;
-    position: relative;
-    box-shadow: 2px 2px 2px lightgrey;
-  }
-  #plotly-image {
-    margin-bottom: 0px !important;
-    height: 45px !important;
-  }
-  #learn-more-button {
-    margin-top: 0px !important;
-    padding: 0 10px !important;
-    font-size: 12px !important;
-  }
-  #button {
-    display: flex;
-    justify-content: center;
-  }
-  #title {
-    margin-bottom: 10px;
-  }
-  h3 {
-    font-size: 2.5rem;
-  }
-  h5 {
-    font-size: 2rem;
-  }
-  h6 {
-    font-size: 1.25rem;
-  }
-  p {
-    font-size: 11px;
-  }
+.column,
+.columns {
+  width: 100%;
+  float: left;
+  box-sizing: border-box;
 }
-
-/* Larger than desktop */
-@media (min-width: 1000px) {
+.pretty_container {
+   border-radius: 5px;
+   background-color: #f9f9f9;
+   margin: 10px;
+   padding: 15px;
+   position: relative;
+   box-shadow: 2px 2px 2px lightgrey;
 }
-
-/* Larger than Desktop HD */
-@media (min-width: 1200px) {
+.mini_container {
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  margin: 10px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 2px 2px 2px lightgrey;
 }
-
-/* For devices larger than 400px */
-@media (min-width: 400px) {
-  .container {
-    width: 85%;
-    padding: 0;
-  }
+.full-width.column {
+   width: 100%;
 }
-
-/* For devices larger than 550px */
-@media (min-width: 550px) {
-  .container {
-    width: 80%;
-  }
-  .column,
-  .columns {
-    margin-left: 4%;
-  }
-  .one.column,
-  .one.columns {
-    width: calc(100% / 12);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .two.columns {
-    width: calc(100% / 6);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .three.columns {
-    width: calc(100% / 4);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .four.columns {
-    width: calc(100% / 3);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .five.columns {
-    width: calc(100% * 5 / 12);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .six.columns {
-    width: calc(100% / 2);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .seven.columns {
-    width: calc(100% * 7 / 12);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .eight.columns {
-    width: calc(100% * 2 / 3);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .nine.columns {
-    width: calc(100% * 3 / 4);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .ten.columns {
-    width: calc(100% * 5 / 6);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .eleven.columns {
-    width: calc(100% * 11 / 12);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .twelve.columns {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .one-third.column {
-    width: calc(100% / 3);
-  }
-  .two-thirds.column {
-    width: calc(100% * 2 / 3);
-  }
-  .one-half.column {
-    width: calc(100% / 2);
-  }
-  /* Offsets */
-  .offset-by-one.column,
-  .offset-by-one.columns {
-    margin-left: 8.66666666667%;
-  }
-  .offset-by-two.column,
-  .offset-by-two.columns {
-    margin-left: 17.3333333333%;
-  }
-  .offset-by-three.column,
-  .offset-by-three.columns {
-    margin-left: 26%;
-  }
-  .offset-by-four.column,
-  .offset-by-four.columns {
-    margin-left: 34.6666666667%;
-  }
-  .offset-by-five.column,
-  .offset-by-five.columns {
-    margin-left: 43.3333333333%;
-  }
-  .offset-by-six.column,
-  .offset-by-six.columns {
-    margin-left: 52%;
-  }
-  .offset-by-seven.column,
-  .offset-by-seven.columns {
-    margin-left: 60.6666666667%;
-  }
-  .offset-by-eight.column,
-  .offset-by-eight.columns {
-    margin-left: 69.3333333333%;
-  }
-  .offset-by-nine.column,
-  .offset-by-nine.columns {
-    margin-left: 78%;
-  }
-  .offset-by-ten.column,
-  .offset-by-ten.columns {
-    margin-left: 86.6666666667%;
-  }
-  .offset-by-eleven.column,
-  .offset-by-eleven.columns {
-    margin-left: 95.3333333333%;
-  }
-  .offset-by-one-third.column,
-  .offset-by-one-third.columns {
-    margin-left: 34.6666666667%;
-  }
-  .offset-by-two-thirds.column,
-  .offset-by-two-thirds.columns {
-    margin-left: 69.3333333333%;
-  }
-  .offset-by-one-half.column,
-  .offset-by-one-half.columns {
-    margin-left: 52%;
-  }
+.dcc_control {
+  margin: 0;
+  padding: 5px;
+  width: calc(100%-40px);
+}
+.control_label {
+  margin: 0;
+  padding: 10px;
+  padding-bottom: 0px;
+  margin-Bottom: 0px;
+  width: calc(100%-40px);
+}
+.flex-display {
+  display: flex;
+}
+#title {
+  text-align: center;
+}
+.container-display {
+  display: flex;
+}
+#msudenver-logo {
+  height: 60px;
+  width: auto;
+  position: absolute;
+  left: 5%;
+  margin-top: 20px;
+  margin-left: 10px;
+}
+#upload-data {
+  width: 100%;
+  height: 60px;
+  line-height: 60px;
+  border-width: 1px;
+  border-style: dashed;
+  border-radius: 5px;
+  text-align: center;
+  margin: 5px;
+  margin-top: 20px;
+  margin-right: 10px;
+  float: right;
+}
+.export {
+border-radius: 5px;
+border: 2px solid lightgrey;
+padding: 0 15px;
+background-color:white;
+transition:.75s;
+}
+.export:hover {
+color:white;
+box-shadow: 0px 1px 3px lightgrey;
+background-color: lightgrey;
+}
+.container {
+ width: 80%;
+}
+.column {
+ margin-left: auto;
+ margin-right: auto;
+}
+.columns {
+ margin-left: auto;
+ margin-right: auto;
+}
+.one.column,
+.one.columns {
+ width: 7.333333333333%;
+}
+.two.columns {
+ width: 15.66666666667%;
+}
+.three.columns {
+ width: 24%;
+}
+.four.columns {
+ width: 32.33333333333%;
+}
+.five.columns {
+  width: 40.6666666667%;
+}
+.six.columns {
+ width: 49%;
+}
+.seven.columns {
+ width: 57.33333333333%;
+}
+.eight.columns {
+ width: 65.66666666667%;
+}
+.nine.columns {
+ width: 74%;
+}
+.ten.columns {
+ width: 83.33333333333%;
+}
+.eleven.columns {
+ width: 90.66666666667%;
+}
+.twelve.columns {
+ width: 100%;
+}
+.one-third.column {
+ width: 32.33333333333%;
+}
+.two-thirds.column {
+ width: 65.66666666667%;
+}
+.one-half.column {
+ width: 49%;
+}
+/* Offsets */
+.offset-left.columns {
+ margin-left: 1%;
+}
+.offset-right.columns {
+ margin-right: 1%;
 }
 
