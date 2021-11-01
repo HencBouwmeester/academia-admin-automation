@@ -188,6 +188,7 @@ def updateTitles(df):
         ["MTH 4480", "Numerical Analysis I",],
         ["MTH 4490", "Numerical Analysis II",],
         ["MTH 4640", "History of Mathematics",],
+        ["MTH 4660", "Introduction to Topology",],
         ["MTL 3600", "Mathematics of Elementary Curriculum",],
         ["MTL 3620", "Mathematics of Secondary Curriculum",],
         ["MTL 3630", "Teaching Secondary Mathematics",],
@@ -1548,6 +1549,5 @@ def chp_by_course(data):
 
 # Main
 if __name__ == "__main__":
-    # app.run_server(debug=True, host='172.16.0.153')
     app.run_server(debug=True, host='10.0.2.15')
     # app.run_server(debug=True)
