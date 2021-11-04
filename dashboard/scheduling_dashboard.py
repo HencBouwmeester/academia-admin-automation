@@ -441,15 +441,47 @@ def parse_contents(contents, filename, date):
         print(e)
         return html.Div(["There was an error processing this file."])
 
+    tab_style = {
+        'height': '30px',
+        'padding': '2px',
+    }
+    selected_tab_style = {
+        'height': '30px',
+        'padding': '2px',
+    }
     html_layout = [
         html.Div([
             dcc.Tabs(id='tabs-weekdays', value='tab-mon', children=[
-                dcc.Tab(label='Monday', value='tab-mon'),
-                dcc.Tab(label='Tuesday', value='tab-tue'),
-                dcc.Tab(label='Wednesday', value='tab-wed'),
-                dcc.Tab(label='Thursday', value='tab-thu'),
-                dcc.Tab(label='Friday', value='tab-fri'),
-                dcc.Tab(label='Saturday', value='tab-sat'),
+                dcc.Tab(label='Monday',
+                        value='tab-mon',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
+                dcc.Tab(label='Tuesday',
+                        value='tab-tue',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
+                dcc.Tab(label='Wednesday',
+                        value='tab-wed',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
+                dcc.Tab(label='Thursday',
+                        value='tab-thu',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
+                dcc.Tab(label='Friday',
+                        value='tab-fri',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
+                dcc.Tab(label='Saturday',
+                        value='tab-sat',
+                        style=tab_style,
+                        selected_style=selected_tab_style,
+                       ),
             ]),
             html.Div(id='tabs-weekdays-content',
                      style={
@@ -459,7 +491,8 @@ def parse_contents(contents, filename, date):
                          'marginRight': 'auto',
                      }
                     )
-        ]),
+        ],
+        ),
         html.Div([
             dash_table.DataTable(
                 id='datatable-interactivity',
@@ -526,24 +559,43 @@ def update_output(contents, name, date):
 
 @app.callback(
     Output('tabs-weekdays-content', 'children'),
-    [Input('tabs-weekdays', 'value'), Input('datatable-interactivity', 'data')],
+    [Input('tabs-weekdays', 'value'),
+     Input('datatable-interactivity', 'data'),
+     Input('datatable-interactivity', 'derived_viewport_data'),
+     Input('datatable-interactivity', 'derived_virtual_selected_rows')],
 )
-def render_content(tab, data):
-    _df = pd.DataFrame(data)
-    _df = _df[_df["Loc"] != "ONLI  T"]
-    _df = _df[_df["Loc"] != "SYNC  T"]
-    _df = _df[_df["Loc"] != "ASYN T"]
-    _df = _df[_df["Loc"] != "TBA"]
+def render_content(tab, data, filtered_data, slctd_row_indices):
+    _dfLoc = pd.DataFrame(data)
+    _df = pd.DataFrame(filtered_data)
 
-    rooms = _df["Loc"].unique()
-    Loc = dict(zip(sorted(rooms), range(len(rooms))))
-    nLoc = len(list(Loc.keys()))
+    # set the color pallete
+    colorDark = px.colors.qualitative.Set1
+    colorLight = px.colors.qualitative.Pastel1
 
+    # add columns for rectangle dimensions and annotation
     _df.insert(len(_df.columns), "xRec", 0)
     _df.insert(len(_df.columns), "yRec", 0)
     _df.insert(len(_df.columns), "wRec", 0)
     _df.insert(len(_df.columns), "hRec", 0)
     _df.insert(len(_df.columns), "textRec", 0)
+    _df.insert(len(_df.columns), "colorRec", 0)
+
+    colors = [colorLight[4] if k in slctd_row_indices else colorLight[1]
+              for k in range(len(_df))]
+    _df["colorRec"] = colors
+
+    # remove classes without rooms
+    _df = _df[_df["Campus"] != "I"]
+    _df = _df[_df["Loc"] != "TBA"]
+    _dfLoc = _dfLoc[_dfLoc["Campus"] != "I"]
+    _dfLoc = _dfLoc[_dfLoc["Loc"] != "TBA"]
+
+    # unique rooms and total number of unique rooms
+    rooms = _dfLoc["Loc"].unique()
+    Loc = dict(zip(sorted(rooms), range(len(rooms))))
+    nLoc = len(list(Loc.keys()))
+
+    # compute dimensions based on class time
     for row in _df.index.tolist():
         strTime = _df.loc[row, "Time"]
         s = strTime[:5]
@@ -560,12 +612,9 @@ def render_content(tab, data):
         _df.loc[row, "yRec"] = yRec
         _df.loc[row, "wRec"] = 1
         _df.loc[row, "hRec"] = hRec
-        _df.loc[row, "textRec"] = _df.loc[row, "Class"]
+        _df.loc[row, "textRec"] = _df.loc[row, "Class"] + "-" + _df.loc[row, "Section"]
 
-    # set the color pallete
-    colorDark = px.colors.qualitative.Set1
-    colorLight = px.colors.qualitative.Pastel1
-
+    # create mask for each tab based on day of week
     if tab == 'tab-mon':
         mask = _df["Days"].str.contains('M', case=True, na=False)
     elif tab == 'tab-tue':
@@ -579,11 +628,13 @@ def render_content(tab, data):
     elif tab == 'tab-sat':
         mask = _df["Days"].str.contains('S', case=True, na=False)
 
+    # apply mask to tab
     _df = _df[mask]
 
     fig = go.Figure()
 
-    for k in range(0, nLoc):
+    # alternating vertical shading for rooms
+    for k in range(nLoc):
         if k%2:
             fig.add_shape(
                 type="rect",
@@ -609,6 +660,7 @@ def render_content(tab, data):
                 fillcolor="white",
             )
 
+    # horizontal lines for hours
     for k in range(170):
         if not k%12:
             fig.add_shape(
@@ -624,35 +676,54 @@ def render_content(tab, data):
             )
 
 
-
+    # create list of dictionaries of rectangle for each course this will allow
+    # me to find overlaps later
+    recAnnotations = []
+    recDimensions = []
     for row in _df.index.tolist():
         xRec = _df.loc[row, "xRec"]
         yRec = _df.loc[row, "yRec"]
         wRec = _df.loc[row, "wRec"]
         hRec = _df.loc[row, "hRec"]
         textRec = _df.loc[row, "textRec"]
+        colorRec = _df.loc[row, "colorRec"]
 
-        # Add shapes
+        recAnnotations.append(
+            dict(
+                xref="x", yref="y",
+                x = xRec + wRec/2,
+                y = -(yRec + hRec/2),
+                text = textRec,
+                showarrow = False,
+                font = dict(size=min(int(16/nLoc*8),14)),
+            )
+        )
+
+        recDimensions.append(
+            dict(
+                type="rect",
+                xref="x", yref="y",
+                x0 = xRec, y0 = -yRec,
+                x1 = xRec + wRec, y1 = -(yRec + hRec),
+                line=dict(
+                    color="LightGray",
+                    width=1,
+                ),
+                fillcolor=colorRec,
+                opacity=0.5,
+            )
+        )
+
+    # draw the rectangles and annotations
+    for ann,rec in zip(recAnnotations, recDimensions):
         fig.add_annotation(
-            xref="x", yref="y",
-            x = xRec + wRec/2,
-            y = -(yRec + hRec/2),
-            text = textRec,
-            showarrow = False,
-            yshift = 0
+            ann
         )
         fig.add_shape(
-            type="rect",
-            xref="x", yref="y",
-            x0 = xRec, y0 = -yRec,
-            x1 = xRec + wRec, y1 = -(yRec + hRec),
-            line=dict(
-                color="LightGray",
-                width=1,
-            ),
-            fillcolor=colorLight[1],
+            rec
         )
 
+    # setup the axes and tick marks
     fig.update_layout(
         autosize = False,
         width = 1283,
@@ -666,13 +737,16 @@ def render_content(tab, data):
             range=[-170, 0],
             tickvals=[-k*12 for k in range(15)],
             ticktext=[("0{:d}:00".format(k))[-5:] for k in range(8,23)],
-            # autorange="reversed",
         )
     )
 
     return html.Div([
         dcc.Graph(
-            figure=fig
+            figure=fig,
+            config={
+                'displayModeBar': False,
+                'staticPlot': True,
+            },
         )
     ])
 
@@ -682,6 +756,8 @@ if __name__ == "__main__":
     # app.run_server(debug=True)
 
 
+"""
+TODO:
+    add functionality to add rows
 
-    # to put plots on separate tabs:
-        #https://dash-bootstrap-components.opensource.faculty.ai/examples/graphs-in-tabs/
+"""
