@@ -3,11 +3,9 @@
 # Import required libraries
 import dash
 import pandas as pd
-import dash_core_components as dcc
-import dash_html_components as html
 import plotly.express as px
 import plotly.io as pio
-import dash_table
+from dash import dash_table, html, dcc
 import numpy as np
 import base64
 import io

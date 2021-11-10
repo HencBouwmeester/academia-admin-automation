@@ -59,7 +59,7 @@ app.layout = html.Div([
         html.Div([
             html.Div([
                 html.H3(
-                    "Scheduling Tools",
+                    "Scheduling Tool",
                     id="title-report-semester",
                     style={"marginBottom": "0px"},
                 ),
@@ -305,7 +305,6 @@ def tidy_txt(file_contents):
 
     _df = _df.sort_values(by=["Subject", "Number", "Section"])
     _df.drop(["T", "Enrolled", "WCap", "WList", "Rcap", "Full"], axis=1, inplace=True)
-    # _df.drop(["T", "Enrolled", "WCap", "WList", "Rcap", "Full", "Class"], axis=1, inplace=True)
 
     return _df
 
@@ -394,8 +393,6 @@ def tidy_xlsx(file_contents):
     _df["Class"] = _df["Subject"] + " " + _df["Number"]
     _df = updateTitles(_df)
 
-    # _df.drop(["Class"], axis=1, inplace=True)
-
     # there might be CRNs that are unknown (blank), so fill sequentially starting
     # from 99999 and go down
     i = 1
@@ -403,7 +400,7 @@ def tidy_xlsx(file_contents):
         _df.loc[row, "CRN"] = str(100000 - i)
         i += 1
 
-    return _df#, term_code, data_date
+    return _df
 
 def parse_contents(contents, filename, date):
     """Assess filetype of uploaded file and pass to appropriate processing functions,
@@ -436,25 +433,6 @@ def parse_contents(contents, filename, date):
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."])
-
-    # blank figure when no data is present
-    blankFigure={
-        'data': [],
-        'layout': go.Layout(
-            xaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            },
-            yaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            }
-        )
-    }
 
     tab_style = {
         'height': '30px',
@@ -501,11 +479,12 @@ def parse_contents(contents, filename, date):
             html.Div([
                      html.Div([
                          dcc.Graph(
-                             # figure=blankFigure,
                              figure=update_grid('tab-mon', 'no', df, df, []),
                              config={
                                  'displayModeBar': False,
-                                 'staticPlot': True,
+                                 'showAxisDragHandles': True,
+                                 # 'responsive': True,
+                                 # 'staticPlot': True,
                              },
                              id='schedule_grid',
                          )
@@ -524,8 +503,6 @@ def parse_contents(contents, filename, date):
         ),
         html.Div([
             html.Button('Update Grid', id='update-grid-button', n_clicks=0,
-                        style={'marginLeft': '5px'}),
-            html.Button('Add Row', id='add-row-button', n_clicks=0,
                         style={'marginLeft': '5px'}),
             html.Button('Export All', id='export-all-button', n_clicks=0,
                         style={'marginLeft': '5px'}),
@@ -568,6 +545,7 @@ def parse_contents(contents, filename, date):
                             {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
                             {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
                             {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                            {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                             {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
                             {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
                             # {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
@@ -616,11 +594,18 @@ def parse_contents(contents, filename, date):
                     placeholder='Enter filter query',
                     className="dcc_control",
                 ),
-            ], style={'marginLeft': '5px',}),
+            ], style={'marginLeft': '5px', 'width': '75%'}),
             html.Br(),
             html.Div(id='filter-query-output'),
 
             html.Hr(),
+            html.Div([
+                html.Button('Select All', id='select-all-button', n_clicks=0,
+                            style={'marginLeft': '5px'}),
+                html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
+                            style={'marginLeft': '5px'}),
+            ],
+            ),
             ]),
         html.Div([
             dash_table.DataTable(
@@ -668,7 +653,8 @@ def parse_contents(contents, filename, date):
                 'marginRight': 'auto',
             }
             ),
-        html.P(id='placeholder'),
+        html.Button('Add Row', id='add-row-button', n_clicks=0,
+                    style={'marginLeft': '5px'}),
     ]
     return html_layout, df
 
@@ -851,13 +837,11 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
 
     # setup the axes and tick marks
     fig.update_layout(
-        # autosize = False,
-        # width = 1283,
-        # height = 600,
         xaxis = dict(
             range=[0,nLoc],
             tickvals=[k+.5 for k in range(nLoc)],
             ticktext=list(Loc.keys()),
+            side='top',
         ),
         yaxis = dict(
             range=[-170, 0],
@@ -887,10 +871,8 @@ def to_excel(df):
     xlsx_io.seek(0)
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
+
     return data
-    # return f"data:{media_type};base64,{data}"
-
-
 
 @app.callback(
     [Output("output-data-upload", "children")],
@@ -923,21 +905,36 @@ def render_content(n_clicks, tab, toggle, current_state, data, filtered_data, sl
     else:
         return current_state
 
+@app.callback(
+    Output('datatable-interactivity', 'selected_rows'),
+    [Input('select-all-button', 'n_clicks'),
+     Input('deselect-all-button', 'n_clicks')],
+    State('datatable-interactivity', 'derived_virtual_indices'),
+)
+def select_deselect(selbtn, deselbtn, selected_rows):
+    ctx = dash.callback_context
+    if ctx.triggered:
+        trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
+    if trigger == 'select-all-button':
+        if selected_rows is None:
+            return []
+        else:
+            return selected_rows
+    else:
+        return []
 
 @app.callback(
     Output('datatable-interactivity', 'data'),
     Input('add-row-button', 'n_clicks'),
     State('datatable-interactivity', 'data'),
     State('datatable-interactivity', 'columns'))
-def add_row(n_clicks, rows, columns):
+def add_row(n_clicks, select_all_n_clicks, deselect_all_n_clicks, rows, columns):
     if n_clicks > 0:
-        # rows.append(
-            # {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': '',
-             # 'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
-             # 'Time': '', 'Loc': '', 'Being/End': '', 'Instructor': ''}
-        # )
-        rows.append({c['id']:'' for c in columns})
-        # be specific about what the values will be in these rows.  You can even ask for values from inputs
+        rows.append(
+            {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
+             'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
+             'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ','}
+        )
     return rows
 
 @app.callback(
@@ -946,14 +943,12 @@ def add_row(n_clicks, rows, columns):
     [Input('filter-query-read-write', 'value')]
 )
 def query_input_output(val):
-    input_style = {'width': '100%', 'height': '35px'}
-    output_style = {'height': '35px'}
     if val == 'read':
-        input_style.update(display='none')
-        output_style.update(display='inline-block', marginLeft='15px')
+        input_style = {'display': 'none'}
+        output_style = {'height': '35px', 'display': 'inline-block', 'marginLeft': '15px'}
     else:
-        input_style.update(display='inline-block')
-        output_style.update(display='none')
+        input_style = {'marginLeft': '5px', 'width': '75%', 'display': 'inline-block'}
+        output_style = {'display': 'none'}
     return input_style, output_style
 
 @app.callback(
@@ -1006,10 +1001,3 @@ def func(n_clicks, data):
 if __name__ == "__main__":
     app.run_server(debug=True, host='10.0.2.15', port='8050')
     # app.run_server(debug=True)
-
-
-"""
-TODO:
-    add functionality to add rows
-
-"""
