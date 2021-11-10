@@ -9,7 +9,11 @@ html {
 
 body {
   background-color: #f2f2f2;
-  margin: 5%;
+  /*margin: 5%;*/
+  margin-top: 0;
+  margin-bottom: 5%;
+  margin-right: 5%;
+  margin-left: 5%;
   font-size: 1.5em; /* currently ems cause chrome bug misinterpreting rems on body element */
   line-height: 1.6;
   font-weight: 400;
@@ -34,6 +38,7 @@ h1 {
   font-size: 4.5rem;
   line-height: 1.2;
   letter-spacing: -0.1rem;
+  margin-top: 0;
   margin-bottom: 2rem;
 }
 h2 {
@@ -239,5 +244,55 @@ background-color: lightgrey;
 }
 .offset-right.columns {
  margin-right: 1%;
+}
+
+
+
+/* Switch styling
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+
+.switch-field {
+	display: flex;
+	margin-bottom: 36px;
+	overflow: hidden;
+}
+
+.switch-field input {
+	position: absolute !important;
+	clip: rect(0, 0, 0, 0);
+	height: 1px;
+	width: 1px;
+	border: 0;
+	overflow: hidden;
+}
+
+.switch-field label {
+	background-color: #e4e4e4;
+	color: rgba(0, 0, 0, 0.6);
+	font-size: 14px;
+	line-height: 1;
+	text-align: center;
+	padding: 8px 16px;
+	margin-right: -1px;
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.1);
+	transition: all 0.1s ease-in-out;
+}
+
+.switch-field label:hover {
+	cursor: pointer;
+}
+
+.switch-field input:checked + label {
+	background-color: #a5dc86;
+	box-shadow: none;
+}
+
+.switch-field label:first-of-type {
+	border-radius: 4px 0 0 4px;
+}
+
+.switch-field label:last-of-type {
+	border-radius: 0 4px 4px 0;
 }
 

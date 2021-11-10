@@ -3,19 +3,17 @@
 # Import required libraries
 import dash
 import pandas as pd
-import dash_core_components as dcc
-import dash_html_components as html
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
-import dash_table
+from dash import html, dcc, dash_table
 import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import datetime
+import dash_daq as daq
 
 # Include pretty graph formatting
 pio.templates.default = "plotly_white"
@@ -28,7 +26,7 @@ app = dash.Dash(
 )
 server = app.server
 
-app.title = "Scheduling Tools"
+app.title = "Scheduling Tool"
 
 app.config.update({
     'suppress_callback_exceptions': True,
@@ -350,9 +348,6 @@ def tidy_xlsx(file_contents):
         Dataframe.
     """
 
-    term_code = "190000"
-    d = "02-FEB-1900"
-    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
     _df = pd.read_excel(file_contents,
                         engine='openpyxl',
                         converters={
@@ -366,7 +361,8 @@ def tidy_xlsx(file_contents):
                             'Time':str,
                             'Loc':str,
                             'Instructor':str,
-                        })
+                        },
+                       )
 
     # create missing columns, if necessary
     if not 'S' in _df.columns:
@@ -407,7 +403,7 @@ def tidy_xlsx(file_contents):
         _df.loc[row, "CRN"] = str(100000 - i)
         i += 1
 
-    return _df, term_code, data_date
+    return _df#, term_code, data_date
 
 def parse_contents(contents, filename, date):
     """Assess filetype of uploaded file and pass to appropriate processing functions,
@@ -436,10 +432,29 @@ def parse_contents(contents, filename, date):
             df = tidy_csv(io.StringIO(decoded.decode("utf-8")))
             df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
         elif "xlsx" in filename:
-            df, term_code, data_date = tidy_xlsx(io.BytesIO(decoded))
+            df = tidy_xlsx(io.BytesIO(decoded))
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."])
+
+    # blank figure when no data is present
+    blankFigure={
+        'data': [],
+        'layout': go.Layout(
+            xaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            },
+            yaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            }
+        )
+    }
 
     tab_style = {
         'height': '30px',
@@ -483,20 +498,133 @@ def parse_contents(contents, filename, date):
                         selected_style=selected_tab_style,
                        ),
             ]),
-            html.Div(id='tabs-weekdays-content',
-                     style={
-                         'width': '100%',
-                         'display': 'block',
-                         'marginLeft': 'auto',
-                         'marginRight': 'auto',
-                     }
-                    )
+            html.Div([
+                     html.Div([
+                         dcc.Graph(
+                             # figure=blankFigure,
+                             figure=update_grid('tab-mon', 'no', df, df, []),
+                             config={
+                                 'displayModeBar': False,
+                                 'staticPlot': True,
+                             },
+                             id='schedule_grid',
+                         )
+                     ],
+                     ),
+            ],
+                id='tabs-weekdays-content',
+                style={
+                    'width': '100%',
+                    'display': 'block',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto',
+                }
+            )
         ],
         ),
         html.Div([
+            html.Button('Update Grid', id='update-grid-button', n_clicks=0,
+                        style={'marginLeft': '5px'}),
+            html.Button('Add Row', id='add-row-button', n_clicks=0,
+                        style={'marginLeft': '5px'}),
+            html.Button('Export All', id='export-all-button', n_clicks=0,
+                        style={'marginLeft': '5px'}),
+            dcc.Download(id='datatable-download'),
+            html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
+                        style={'marginLeft': '5px'}),
+            dcc.Download(id='datatable-filtered-download'),
+            html.Div([
+                daq.ToggleSwitch(
+                    id='toggle-rooms',
+                    label='All rooms',
+                    labelPosition='top',
+                    value=False,
+                ),
+            ],
+                style={'float': 'right','margin': 'auto'},),
+        ],
+                     style={
+                         'width': '100%',
+                         'height': '30px',
+                         'display': 'block',
+                         'marginLeft': 'auto',
+                         'marginRight': 'auto',
+                         'marginTop': '10px',
+                         'marginBottom': '10px',
+                         'float': 'left',
+                     }
+        ),
+        html.Div([
+            html.Div([
+                html.Label([
+                    "Predefined Queries:",
+                    dcc.Dropdown(
+                        id='filter-query-dropdown',
+                        options=[
+                            {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
+                            {'label': 'Active Classes', 'value': '{S} contains A'},
+                            {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                            {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                            {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                            {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                            {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                            {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                            {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                            # {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
+                            # {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
+                            # {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
+                            {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                            {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                            {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                            {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                            {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                            {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                            {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                            {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                            {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                            {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                            {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                        ],
+                        placeholder='Select a query',
+                        value='',
+                    ),
+                ]),
+            ], style={'marginLeft': '5px',}),
+
+            html.Br(),
+
+            html.Div([
+                html.Label([
+                    "Custom Queries:",
+                    dcc.RadioItems(
+                        id='filter-query-read-write',
+                        options=[
+                            {'label': 'Read filter_query', 'value': 'read'},
+                            {'label': 'Write to filter_query', 'value': 'write'}
+                        ],
+                        className="dcc_control",
+                        value='read'
+                    ),
+                ]),
+            ], style={'marginLeft': '5px',}),
+
+            html.Br(),
+
+            html.Div([
+                dcc.Input(
+                    id='filter-query-input',
+                    placeholder='Enter filter query',
+                    className="dcc_control",
+                ),
+            ], style={'marginLeft': '5px',}),
+            html.Br(),
+            html.Div(id='filter-query-output'),
+
+            html.Hr(),
+            ]),
+        html.Div([
             dash_table.DataTable(
                 id='datatable-interactivity',
-                export_format="xlsx",
                 columns=[{'name': n, 'id': i} for n,i in zip([
                     "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
                     "Credit", "Max", "Days", "Time", "Loc", "Begin/End", "Instructor"
@@ -531,7 +659,7 @@ def parse_contents(contents, filename, date):
                     'whiteSpace': 'normal',
                     'height': 'auto',
                 },
-            )
+            ),
             ],
             style={
                 'width': '100%',
@@ -539,32 +667,12 @@ def parse_contents(contents, filename, date):
                 'marginLeft': 'auto',
                 'marginRight': 'auto',
             }
-            )
+            ),
+        html.P(id='placeholder'),
     ]
     return html_layout, df
 
-@app.callback(
-    [Output("output-data-upload", "children")],
-    [Input("upload-data", "contents")],
-    [State("upload-data", "filename"), State("upload-data", "last_modified")],
-)
-def update_output(contents, name, date):
-    """When files are selected, call parse-contents and return the new html elements."""
-
-    if contents is not None:
-        data_children, df = parse_contents(contents, name, date)
-    else:
-        data_children = []
-    return [data_children]
-
-@app.callback(
-    Output('tabs-weekdays-content', 'children'),
-    [Input('tabs-weekdays', 'value'),
-     Input('datatable-interactivity', 'data'),
-     Input('datatable-interactivity', 'derived_viewport_data'),
-     Input('datatable-interactivity', 'derived_virtual_selected_rows')],
-)
-def render_content(tab, data, filtered_data, slctd_row_indices):
+def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = pd.DataFrame(data)
     _df = pd.DataFrame(filtered_data)
 
@@ -573,25 +681,53 @@ def render_content(tab, data, filtered_data, slctd_row_indices):
     colorLight = px.colors.qualitative.Pastel1
 
     # add columns for rectangle dimensions and annotation
-    _df.insert(len(_df.columns), "xRec", 0)
-    _df.insert(len(_df.columns), "yRec", 0)
-    _df.insert(len(_df.columns), "wRec", 0)
-    _df.insert(len(_df.columns), "hRec", 0)
-    _df.insert(len(_df.columns), "textRec", 0)
-    _df.insert(len(_df.columns), "colorRec", 0)
+    if not 'xRec' in _df.columns:
+        _df.insert(len(_df.columns), "xRec", 0)
+    if not 'yRec' in _df.columns:
+        _df.insert(len(_df.columns), "yRec", 0)
+    if not 'wRec' in _df.columns:
+        _df.insert(len(_df.columns), "wRec", 0)
+    if not 'hRec' in _df.columns:
+        _df.insert(len(_df.columns), "hRec", 0)
+    if not 'textRec' in _df.columns:
+        _df.insert(len(_df.columns), "textRec", 0)
+    if not 'colorRec' in _df.columns:
+        _df.insert(len(_df.columns), "colorRec", 0)
 
     colors = [colorLight[4] if k in slctd_row_indices else colorLight[1]
               for k in range(len(_df))]
     _df["colorRec"] = colors
 
     # remove classes without rooms
-    _df = _df[_df["Campus"] != "I"]
-    _df = _df[_df["Loc"] != "TBA"]
     _dfLoc = _dfLoc[_dfLoc["Campus"] != "I"]
     _dfLoc = _dfLoc[_dfLoc["Loc"] != "TBA"]
+    _dfLoc = _dfLoc[_dfLoc["Loc"] != "OFFC  T"]
+    _df = _df[_df["Campus"] != "I"]
+    _df = _df[_df["Loc"] != "TBA"]
+    _df = _df[_df["Loc"] != "OFFC  T"]
+
+    # create mask for each tab based on day of week
+    if tab == 'tab-mon':
+        mask = _df["Days"].str.contains('M', case=True, na=False)
+    elif tab == 'tab-tue':
+        mask = _df["Days"].str.contains('T', case=True, na=False)
+    elif tab == 'tab-wed':
+        mask = _df["Days"].str.contains('W', case=True, na=False)
+    elif tab == 'tab-thu':
+        mask = _df["Days"].str.contains('R', case=True, na=False)
+    elif tab == 'tab-fri':
+        mask = _df["Days"].str.contains('F', case=True, na=False)
+    elif tab == 'tab-sat':
+        mask = _df["Days"].str.contains('S', case=True, na=False)
+
+    # apply the mask
+    _df = _df[mask]
 
     # unique rooms and total number of unique rooms
-    rooms = _dfLoc["Loc"].unique()
+    if toggle:
+        rooms = _df["Loc"].unique()
+    else:
+        rooms = _dfLoc["Loc"].unique()
     Loc = dict(zip(sorted(rooms), range(len(rooms))))
     nLoc = len(list(Loc.keys()))
 
@@ -608,28 +744,18 @@ def render_content(tab, data, filtered_data, slctd_row_indices):
             hRec = 12*(int(e[:2])-8) + int(e[3:])//5 - yRec
         except ValueError:
             hRec = 0
-        _df.loc[row, "xRec"] = Loc[_df.loc[row, "Loc"]]
+        try:
+            _df.loc[row, "xRec"] = Loc[_df.loc[row, "Loc"]]
+        except:
+            _df.loc[row, "xRec"] = 0
+
         _df.loc[row, "yRec"] = yRec
         _df.loc[row, "wRec"] = 1
         _df.loc[row, "hRec"] = hRec
-        _df.loc[row, "textRec"] = _df.loc[row, "Class"] + "-" + _df.loc[row, "Section"]
-
-    # create mask for each tab based on day of week
-    if tab == 'tab-mon':
-        mask = _df["Days"].str.contains('M', case=True, na=False)
-    elif tab == 'tab-tue':
-        mask = _df["Days"].str.contains('T', case=True, na=False)
-    elif tab == 'tab-wed':
-        mask = _df["Days"].str.contains('W', case=True, na=False)
-    elif tab == 'tab-thu':
-        mask = _df["Days"].str.contains('R', case=True, na=False)
-    elif tab == 'tab-fri':
-        mask = _df["Days"].str.contains('F', case=True, na=False)
-    elif tab == 'tab-sat':
-        mask = _df["Days"].str.contains('S', case=True, na=False)
-
-    # apply mask to tab
-    _df = _df[mask]
+        try:
+            _df.loc[row, "textRec"] = _df.loc[row, "Subject"] + " " + _df.loc[row, "Number"] + "-" + _df.loc[row, "Section"]
+        except TypeError:
+            _df.loc[row, "textRec"] = ""
 
     fig = go.Figure()
 
@@ -725,9 +851,9 @@ def render_content(tab, data, filtered_data, slctd_row_indices):
 
     # setup the axes and tick marks
     fig.update_layout(
-        autosize = False,
-        width = 1283,
-        height = 600,
+        # autosize = False,
+        # width = 1283,
+        # height = 600,
         xaxis = dict(
             range=[0,nLoc],
             tickvals=[k+.5 for k in range(nLoc)],
@@ -740,19 +866,145 @@ def render_content(tab, data, filtered_data, slctd_row_indices):
         )
     )
 
-    return html.Div([
-        dcc.Graph(
-            figure=fig,
-            config={
-                'displayModeBar': False,
-                'staticPlot': True,
-            },
-        )
-    ])
+    return fig
+
+def to_excel(df):
+    _df = df.copy()
+
+    # only grab needed columns and correct ordering
+    cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "Title",
+            "Credit", "Max", "Days", "Time", "Loc", "Begin/End", "Instructor"]
+    _df = _df[cols]
+
+    xlsx_io = io.BytesIO()
+    writer = pd.ExcelWriter(
+        xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": False}
+    )
+    _df.to_excel(writer, sheet_name='Schedule', index=False)
+
+    # Save it
+    writer.save()
+    xlsx_io.seek(0)
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    data = base64.b64encode(xlsx_io.read()).decode("utf-8")
+    return data
+    # return f"data:{media_type};base64,{data}"
+
+
+
+@app.callback(
+    [Output("output-data-upload", "children")],
+    [Input("upload-data", "contents")],
+    [State("upload-data", "filename"), State("upload-data", "last_modified")],
+)
+def update_output(contents, name, date):
+    if contents is not None:
+        data_children, df = parse_contents(contents, name, date)
+    else:
+        data_children = []
+    return [data_children]
+
+@app.callback(
+    Output('schedule_grid', 'figure'),
+    [Input('update-grid-button', 'n_clicks'),
+     Input('tabs-weekdays', 'value'),
+     Input('toggle-rooms', 'value'),
+     State('schedule_grid', 'figure'),
+     State('datatable-interactivity', 'data'),
+     State('datatable-interactivity', 'derived_viewport_data'),
+     State('datatable-interactivity', 'derived_virtual_selected_rows')],
+)
+def render_content(n_clicks, tab, toggle, current_state, data, filtered_data, slctd_row_indices):
+    ctx = dash.callback_context
+    if 'tabs-weekdays' in ctx.triggered[0]['prop_id']:
+        return update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
+    if (n_clicks > 0):
+        return update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
+    else:
+        return current_state
+
+
+@app.callback(
+    Output('datatable-interactivity', 'data'),
+    Input('add-row-button', 'n_clicks'),
+    State('datatable-interactivity', 'data'),
+    State('datatable-interactivity', 'columns'))
+def add_row(n_clicks, rows, columns):
+    if n_clicks > 0:
+        # rows.append(
+            # {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': '',
+             # 'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
+             # 'Time': '', 'Loc': '', 'Being/End': '', 'Instructor': ''}
+        # )
+        rows.append({c['id']:'' for c in columns})
+        # be specific about what the values will be in these rows.  You can even ask for values from inputs
+    return rows
+
+@app.callback(
+    [Output('filter-query-input', 'style'),
+     Output('filter-query-output', 'style')],
+    [Input('filter-query-read-write', 'value')]
+)
+def query_input_output(val):
+    input_style = {'width': '100%', 'height': '35px'}
+    output_style = {'height': '35px'}
+    if val == 'read':
+        input_style.update(display='none')
+        output_style.update(display='inline-block', marginLeft='15px')
+    else:
+        input_style.update(display='inline-block')
+        output_style.update(display='none')
+    return input_style, output_style
+
+@app.callback(
+    Output('datatable-interactivity', 'filter_query'),
+    [Input('filter-query-input', 'value')]
+)
+def write_query(query):
+    if query is None:
+        return ''
+    return query
+
+@app.callback(
+    Output('filter-query-output', 'children'),
+    [Input('datatable-interactivity', 'filter_query')]
+)
+def read_query(query):
+    if query is None:
+        return "No filter query"
+    return html.P('filter_query = "{}"'.format(query)),
+
+@app.callback(
+    Output('filter-query-input', 'value'),
+    Input('filter-query-dropdown', 'value')
+)
+def read_query_dropdown(query):
+    if query is not None:
+        return query
+
+@app.callback(
+    Output('datatable-download', 'data'),
+    [Input('export-all-button', 'n_clicks'),
+     State('datatable-interactivity', 'data')]
+)
+def func(n_clicks, data):
+    _df = pd.DataFrame(data)
+    if n_clicks > 0:
+        return {"base64": True, "content": to_excel(_df), "filename": "Schedule.xlsx", }
+
+@app.callback(
+    Output('datatable-filtered-download', 'data'),
+    [Input('export-filtered-button', 'n_clicks'),
+     State('datatable-interactivity', 'derived_viewport_data')]
+)
+def func(n_clicks, data):
+    _df = pd.DataFrame(data)
+    if n_clicks > 0:
+        return {"base64": True, "content": to_excel(_df), "filename": "Schedule.xlsx", }
 
 # Main
 if __name__ == "__main__":
-    app.run_server(debug=True, host='10.0.2.15')
+    app.run_server(debug=True, host='10.0.2.15', port='8050')
     # app.run_server(debug=True)
 
 
