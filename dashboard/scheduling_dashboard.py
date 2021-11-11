@@ -2,12 +2,11 @@
 
 # Import required libraries
 import dash
+from dash import html, dcc, dash_table
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import plotly.io as pio
-from dash import html, dcc, dash_table
-import numpy as np
+# import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State
@@ -434,6 +433,25 @@ def parse_contents(contents, filename, date):
         print(e)
         return html.Div(["There was an error processing this file."])
 
+    # blank figure when no data is present
+    blankFigure={
+        'data': [],
+        'layout': go.Layout(
+            xaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            },
+            yaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            }
+        )
+    }
+
     tab_style = {
         'height': '30px',
         'padding': '2px',
@@ -442,6 +460,7 @@ def parse_contents(contents, filename, date):
         'height': '30px',
         'padding': '2px',
     }
+
     html_layout = [
         html.Div([
             dcc.Tabs(id='tabs-weekdays', value='tab-mon', children=[
@@ -479,16 +498,147 @@ def parse_contents(contents, filename, date):
             html.Div([
                      html.Div([
                          dcc.Graph(
-                             figure=update_grid('tab-mon', 'no', df, df, []),
+                             figure=blankFigure,
                              config={
-                                 'displayModeBar': False,
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
                                  'showAxisDragHandles': True,
-                                 # 'responsive': True,
-                                 # 'staticPlot': True,
+                                 'toImageButtonOptions': {'filename': 'mon'},
                              },
-                             id='schedule_grid',
-                         )
-                     ],
+                             id='schedule_mon',
+                         )],
+                         style={
+                             'display': 'block',
+                         },
+                         id='schedule_mon_div',
+                     ),
+                     html.Div([
+                         dcc.Graph(
+                             figure=blankFigure,
+                             config={
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
+                                 'showAxisDragHandles': True,
+                                 'toImageButtonOptions': {'filename': 'tue'},
+                             },
+                             id='schedule_tue',
+                         )],
+                         style={
+                             'display': 'none',
+                         },
+                         id='schedule_tue_div',
+                     ),
+                     html.Div([
+                         dcc.Graph(
+                             figure=blankFigure,
+                             config={
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
+                                 'showAxisDragHandles': True,
+                                 'toImageButtonOptions': {'filename': 'wed'},
+                             },
+                             id='schedule_wed',
+                         )],
+                         style={
+                             'display': 'none',
+                         },
+                         id='schedule_wed_div',
+                     ),
+                     html.Div([
+                         dcc.Graph(
+                             figure=blankFigure,
+                             config={
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
+                                 'showAxisDragHandles': True,
+                                 'toImageButtonOptions': {'filename': 'thu'},
+                             },
+                             id='schedule_thu',
+                         )],
+                         style={
+                             'display': 'none',
+                         },
+                         id='schedule_thu_div',
+                     ),
+                     html.Div([
+                         dcc.Graph(
+                             figure=blankFigure,
+                             config={
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
+                                 'showAxisDragHandles': True,
+                                 'toImageButtonOptions': {'filename': 'fri'},
+                             },
+                             id='schedule_fri',
+                         )],
+                         style={
+                             'display': 'none',
+                         },
+                         id='schedule_fri_div',
+                     ),
+                     html.Div([
+                         dcc.Graph(
+                             figure=blankFigure,
+                             config={
+                                 'displayModeBar': True,
+                                 'displaylogo': False,
+                                 'modeBarButtonsToRemove': ['zoom2d',
+                                                            'pan2d',
+                                                            'select2d',
+                                                            'lasso2d',
+                                                            'zoomIn2d',
+                                                            'zoomOut2d',
+                                                            'autoScale2d',
+                                                            'resetScale2d'],
+                                 'showAxisDragHandles': True,
+                                 'toImageButtonOptions': {'filename': 'sat'},
+                             },
+                             id='schedule_sat',
+                         )],
+                         style={
+                             'display': 'none',
+                         },
+                         id='schedule_sat_div',
                      ),
             ],
                 id='tabs-weekdays-content',
@@ -516,6 +666,7 @@ def parse_contents(contents, filename, date):
                     label='All rooms',
                     labelPosition='top',
                     value=False,
+                    disabled=True,
                 ),
             ],
                 style={'float': 'right','margin': 'auto'},),
@@ -663,8 +814,8 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
     _df = pd.DataFrame(filtered_data)
 
     # set the color pallete
-    colorDark = px.colors.qualitative.Set1
-    colorLight = px.colors.qualitative.Pastel1
+    colorLight = ['#fbb4ae', '#b3cde3', '#ccebc5', '#decbe4', '#fed9a6',
+                  '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2']
 
     # add columns for rectangle dimensions and annotation
     if not 'xRec' in _df.columns:
@@ -692,147 +843,141 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
     _df = _df[_df["Loc"] != "TBA"]
     _df = _df[_df["Loc"] != "OFFC  T"]
 
-    # create mask for each tab based on day of week
-    if tab == 'tab-mon':
-        mask = _df["Days"].str.contains('M', case=True, na=False)
-    elif tab == 'tab-tue':
-        mask = _df["Days"].str.contains('T', case=True, na=False)
-    elif tab == 'tab-wed':
-        mask = _df["Days"].str.contains('W', case=True, na=False)
-    elif tab == 'tab-thu':
-        mask = _df["Days"].str.contains('R', case=True, na=False)
-    elif tab == 'tab-fri':
-        mask = _df["Days"].str.contains('F', case=True, na=False)
-    elif tab == 'tab-sat':
-        mask = _df["Days"].str.contains('S', case=True, na=False)
+    # create figures for all tabs
+    figs = []
+    for d in ['M', 'T', 'W', 'R', 'F', 'S']:
 
-    # apply the mask
-    _df = _df[mask]
+        # create mask for particular tab
+        mask = _df["Days"].str.contains(d, case=True, na=False)
 
-    # unique rooms and total number of unique rooms
-    if toggle:
-        rooms = _df["Loc"].unique()
-    else:
-        rooms = _dfLoc["Loc"].unique()
-    Loc = dict(zip(sorted(rooms), range(len(rooms))))
-    nLoc = len(list(Loc.keys()))
+        # apply the mask and use a copy of the dataframe
+        df = _df[mask].copy()
 
-    # compute dimensions based on class time
-    for row in _df.index.tolist():
-        strTime = _df.loc[row, "Time"]
-        s = strTime[:5]
-        e = strTime[-5:]
-        try:
-            yRec = 12*(int(s[:2])-8) + int(s[3:])//5
-        except ValueError:
-            yRec = 0
-        try:
-            hRec = 12*(int(e[:2])-8) + int(e[3:])//5 - yRec
-        except ValueError:
-            hRec = 0
-        try:
-            _df.loc[row, "xRec"] = Loc[_df.loc[row, "Loc"]]
-        except:
-            _df.loc[row, "xRec"] = 0
-
-        _df.loc[row, "yRec"] = yRec
-        _df.loc[row, "wRec"] = 1
-        _df.loc[row, "hRec"] = hRec
-        try:
-            _df.loc[row, "textRec"] = _df.loc[row, "Subject"] + " " + _df.loc[row, "Number"] + "-" + _df.loc[row, "Section"]
-        except TypeError:
-            _df.loc[row, "textRec"] = ""
-
-    fig = go.Figure()
-
-    # alternating vertical shading for rooms
-    for k in range(nLoc):
-        if k%2:
-            fig.add_vrect(
-                xref="x", yref="y",
-                x0 = k, x1 = k+1,
-                fillcolor=colorLight[8],
-                layer="below", line_width=0,
-            )
+        # unique rooms and total number of unique rooms
+        if toggle:
+            rooms = df["Loc"].unique()
         else:
-            fig.add_vrect(
-                xref="x", yref="y",
-                x0 = k, x1 = k+1,
-                fillcolor="white",
-                layer="below", line_width=0,
+            rooms = _dfLoc["Loc"].unique()
+        Loc = dict(zip(sorted(rooms), range(len(rooms))))
+        nLoc = len(list(Loc.keys()))
+
+        # compute dimensions based on class time
+        for row in df.index.tolist():
+            strTime = df.loc[row, "Time"]
+            s = strTime[:5]
+            e = strTime[-5:]
+            try:
+                yRec = 12*(int(s[:2])-8) + int(s[3:])//5
+            except ValueError:
+                yRec = 0
+            try:
+                hRec = 12*(int(e[:2])-8) + int(e[3:])//5 - yRec
+            except ValueError:
+                hRec = 0
+            try:
+                df.loc[row, "xRec"] = Loc[df.loc[row, "Loc"]]
+            except:
+                df.loc[row, "xRec"] = 0
+
+            df.loc[row, "yRec"] = yRec
+            df.loc[row, "wRec"] = 1
+            df.loc[row, "hRec"] = hRec
+            try:
+                df.loc[row, "textRec"] = df.loc[row, "Subject"] + " " + df.loc[row, "Number"] + "-" + df.loc[row, "Section"]
+            except TypeError:
+                df.loc[row, "textRec"] = ""
+
+        fig = go.Figure()
+
+        # alternating vertical shading for rooms
+        for k in range(nLoc):
+            if k%2:
+                fig.add_vrect(
+                    xref="x", yref="y",
+                    x0 = k, x1 = k+1,
+                    fillcolor=colorLight[8],
+                    layer="below", line_width=0,
+                )
+            else:
+                fig.add_vrect(
+                    xref="x", yref="y",
+                    x0 = k, x1 = k+1,
+                    fillcolor="white",
+                    layer="below", line_width=0,
+                )
+
+        # create list of dictionaries of rectangle for each course this will allow
+        # me to find overlaps later
+        recAnnotations = []
+        recDimensions = []
+        for row in df.index.tolist():
+            xRec = df.loc[row, "xRec"]
+            yRec = df.loc[row, "yRec"]
+            wRec = df.loc[row, "wRec"]
+            hRec = df.loc[row, "hRec"]
+            textRec = df.loc[row, "textRec"]
+            colorRec = df.loc[row, "colorRec"]
+
+            recAnnotations.append(
+                dict(
+                    xref="x", yref="y",
+                    x = xRec + wRec/2,
+                    y = -(yRec + hRec/2),
+                    text = textRec,
+                    showarrow = False,
+                    font = dict(size=min(int(16/nLoc*8),14)),
+                )
             )
 
-    # create list of dictionaries of rectangle for each course this will allow
-    # me to find overlaps later
-    recAnnotations = []
-    recDimensions = []
-    for row in _df.index.tolist():
-        xRec = _df.loc[row, "xRec"]
-        yRec = _df.loc[row, "yRec"]
-        wRec = _df.loc[row, "wRec"]
-        hRec = _df.loc[row, "hRec"]
-        textRec = _df.loc[row, "textRec"]
-        colorRec = _df.loc[row, "colorRec"]
+            recDimensions.append(
+                dict(
+                    type="rect",
+                    xref="x", yref="y",
+                    x0 = xRec, y0 = -yRec,
+                    x1 = xRec + wRec, y1 = -(yRec + hRec),
+                    line=dict(
+                        color="LightGray",
+                        width=1,
+                    ),
+                    fillcolor=colorRec,
+                    opacity=0.5,
+                )
+            )
 
-        recAnnotations.append(
-            dict(
-                xref="x", yref="y",
-                x = xRec + wRec/2,
-                y = -(yRec + hRec/2),
-                text = textRec,
-                showarrow = False,
-                font = dict(size=min(int(16/nLoc*8),14)),
+        # draw the rectangles and annotations
+        for ann,rec in zip(recAnnotations, recDimensions):
+            fig.add_annotation(
+                ann
+            )
+            fig.add_shape(
+                rec
+            )
+
+        # setup the axes and tick marks
+        fig.update_layout(
+            xaxis = dict(
+                range=[0,nLoc],
+                tickvals=[k+.5 for k in range(nLoc)],
+                ticktext=list(Loc.keys()),
+                side='top',
+                showgrid=False,
+                linecolor='#CCC',
+                mirror=True,
+            ),
+            yaxis = dict(
+                range=[-168, 0],
+                tickvals=[-k*12 for k in range(15)],
+                ticktext=[("0{:d}:00".format(k))[-5:] for k in range(8,23)],
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='#DDD',
+                linecolor='#CCC',
+                mirror=True,
             )
         )
+        figs.append(fig)
 
-        recDimensions.append(
-            dict(
-                type="rect",
-                xref="x", yref="y",
-                x0 = xRec, y0 = -yRec,
-                x1 = xRec + wRec, y1 = -(yRec + hRec),
-                line=dict(
-                    color="LightGray",
-                    width=1,
-                ),
-                fillcolor=colorRec,
-                opacity=0.5,
-            )
-        )
-
-    # draw the rectangles and annotations
-    for ann,rec in zip(recAnnotations, recDimensions):
-        fig.add_annotation(
-            ann
-        )
-        fig.add_shape(
-            rec
-        )
-
-    # setup the axes and tick marks
-    fig.update_layout(
-        xaxis = dict(
-            range=[0,nLoc],
-            tickvals=[k+.5 for k in range(nLoc)],
-            ticktext=list(Loc.keys()),
-            side='top',
-            showgrid=False,
-            linecolor='#CCC',
-            mirror=True,
-        ),
-        yaxis = dict(
-            range=[-168, 0],
-            tickvals=[-k*12 for k in range(15)],
-            ticktext=[("0{:d}:00".format(k))[-5:] for k in range(8,23)],
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='#DDD',
-            linecolor='#CCC',
-            mirror=True,
-        )
-    )
-
-    return fig
+    return figs
 
 def to_excel(df):
     _df = df.copy()
@@ -869,23 +1014,46 @@ def update_output(contents, name, date):
     return [data_children]
 
 @app.callback(
-    Output('schedule_grid', 'figure'),
+    [Output('schedule_mon', 'figure'),
+     Output('schedule_tue', 'figure'),
+     Output('schedule_wed', 'figure'),
+     Output('schedule_thu', 'figure'),
+     Output('schedule_fri', 'figure'),
+     Output('schedule_sat', 'figure'),
+     Output('toggle-rooms', 'disabled')],
     [Input('update-grid-button', 'n_clicks'),
-     Input('tabs-weekdays', 'value'),
      Input('toggle-rooms', 'value'),
-     State('schedule_grid', 'figure'),
+     State('tabs-weekdays', 'value'),
      State('datatable-interactivity', 'data'),
      State('datatable-interactivity', 'derived_virtual_data'),
      State('datatable-interactivity', 'derived_virtual_selected_rows')],
 )
-def render_content(n_clicks, tab, toggle, current_state, data, filtered_data, slctd_row_indices):
+def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices):
+    if n_clicks > 0:
+        figs = update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
+        return *figs, False
+
+
+@app.callback(
+    [Output('schedule_mon_div', 'style'),
+     Output('schedule_tue_div', 'style'),
+     Output('schedule_wed_div', 'style'),
+     Output('schedule_thu_div', 'style'),
+     Output('schedule_fri_div', 'style'),
+     Output('schedule_sat_div', 'style')],
+    [Input('tabs-weekdays', 'value')],
+)
+def update_tab_display(tab):
     ctx = dash.callback_context
     if 'tabs-weekdays' in ctx.triggered[0]['prop_id']:
-        return update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
-    if (n_clicks > 0):
-        return update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
-    else:
-        return current_state
+        styles = []
+        for t in ['tab-mon', 'tab-tue', 'tab-wed', 'tab-thu', 'tab-fri', 'tab-sat']:
+            if t == tab:
+                styles.append({'display': 'block'})
+            else:
+                styles.append({'display': 'none'})
+        return styles[:]
+
 
 @app.callback(
     Output('datatable-interactivity', 'selected_rows'),
@@ -910,7 +1078,7 @@ def select_deselect(selbtn, deselbtn, selected_rows):
     Input('add-row-button', 'n_clicks'),
     State('datatable-interactivity', 'data'),
     State('datatable-interactivity', 'columns'))
-def add_row(n_clicks, select_all_n_clicks, deselect_all_n_clicks, rows, columns):
+def add_row(n_clicks, rows, columns):
     if n_clicks > 0:
         rows.append(
             {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
