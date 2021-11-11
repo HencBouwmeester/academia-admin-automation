@@ -748,45 +748,19 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
     # alternating vertical shading for rooms
     for k in range(nLoc):
         if k%2:
-            fig.add_shape(
-                type="rect",
+            fig.add_vrect(
                 xref="x", yref="y",
-                x0 = k, y0 = 0,
-                x1 = k+1, y1 = -170,
-                line=dict(
-                    color="white",
-                    width=1,
-                ),
+                x0 = k, x1 = k+1,
                 fillcolor=colorLight[8],
+                layer="below", line_width=0,
             )
         else:
-            fig.add_shape(
-                type="rect",
+            fig.add_vrect(
                 xref="x", yref="y",
-                x0 = k, y0 = 0,
-                x1 = k+1, y1 = -170,
-                line=dict(
-                    color="white",
-                    width=1,
-                ),
+                x0 = k, x1 = k+1,
                 fillcolor="white",
+                layer="below", line_width=0,
             )
-
-    # horizontal lines for hours
-    for k in range(170):
-        if not k%12:
-            fig.add_shape(
-                type="line",
-                xref="x", yref="y",
-                x0 = 0, y0 = -k,
-                x1 = nLoc, y1 = -k,
-                line=dict(
-                    color="LightGray",
-                    dash="dot",
-                    width=1,
-                ),
-            )
-
 
     # create list of dictionaries of rectangle for each course this will allow
     # me to find overlaps later
@@ -842,11 +816,19 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
             tickvals=[k+.5 for k in range(nLoc)],
             ticktext=list(Loc.keys()),
             side='top',
+            showgrid=False,
+            linecolor='#CCC',
+            mirror=True,
         ),
         yaxis = dict(
-            range=[-170, 0],
+            range=[-168, 0],
             tickvals=[-k*12 for k in range(15)],
             ticktext=[("0{:d}:00".format(k))[-5:] for k in range(8,23)],
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='#DDD',
+            linecolor='#CCC',
+            mirror=True,
         )
     )
 
@@ -893,7 +875,7 @@ def update_output(contents, name, date):
      Input('toggle-rooms', 'value'),
      State('schedule_grid', 'figure'),
      State('datatable-interactivity', 'data'),
-     State('datatable-interactivity', 'derived_viewport_data'),
+     State('datatable-interactivity', 'derived_virtual_data'),
      State('datatable-interactivity', 'derived_virtual_selected_rows')],
 )
 def render_content(n_clicks, tab, toggle, current_state, data, filtered_data, slctd_row_indices):
@@ -990,7 +972,7 @@ def func(n_clicks, data):
 @app.callback(
     Output('datatable-filtered-download', 'data'),
     [Input('export-filtered-button', 'n_clicks'),
-     State('datatable-interactivity', 'derived_viewport_data')]
+     State('datatable-interactivity', 'derived_virtual_data')]
 )
 def func(n_clicks, data):
     _df = pd.DataFrame(data)
