@@ -58,7 +58,7 @@ app.layout = html.Div([
         html.Div([
             html.Div([
                 html.H3(
-                    "Scheduling Tool",
+                    "Scheduling",
                     id="title-report-semester",
                     style={"marginBottom": "0px"},
                 ),
@@ -73,10 +73,13 @@ app.layout = html.Div([
             dcc.Upload(
                 id="upload-data",
                 children=html.Div(
-                    ["Drag and Drop or ", html.A("Select Files")]
+                    ["Upload file"]
                 ),
                 multiple=False,
                 accept=".txt, .csv, .xlsx",
+                style={
+                    'display': 'inline-block',
+                },
             ),
         ],
             className="three offset-left columns",
@@ -457,6 +460,7 @@ def parse_contents(contents, filename, date):
         'padding': '2px',
     }
     selected_tab_style = {
+        'borderTop': '2px solid #064779',
         'height': '30px',
         'padding': '2px',
     }
@@ -653,22 +657,31 @@ def parse_contents(contents, filename, date):
         ),
         html.Div([
             html.Button('Update Grid', id='update-grid-button', n_clicks=0,
-                        style={'marginLeft': '5px'}),
+                        style={'marginLeft': '5px'},className='button'),
             html.Button('Export All', id='export-all-button', n_clicks=0,
-                        style={'marginLeft': '5px'}),
+                        style={'marginLeft': '5px'},className='button'),
             dcc.Download(id='datatable-download'),
             html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
-                        style={'marginLeft': '5px'}),
+                        style={'marginLeft': '5px'},className='button'),
             dcc.Download(id='datatable-filtered-download'),
             html.Div([
-                daq.BooleanSwitch(
-                    id='toggle-rooms',
-                    label='All rooms',
-                    labelPosition='top',
-                    on=True,
-                    disabled=True,
-                    color='#e6e6e6',
-                    style={'display': 'none'}
+                html.Div([
+                    html.Label("All rooms:",
+                               style={'display': 'none'},
+                               id='all-rooms-label'),
+                ],
+                    style={'vertical-align': 'middle', 'width': '59%', 'display': 'inline-block'},
+                ),
+                html.Div([
+                    daq.BooleanSwitch(
+                        id='toggle-rooms',
+                        on=True,
+                        disabled=True,
+                        color='#e6e6e6',
+                        style={'display': 'none'},
+                    ),
+                ],
+                    style={'vertical-align': 'middle', 'width': '39%', 'display': 'inline-block'},
                 ),
             ],
                 style={'float': 'right','margin': 'auto',}),
@@ -754,9 +767,9 @@ def parse_contents(contents, filename, date):
             html.Hr(),
             html.Div([
                 html.Button('Select All', id='select-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'}),
+                            style={'marginLeft': '5px'},className='button'),
                 html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'}),
+                            style={'marginLeft': '5px'},className='button'),
             ],
             ),
             ]),
@@ -807,7 +820,7 @@ def parse_contents(contents, filename, date):
             }
             ),
         html.Button('Add Row', id='add-row-button', n_clicks=0,
-                    style={'marginLeft': '5px'}),
+                    style={'marginLeft': '5px'}, className='button'),
     ]
     return html_layout, df
 
@@ -1028,7 +1041,8 @@ def update_output(contents, name, date):
      Output('schedule_sat', 'figure'),
      Output('toggle-rooms', 'color'),
      Output('toggle-rooms', 'disabled'),
-     Output('toggle-rooms', 'style')],
+     Output('toggle-rooms', 'style'),
+     Output('all-rooms-label', 'style')],
     [Input('update-grid-button', 'n_clicks'),
      Input('toggle-rooms', 'on'),
      State('tabs-weekdays', 'value'),
@@ -1040,8 +1054,9 @@ def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices
     if n_clicks > 0:
         figs = update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
         bool_switch_disabled = False
-        bool_switch_style = {'display': 'block'}
-        return *figs, '#0676f6', bool_switch_disabled, bool_switch_style
+        bool_switch_style = {'display': 'inline-block'}
+        all_rooms_label_style = {'display': 'inline-block'}
+        return *figs, '#064779', bool_switch_disabled, bool_switch_style, all_rooms_label_style
 
 
 @app.callback(

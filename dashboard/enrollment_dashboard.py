@@ -1126,7 +1126,8 @@ def update_output(contents, name, date):
 )
 def update_stats(data):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         return [
             "{:,.0f}".format(df["CRN"].nunique()),
             "{:,.0f}".format(df["Course"].nunique()),
@@ -1188,7 +1189,8 @@ def read_query_dropdown(query):
 )
 def max_v_enrl_by_crn(data, fig):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         return (
             px.bar(
                 df,
@@ -1223,7 +1225,8 @@ def max_v_enrl_by_crn(data, fig):
 )
 def max_v_enrl_by_course(data, fig):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         _df = (
             df.groupby("Course")
             .agg(
@@ -1264,7 +1267,8 @@ def max_v_enrl_by_course(data, fig):
 )
 def graph_f2f(data, toggle, fig):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
 
         # remove the zero credit hour sections
         df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
@@ -1367,7 +1371,8 @@ def graph_f2f(data, toggle, fig):
 )
 def graph_enrollment_by_instructor(data, fig):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         return (
             px.bar(
                 df,
@@ -1397,7 +1402,8 @@ def graph_enrollment_by_instructor(data, fig):
 )
 def chp_by_course(data, fig):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         return (
             px.bar(
                 df,
@@ -1419,7 +1425,8 @@ def chp_by_course(data, fig):
 )
 def enrl_by_instructor(data):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         _df = (
             df.groupby("Instructor")
             .agg(enrl_sum=("Enrolled", "sum"), enrl_avg=("Enrolled", "mean"))
@@ -1485,7 +1492,8 @@ def enrl_by_instructor(data):
 )
 def chp_by_course(data):
     if data:
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
         _df = df.groupby("Course").agg(
             {"CHP": "sum", "Enrolled": "sum", "Max": "sum"}
         ).sort_values(
