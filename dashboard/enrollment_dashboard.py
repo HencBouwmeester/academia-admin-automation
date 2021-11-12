@@ -1547,5 +1547,5 @@ def chp_by_course(data):
 
 # Main
 if __name__ == "__main__":
-    app.run_server(debug=True, host='10.0.2.15')
+    app.run_server(debug=True, host='10.0.2.15', port='8050')
     # app.run_server(debug=True)

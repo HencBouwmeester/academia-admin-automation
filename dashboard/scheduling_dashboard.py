@@ -504,7 +504,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -517,6 +516,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'block',
+                             'width': '100%',
                          },
                          id='schedule_mon_div',
                      ),
@@ -528,7 +528,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -541,6 +540,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'none',
+                             'width': '100%',
                          },
                          id='schedule_tue_div',
                      ),
@@ -552,7 +552,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -565,6 +564,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'none',
+                             'width': '100%',
                          },
                          id='schedule_wed_div',
                      ),
@@ -576,7 +576,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -589,6 +588,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'none',
+                             'width': '100%',
                          },
                          id='schedule_thu_div',
                      ),
@@ -600,7 +600,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -613,6 +612,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'none',
+                             'width': '100%',
                          },
                          id='schedule_fri_div',
                      ),
@@ -624,7 +624,6 @@ def parse_contents(contents, filename, date):
                                  'displaylogo': False,
                                  'modeBarButtonsToRemove': ['zoom2d',
                                                             'pan2d',
-                                                            'select2d',
                                                             'lasso2d',
                                                             'zoomIn2d',
                                                             'zoomOut2d',
@@ -637,6 +636,7 @@ def parse_contents(contents, filename, date):
                          )],
                          style={
                              'display': 'none',
+                             'width': '100%',
                          },
                          id='schedule_sat_div',
                      ),
@@ -661,15 +661,17 @@ def parse_contents(contents, filename, date):
                         style={'marginLeft': '5px'}),
             dcc.Download(id='datatable-filtered-download'),
             html.Div([
-                daq.ToggleSwitch(
+                daq.BooleanSwitch(
                     id='toggle-rooms',
                     label='All rooms',
                     labelPosition='top',
-                    value=False,
+                    on=True,
                     disabled=True,
+                    color='#e6e6e6',
+                    style={'display': 'none'}
                 ),
             ],
-                style={'float': 'right','margin': 'auto'},),
+                style={'float': 'right','margin': 'auto',}),
         ],
                      style={
                          'width': '100%',
@@ -839,9 +841,13 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = _dfLoc[_dfLoc["Campus"] != "I"]
     _dfLoc = _dfLoc[_dfLoc["Loc"] != "TBA"]
     _dfLoc = _dfLoc[_dfLoc["Loc"] != "OFFC  T"]
+    _dfLoc = _dfLoc[_dfLoc["S"] != "C"]
     _df = _df[_df["Campus"] != "I"]
     _df = _df[_df["Loc"] != "TBA"]
+
+    # remove canceled classes
     _df = _df[_df["Loc"] != "OFFC  T"]
+    _df = _df[_df["S"] != "C"]
 
     # create figures for all tabs
     figs = []
@@ -855,9 +861,9 @@ def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
 
         # unique rooms and total number of unique rooms
         if toggle:
-            rooms = df["Loc"].unique()
-        else:
             rooms = _dfLoc["Loc"].unique()
+        else:
+            rooms = df["Loc"].unique()
         Loc = dict(zip(sorted(rooms), range(len(rooms))))
         nLoc = len(list(Loc.keys()))
 
@@ -1020,9 +1026,11 @@ def update_output(contents, name, date):
      Output('schedule_thu', 'figure'),
      Output('schedule_fri', 'figure'),
      Output('schedule_sat', 'figure'),
-     Output('toggle-rooms', 'disabled')],
+     Output('toggle-rooms', 'color'),
+     Output('toggle-rooms', 'disabled'),
+     Output('toggle-rooms', 'style')],
     [Input('update-grid-button', 'n_clicks'),
-     Input('toggle-rooms', 'value'),
+     Input('toggle-rooms', 'on'),
      State('tabs-weekdays', 'value'),
      State('datatable-interactivity', 'data'),
      State('datatable-interactivity', 'derived_virtual_data'),
@@ -1031,7 +1039,9 @@ def update_output(contents, name, date):
 def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices):
     if n_clicks > 0:
         figs = update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
-        return *figs, False
+        bool_switch_disabled = False
+        bool_switch_style = {'display': 'block'}
+        return *figs, '#0676f6', bool_switch_disabled, bool_switch_style
 
 
 @app.callback(
