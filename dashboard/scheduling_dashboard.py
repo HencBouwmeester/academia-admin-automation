@@ -9,7 +9,7 @@ import plotly.io as pio
 # import numpy as np
 import base64
 import io
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, ClientsideFunction
 import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
@@ -34,67 +34,13 @@ app.config.update({
 # specifics for the math.msudenver.edu server
 """
 app.config.update({
-   'url_base_pathname':'/dash/',
-   'routes_pathname_prefix':'/dash/',
-   'requests_pathname_prefix':'/dash/',
+   'url_base_pathname':'/scheduling/',
+   'routes_pathname_prefix':'/scheduling/',
+   'requests_pathname_prefix':'/scheduling/',
 })
 """
 
-# Create app layout
-app.layout = html.Div([
-    dcc.Store(id="aggregate_data"),
-    # empty Div to trigger javascript file for graph resizing
-    html.Div(id="output-clientside"),
-    html.Div([
-        html.Div([
-            html.Img(
-                id="msudenver-logo",
-                src=app.get_asset_url('msudenver-logo.png'),
-
-            ),
-        ],
-            className="three offset-right columns",
-        ),
-        html.Div([
-            html.Div([
-                html.H3(
-                    "Scheduling",
-                    id="title-report-semester",
-                    style={"marginBottom": "0px"},
-                ),
-            ],
-                id="main_title",
-            )
-        ],
-            className="six offset-left offset-right columns",
-            id="title",
-        ),
-        html.Div([
-            dcc.Upload(
-                id="upload-data",
-                children=html.Div(
-                    ["Upload file"]
-                ),
-                multiple=False,
-                accept=".txt, .csv, .xlsx",
-                style={
-                    'display': 'inline-block',
-                },
-            ),
-        ],
-            className="three offset-left columns",
-            id="button",
-        ),
-    ],
-        id="header",
-        className="row flex-display",
-        style={"marginBottom": "25px"},
-    ),
-    html.Div(id="output-data-upload"),
-],
-id="mainContainer",
-style={"display": "flex", "flexDirection": "column"},
-)
+days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 def updateTitles(df):
     course_titles = [
@@ -232,14 +178,6 @@ def tidy_txt(file_contents):
         (109, 121),
         (121, 140),
     ]
-
-    # read the data date from the file
-    for i in range(5):
-        line = file_contents.readline()
-        if i == 4:
-            d = line.split()[-1]
-            break
-    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
 
     # reset to the start of the IO stream
     file_contents.seek(0)
@@ -404,7 +342,25 @@ def tidy_xlsx(file_contents):
 
     return _df
 
-def parse_contents(contents, filename, date):
+def generate_weekday_tab(day):
+    tab_style = {
+        'height': '30px',
+        'padding': '2px',
+    }
+    selected_tab_style = {
+        'borderTop': '2px solid #064779',
+        'height': '30px',
+        'padding': '2px',
+    }
+
+    return dcc.Tab(label=day,
+                   value='tab-'+day.lower()[:3],
+                   style=tab_style,
+                   selected_style=selected_tab_style,
+                  )
+
+
+def parse_contents(contents, filename):#, date):
     """Assess filetype of uploaded file and pass to appropriate processing functions,
     then return html of enrollment statistics.
 
@@ -436,395 +392,9 @@ def parse_contents(contents, filename, date):
         print(e)
         return html.Div(["There was an error processing this file."])
 
-    # blank figure when no data is present
-    blankFigure={
-        'data': [],
-        'layout': go.Layout(
-            xaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            },
-            yaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            }
-        )
-    }
+    return df
 
-    tab_style = {
-        'height': '30px',
-        'padding': '2px',
-    }
-    selected_tab_style = {
-        'borderTop': '2px solid #064779',
-        'height': '30px',
-        'padding': '2px',
-    }
-
-    html_layout = [
-        html.Div([
-            dcc.Tabs(id='tabs-weekdays', value='tab-mon', children=[
-                dcc.Tab(label='Monday',
-                        value='tab-mon',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-                dcc.Tab(label='Tuesday',
-                        value='tab-tue',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-                dcc.Tab(label='Wednesday',
-                        value='tab-wed',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-                dcc.Tab(label='Thursday',
-                        value='tab-thu',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-                dcc.Tab(label='Friday',
-                        value='tab-fri',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-                dcc.Tab(label='Saturday',
-                        value='tab-sat',
-                        style=tab_style,
-                        selected_style=selected_tab_style,
-                       ),
-            ]),
-            html.Div([
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'mon'},
-                             },
-                             id='schedule_mon',
-                         )],
-                         style={
-                             'display': 'block',
-                             'width': '100%',
-                         },
-                         id='schedule_mon_div',
-                     ),
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'tue'},
-                             },
-                             id='schedule_tue',
-                         )],
-                         style={
-                             'display': 'none',
-                             'width': '100%',
-                         },
-                         id='schedule_tue_div',
-                     ),
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'wed'},
-                             },
-                             id='schedule_wed',
-                         )],
-                         style={
-                             'display': 'none',
-                             'width': '100%',
-                         },
-                         id='schedule_wed_div',
-                     ),
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'thu'},
-                             },
-                             id='schedule_thu',
-                         )],
-                         style={
-                             'display': 'none',
-                             'width': '100%',
-                         },
-                         id='schedule_thu_div',
-                     ),
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'fri'},
-                             },
-                             id='schedule_fri',
-                         )],
-                         style={
-                             'display': 'none',
-                             'width': '100%',
-                         },
-                         id='schedule_fri_div',
-                     ),
-                     html.Div([
-                         dcc.Graph(
-                             figure=blankFigure,
-                             config={
-                                 'displayModeBar': True,
-                                 'displaylogo': False,
-                                 'modeBarButtonsToRemove': ['zoom2d',
-                                                            'pan2d',
-                                                            'lasso2d',
-                                                            'zoomIn2d',
-                                                            'zoomOut2d',
-                                                            'autoScale2d',
-                                                            'resetScale2d'],
-                                 'showAxisDragHandles': True,
-                                 'toImageButtonOptions': {'filename': 'sat'},
-                             },
-                             id='schedule_sat',
-                         )],
-                         style={
-                             'display': 'none',
-                             'width': '100%',
-                         },
-                         id='schedule_sat_div',
-                     ),
-            ],
-                id='tabs-weekdays-content',
-                style={
-                    'width': '100%',
-                    'display': 'block',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto',
-                }
-            )
-        ],
-        ),
-        html.Div([
-            html.Button('Update Grid', id='update-grid-button', n_clicks=0,
-                        style={'marginLeft': '5px'},className='button'),
-            html.Button('Export All', id='export-all-button', n_clicks=0,
-                        style={'marginLeft': '5px'},className='button'),
-            dcc.Download(id='datatable-download'),
-            html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
-                        style={'marginLeft': '5px'},className='button'),
-            dcc.Download(id='datatable-filtered-download'),
-            html.Div([
-                html.Div([
-                    html.Label("All rooms:",
-                               style={'display': 'none'},
-                               id='all-rooms-label'),
-                ],
-                    style={'vertical-align': 'middle', 'width': '59%', 'display': 'inline-block'},
-                ),
-                html.Div([
-                    daq.BooleanSwitch(
-                        id='toggle-rooms',
-                        on=True,
-                        disabled=True,
-                        color='#e6e6e6',
-                        style={'display': 'none'},
-                    ),
-                ],
-                    style={'vertical-align': 'middle', 'width': '39%', 'display': 'inline-block'},
-                ),
-            ],
-                style={'float': 'right','margin': 'auto',}),
-        ],
-                     style={
-                         'width': '100%',
-                         'height': '30px',
-                         'display': 'block',
-                         'marginLeft': 'auto',
-                         'marginRight': 'auto',
-                         'marginTop': '10px',
-                         'marginBottom': '10px',
-                         'float': 'left',
-                     }
-        ),
-        html.Div([
-            html.Div([
-                html.Label([
-                    "Predefined Queries:",
-                    dcc.Dropdown(
-                        id='filter-query-dropdown',
-                        options=[
-                            {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                            {'label': 'Active Classes', 'value': '{S} contains A'},
-                            {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
-                            {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                            {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                            {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                            {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                            {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                            {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                            {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                            # {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
-                            # {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
-                            # {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
-                            {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                            {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                            {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                            {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                            {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                            {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                            {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                            {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                            {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                            {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
-                            {'label': 'Canceled CRNs', 'value': '{S} contains C'},
-                        ],
-                        placeholder='Select a query',
-                        value='',
-                    ),
-                ]),
-            ], style={'marginLeft': '5px',}),
-
-            html.Br(),
-
-            html.Div([
-                html.Label([
-                    "Custom Queries:",
-                    dcc.RadioItems(
-                        id='filter-query-read-write',
-                        options=[
-                            {'label': 'Read filter_query', 'value': 'read'},
-                            {'label': 'Write to filter_query', 'value': 'write'}
-                        ],
-                        className="dcc_control",
-                        value='read'
-                    ),
-                ]),
-            ], style={'marginLeft': '5px',}),
-
-            html.Br(),
-
-            html.Div([
-                dcc.Input(
-                    id='filter-query-input',
-                    placeholder='Enter filter query',
-                    className="dcc_control",
-                ),
-            ], style={'marginLeft': '5px', 'width': '75%'}),
-            html.Br(),
-            html.Div(id='filter-query-output'),
-
-            html.Hr(),
-            html.Div([
-                html.Button('Select All', id='select-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-            ],
-            ),
-            ]),
-        html.Div([
-            dash_table.DataTable(
-                id='datatable-interactivity',
-                columns=[{'name': n, 'id': i} for n,i in zip([
-                    "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
-                    "Credit", "Max", "Days", "Time", "Loc", "Begin/End", "Instructor"
-                ],[ *df.columns ])],
-                style_header={
-                    "backgroundColor": "rgb(230, 230, 230)",
-                    "fontWeight": "bold",
-                },
-                style_cell={"font-family": "sans-serif", "font-size": "1rem"},
-                style_cell_conditional=[
-                    {
-                        'if': {'column_id': i},
-                        'textAlign': 'left',
-                        'minWidth': w, 'width': w, 'maxWidth': w,
-                        'whiteSpace': 'normal'
-                    }
-                    for i,w in zip([ *df.columns ],
-                                   ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                    '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
-                ],
-                fixed_rows={"headers": True, "data": 0},
-                page_size=500,
-                data=df.to_dict('records'),
-                editable=True,
-                filter_action="native",
-                sort_action="native",
-                sort_mode="multi",
-                row_selectable="multi",
-                row_deletable=True,
-                selected_rows=[],
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                },
-            ),
-            ],
-            style={
-                'width': '100%',
-                'display': 'block',
-                'marginLeft': 'auto',
-                'marginRight': 'auto',
-            }
-            ),
-        html.Button('Add Row', id='add-row-button', n_clicks=0,
-                    style={'marginLeft': '5px'}, className='button'),
-    ]
-    return html_layout, df
-
-def update_grid(tab, toggle, data, filtered_data, slctd_row_indices):
+def update_grid(toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = pd.DataFrame(data)
     _df = pd.DataFrame(filtered_data)
 
@@ -1020,43 +590,362 @@ def to_excel(df):
 
     return data
 
-@app.callback(
-    [Output("output-data-upload", "children")],
-    [Input("upload-data", "contents")],
-    [State("upload-data", "filename"), State("upload-data", "last_modified")],
-)
-def update_output(contents, name, date):
-    if contents is not None:
-        data_children, df = parse_contents(contents, name, date)
+def generate_tab_fig(day, tab, fig):
+
+    # blank figure when no data is present
+    blankFigure={
+        'data': [],
+        'layout': go.Layout(
+            xaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            },
+            yaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            }
+        )
+    }
+
+    if fig is None:
+        fig = blankFigure
+
+    modeBarButtonsToRemove = ['zoom2d', 'pan2d', 'lasso2d', 'zoomIn2d',
+                              'zoomOut2d', 'autoScale2d', 'resetScale2d']
+
+    day_abbrv = day.lower()[:3]
+
+    if day_abbrv == tab[-3:]:
+        div_style = {'background': 'white', 'display': 'block', 'width': '100%'}
     else:
-        data_children = []
-    return [data_children]
+        div_style = {'background': 'white', 'display': 'none', 'width': '100%'}
+
+    return html.Div([
+        dcc.Loading(id='loading-icon-'+day_abbrv, children=[
+            dcc.Graph(
+                figure=fig,
+                config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': modeBarButtonsToRemove,
+                    'showAxisDragHandles': True,
+                    'toImageButtonOptions': {'filename': day_abbrv},
+                },
+                id='schedule_'+day_abbrv,
+            )], type='circle', color='#064779')],
+        style=div_style,
+        id='schedule_' + day_abbrv + '_div',
+    )
+
+
+# Create app layout
+app.layout = html.Div([
+    html.Div([
+        html.Div([
+            html.Img(
+                id='msudenver-logo',
+                src=app.get_asset_url('msudenver-logo.png'),
+                alt='MSU Denver',
+            )],
+            className='three offset-right columns',
+            id='logo-container',
+        ),
+        html.Div([
+            html.Div([
+                html.H3(
+                    'Scheduling',
+                    id='title-report-semester',
+                    style={'marginBottom': '0px'},
+                )],
+                id='main_title',
+            )],
+            className='six offset-left offset-right columns',
+            id='title',
+        ),
+        html.Div([
+            dcc.Upload(
+                id='upload-data',
+                children=html.Div(['Upload file']),
+                multiple=False,
+                accept='.txt, .csv, .xlsx',
+                style={'display': 'inline-block'},
+            )],
+            className='three offset-left columns',
+            id='button',
+        )],
+        id='header',
+        className='row flex-display',
+        style={'marginBottom': '25px'},
+    ),
+    html.Div(id='output-data-upload',
+             children = [
+                 html.Div([
+                     html.Div([
+                         dcc.Tabs(id='weekdays-tabs',
+                                  value='tab-mon',
+                                  children=[ generate_weekday_tab(day) for day in days ]
+                                 )
+                     ]),
+                     html.Div([
+                         html.Div(
+                             id='weekdays-tabs-content',
+                             children = [generate_tab_fig(day, 'tab-mon', None) for day in days],
+                             style={
+                                 'width': '100%',
+                                 'display': 'block',
+                                 'marginLeft': 'auto',
+                                 'marginRight': 'auto',
+                             }
+                         ),
+                     html.Div([
+                         html.Div([
+                             html.Label("All rooms:",
+                                        style={'display': 'none'},
+                                        id='all-rooms-label'),
+                         ],
+                             style={'vertical-align': 'middle', 'width': '59%', 'display': 'inline-block'},
+                         ),
+                         html.Div([
+                             daq.BooleanSwitch(
+                                 id='toggle-rooms',
+                                 on=True,
+                                 disabled=True,
+                                 color='#e6e6e6',
+                                 style={'display': 'none'},
+                             ),
+                         ],
+                             style={'vertical-align': 'middle', 'width': '39%', 'display': 'inline-block'},
+                         ),
+                     ],
+                         style={'float': 'right','marginRight': '5px'}),
+                     ]),
+                 ]),
+                html.Div([
+                    html.Div([
+                        html.Label([
+                            "Predefined Queries:",
+                            dcc.Dropdown(
+                                id='filter-query-dropdown',
+                                options=[
+                                    {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
+                                    {'label': 'Active Classes', 'value': '{S} contains A'},
+                                    {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                                    {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                                    {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                                    {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                                    {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                                    {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                                    {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                                    {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                                    {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                                    {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                                    {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                                    {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                                    {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                                    {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                                    {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                                    {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                                    {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                                    {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                                    {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                                ],
+                                placeholder='Select a query',
+                                value='',
+                            ),
+                        ]),
+                    ], style={'marginTop': '7px', 'marginLeft': '5px',}),
+
+                    html.Br(),
+
+                    html.Div([
+                        html.Label([
+                            "Custom Queries:",
+                            dcc.RadioItems(
+                                id='filter-query-read-write',
+                                options=[
+                                    {'label': 'Read filter_query', 'value': 'read'},
+                                    {'label': 'Write to filter_query', 'value': 'write'}
+                                ],
+                                className="dcc_control",
+                                value='read'
+                            ),
+                        ]),
+                    ], style={'marginLeft': '5px',}),
+                html.Div([
+                    html.Div([
+                        dcc.Input(
+                            id='filter-query-input',
+                            placeholder='Enter filter query',
+                            className="dcc_control",
+                            style={'width': '98.5%'},
+                        ),
+                    ],
+                        id='filter-query-input-container',
+                        style={'marginLeft': '5px', 'width': '100%', 'display': 'none'}
+                    ),
+                    html.Div(id='filter-query-output', style={'display': 'inline-block', 'marginLeft': '15px'}),
+                ], style={'height': '35px', 'width': '100%'}),
+                html.Hr(),
+                html.Div([
+                    html.Button('Update Grid', id='update-grid-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Select All', id='select-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Export All', id='export-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-download'),
+                    html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-filtered-download'),
+                    html.Button('Add Row', id='add-row-button', n_clicks=0,
+                                style={'marginLeft': '5px'}, className='button'),
+                    html.Button('Delete Row(s)', id='delete-row-button', n_clicks=0,
+                                style={'marginLeft': '5px'}, className='button'),
+                ]),
+                ]),
+                dcc.Loading(id='loading-icon-upload', children=[
+                html.Div([],
+                         style={
+                             'width': '100%',
+                             'display': 'block',
+                             'marginLeft': 'auto',
+                             'marginRight': 'auto',
+                         },
+                         id='datatable-interactivity-container',
+                        ),], type='circle', fullscreen=True, color='#064779'),
+                ],
+                style={'display': 'none'}
+                )],
+                id="mainContainer",
+    style={"display": "flex", "flexDirection": "column"},
+)
 
 @app.callback(
-    [Output('schedule_mon', 'figure'),
-     Output('schedule_tue', 'figure'),
-     Output('schedule_wed', 'figure'),
-     Output('schedule_thu', 'figure'),
-     Output('schedule_fri', 'figure'),
-     Output('schedule_sat', 'figure'),
+    Output('output-data-upload', 'style'),
+    Input('upload-data', 'contents')
+)
+def func(contents):
+    if contents is not None:
+        return {'display': 'block'}
+
+@app.callback(
+    [Output('loading-icon-upload', 'children'),
+     Output('weekdays-tabs-content', 'children')],
+    [Input('upload-data', 'contents'),
+     State('weekdays-tabs', 'value'),
+     State('upload-data', 'filename')],
+)
+def func(contents, tab, name):
+    if contents is not None:
+        df = parse_contents(contents, name)
+        data_children = [ dash_table.DataTable(
+            id='datatable-interactivity',
+            columns=[{'name': n, 'id': i} for n,i in zip([
+                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title", "Credit",
+                "Max", "Days", "Time", "Loc", "Begin/End", "Instructor"
+            ],[ *df.columns ])],
+            style_header={
+                "backgroundColor": "rgb(230, 230, 230)",
+                "fontWeight": "bold",
+            },
+            style_cell={"font-family": "sans-serif", "font-size": "1rem"},
+            style_cell_conditional=[
+                {
+                    'if': {'column_id': i},
+                    'textAlign': 'left',
+                    'minWidth': w, 'width': w, 'maxWidth': w,
+                    'whiteSpace': 'normal'
+                }
+                for i,w in zip([ *df.columns ],
+                               ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
+                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
+            ],
+            fixed_rows={"headers": True, "data": 0},
+            page_size=500,
+            data=df.to_dict('records'),
+            editable=True,
+            filter_action="native",
+            sort_action="native",
+            sort_mode="multi",
+            row_selectable="multi",
+            row_deletable=True,
+            selected_rows=[],
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+            },
+        )]
+        figs = update_grid(True, df.to_dict(), df.to_dict(), [])
+        tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+
+    else:
+        data_children = []
+        tabs_children = [ generate_tab_fig(day, tab, None) for day in days]
+
+    loading_children = [
+        html.Div(data_children,
+                 style={
+                     'width': '100%',
+                     'display': 'block',
+                     'marginLeft': 'auto',
+                     'marginRight': 'auto',
+                 },
+                 id='datatable-interactivity-container',
+                )]
+
+    return loading_children, tabs_children
+
+@app.callback(
+    [Output("loading-icon-mon", "children"),
+     Output("loading-icon-tue", "children"),
+     Output("loading-icon-wed", "children"),
+     Output("loading-icon-thu", "children"),
+     Output("loading-icon-fri", "children"),
+     Output("loading-icon-sat", "children"),
      Output('toggle-rooms', 'color'),
      Output('toggle-rooms', 'disabled'),
      Output('toggle-rooms', 'style'),
-     Output('all-rooms-label', 'style')],
+     Output('all-rooms-label', 'style'),
+     Output('msudenver-logo', 'alt')],
     [Input('update-grid-button', 'n_clicks'),
      Input('toggle-rooms', 'on'),
-     State('tabs-weekdays', 'value'),
+     State('weekdays-tabs', 'value'),
      State('datatable-interactivity', 'data'),
      State('datatable-interactivity', 'derived_virtual_data'),
      State('datatable-interactivity', 'derived_virtual_selected_rows')],
 )
 def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices):
     if n_clicks > 0:
-        figs = update_grid(tab, toggle, data, filtered_data, slctd_row_indices)
+        figs = update_grid(toggle, data, filtered_data, slctd_row_indices)
+
+        modeBarButtonsToRemove = ['zoom2d', 'pan2d', 'lasso2d', 'zoomIn2d',
+                                  'zoomOut2d', 'autoScale2d', 'resetScale2d']
+        children = []
+        for day,fig in zip(days, figs):
+            day_abbrv = day.lower()[:3]
+            child = dcc.Graph(
+                figure=fig,
+                config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': modeBarButtonsToRemove,
+                    'showAxisDragHandles': True,
+                    'toImageButtonOptions': {'filename': day_abbrv},
+                },
+                id='schedule_'+day_abbrv,
+            )
+            children.append(child)
+
         bool_switch_disabled = False
         bool_switch_style = {'display': 'inline-block'}
         all_rooms_label_style = {'display': 'inline-block'}
-        return *figs, '#064779', bool_switch_disabled, bool_switch_style, all_rooms_label_style
+        return *children, '#064779', bool_switch_disabled, bool_switch_style, all_rooms_label_style, "MSU Denver"
 
 
 @app.callback(
@@ -1066,11 +955,11 @@ def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices
      Output('schedule_thu_div', 'style'),
      Output('schedule_fri_div', 'style'),
      Output('schedule_sat_div', 'style')],
-    [Input('tabs-weekdays', 'value')],
+    [Input('weekdays-tabs', 'value')],
 )
 def update_tab_display(tab):
     ctx = dash.callback_context
-    if 'tabs-weekdays' in ctx.triggered[0]['prop_id']:
+    if 'weekdays-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
         for t in ['tab-mon', 'tab-tue', 'tab-wed', 'tab-thu', 'tab-fri', 'tab-sat']:
             if t == tab:
@@ -1113,16 +1002,16 @@ def add_row(n_clicks, rows, columns):
     return rows
 
 @app.callback(
-    [Output('filter-query-input', 'style'),
+    [Output('filter-query-input-container', 'style'),
      Output('filter-query-output', 'style')],
     [Input('filter-query-read-write', 'value')]
 )
 def query_input_output(val):
     if val == 'read':
         input_style = {'display': 'none'}
-        output_style = {'height': '35px', 'display': 'inline-block', 'marginLeft': '15px'}
+        output_style = {'display': 'inline-block', 'marginLeft': '15px'}
     else:
-        input_style = {'marginLeft': '5px', 'width': '75%', 'display': 'inline-block'}
+        input_style = {'marginLeft': '5px', 'width': '100%', 'display': 'inline-block'}
         output_style = {'display': 'none'}
     return input_style, output_style
 
@@ -1140,7 +1029,7 @@ def write_query(query):
     [Input('datatable-interactivity', 'filter_query')]
 )
 def read_query(query):
-    if query is None:
+    if query is None or query=="":
         return "No filter query"
     return html.P('filter_query = "{}"'.format(query)),
 
