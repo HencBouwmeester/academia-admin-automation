@@ -23,23 +23,6 @@ app = dash.Dash(
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
 )
-server = app.server
-
-app.title = 'Scheduling'
-
-app.config.update({
-    'suppress_callback_exceptions': True,
-})
-
-# specifics for the math.msudenver.edu server
-"""
-app.config.update({
-   'url_base_pathname':'/scheduling/',
-   'routes_pathname_prefix':'/scheduling/',
-   'requests_pathname_prefix':'/scheduling/',
-})
-"""
-
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 def updateTitles(df):
@@ -415,6 +398,8 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         _df.insert(len(_df.columns), 'textRec', 0)
     if not 'colorRec' in _df.columns:
         _df.insert(len(_df.columns), 'colorRec', 0)
+    if not 'alphaRec' in _df.columns:
+        _df.insert(len(_df.columns), 'alphaRec', 0.5)
 
     colors = [colorLight[4] if k in slctd_row_indices else colorLight[1]
               for k in range(len(_df))]
@@ -424,13 +409,22 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = _dfLoc[_dfLoc['Campus'] != 'I']
     _dfLoc = _dfLoc[_dfLoc['Loc'] != 'TBA']
     _dfLoc = _dfLoc[_dfLoc['Loc'] != 'OFFC  T']
-    _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
     _df = _df[_df['Campus'] != 'I']
     _df = _df[_df['Loc'] != 'TBA']
+    _df = _df[_df['Loc'] != 'OFFC  T']
+
+    # remove classes with zero credits
+    # _dfLoc = _dfLoc[_dfLoc['Credit'] != 0]
+    # _df = _df[_df['Credit'] != 0]
 
     # remove canceled classes
-    _df = _df[_df['Loc'] != 'OFFC  T']
+    _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
     _df = _df[_df['S'] != 'C']
+
+    if not 'timeLoc' in _df.columns:
+        _df.insert(len(_df.columns), 'timeLoc', 0)
+    _df['timeLoc'] = _df['Time'] + _df['Loc']
+
 
     # create figures for all tabs
     figs = []
@@ -442,6 +436,11 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         # apply the mask and use a copy of the dataframe
         df = _df[mask].copy()
 
+        # for row in df[df.duplicated(subset=['timeLoc'],keep=False)].index.tolist():
+            # if df.loc[row, 'colorRec'] == colorLight[1] and df.loc[row, 'Credit'] > 0:
+                # df.loc[row, 'colorRec'] = '#d62246'
+                # df.loc[row, 'alphaRec'] = 0.25
+
         # unique rooms and total number of unique rooms
         if toggle:
             rooms = _dfLoc['Loc'].unique()
@@ -451,6 +450,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         nLoc = len(list(Loc.keys()))
 
         # compute dimensions based on class time
+        timeLoc = {}
         for row in df.index.tolist():
             strTime = df.loc[row, 'Time']
             s = strTime[:5]
@@ -475,6 +475,21 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 df.loc[row, 'textRec'] = df.loc[row, 'Subject'] + ' ' + df.loc[row, 'Number'] + '-' + df.loc[row, 'Section']
             except TypeError:
                 df.loc[row, 'textRec'] = ''
+
+            # highlight same time and location in red
+            if df.loc[row, 'timeLoc'] in timeLoc:
+                timeLoc[df.loc[row, 'timeLoc']].append(row)
+                # df.loc[row, 'colorRec'] = '#d62246'
+                # df.loc[row, 'alphaRec'] = 0.25
+                # qty[row] += 1
+            else:
+                timeLoc[df.loc[row, 'timeLoc']] = [row]
+
+        for row in timeLoc.values():
+            if len(row) > 1:
+                for k in range(len(row)):
+                    df.loc[row[k], 'xRec'] += k/len(row)
+                    df.loc[row[k], 'wRec'] -= (len(row)-1)/len(row)
 
         fig = go.Figure()
 
@@ -506,6 +521,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             hRec = df.loc[row, 'hRec']
             textRec = df.loc[row, 'textRec']
             colorRec = df.loc[row, 'colorRec']
+            alphaRec = df.loc[row, 'alphaRec']
 
             recAnnotations.append(
                 dict(
@@ -514,7 +530,9 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                     y = -(yRec + hRec/2),
                     text = textRec,
                     showarrow = False,
-                    font = dict(size=min(int(16/nLoc*8),14)),
+                    # font = dict(size=min(int(16/nLoc*8),14)),
+                    # font = dict(size=min(int(wRec*16/nLoc*8),16)),
+                    font = dict(size=min(int(128*wRec/nLoc),16)),
                 )
             )
 
@@ -529,7 +547,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                         width=1,
                     ),
                     fillcolor=colorRec,
-                    opacity=0.5,
+                    opacity=alphaRec,
                 )
             )
 
@@ -646,7 +664,7 @@ def generate_tab_fig(day, tab, fig):
 app.layout = html.Div([
     html.Div([
         dcc.Upload(id='upload-data',
-                   children=html.Button(['Upload file'],id='upload-data-button'),
+                   children=html.Button(['Upload file'],id='upload-data-button',n_clicks=0),
                    multiple=False,
                    accept='.txt, .csv, .xlsx'),
         html.H3('Scheduling'),
@@ -683,6 +701,7 @@ app.layout = html.Div([
                                    id='all-rooms-label'),
                     ],
                         style={'verticalAlign': 'middle',
+                               'marginTop': '10px',
                                'width': '59%',
                                'display': 'inline-block'},
                     ),
@@ -694,6 +713,7 @@ app.layout = html.Div([
                                           style={'display': 'none'}),
                     ],
                         style={'verticalAlign': 'middle',
+                               'marginTop': '10px',
                                'width': '39%',
                                'display': 'inline-block'},
                     ),
@@ -702,108 +722,111 @@ app.layout = html.Div([
             ]),
         ]),
         html.Div([
+html.Div([
+        html.Div([
             html.Div([
-                html.Label([
-                    'Predefined Queries:',
-                    dcc.Dropdown(
-                        id='filter-query-dropdown',
-                        options=[
-                            {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                            {'label': 'Active Classes', 'value': '{S} contains A'},
-                            {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
-                            {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                            {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                            {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                            {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                            {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                            {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                            {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                            {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                            {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                            {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                            {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                            {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                            {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                            {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                            {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                            {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                            {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
-                            {'label': 'Canceled CRNs', 'value': '{S} contains C'},
-                        ],
-                        placeholder='Select a query',
-                        value=''),
-                ]),
+                dcc.Dropdown(
+                    id='filter-query-dropdown',
+                    options=[
+                        {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
+                        {'label': 'Active Classes', 'value': '{S} contains A'},
+                        {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                        {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                        {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                        {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                        {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                        {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                        {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                        {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                        {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                        {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                        {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                        {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                        {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                        {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                        {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                        {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                        {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                        {'label': 'Custom...', 'value': 'custom'},
+                    ],
+                    placeholder='Select a query',
+                    value=''),
             ],
-                style={'marginTop': '7px', 'marginLeft': '5px'}
+                style={'display': 'inline-block', 'width':'100%'}
             ),
-            html.Br(),
             html.Div([
-                html.Label([
-                    'Custom Queries:',
-                    dcc.RadioItems(
-                        id='filter-query-read-write',
-                        options=[
-                            {'label': 'Read filter_query', 'value': 'read'},
-                            {'label': 'Write to filter_query', 'value': 'write'}
-                        ],
-                        className='dcc_control',
-                        value='read')]),
+                html.Button('Apply Query', id='apply_query_button', className='button')
             ],
-                style={'marginLeft': '5px'}
+                style={'display': 'inline-block'}
+            ),
+            ],
+            style={'marginTop': '7px', 'marginLeft': '5px', 'display': 'flex',
+                   'justifyContent': 'space-between'}
             ),
             html.Div([
                 html.Div([
-                    dcc.Input(id='filter-query-input',
-                              placeholder='Enter filter query',
-                              className='dcc_control',
-                              style={'width': '98.5%'}),
+                    html.Div([
+                        dcc.Input(id='filter-query-input',
+                                  placeholder='Enter filter query',
+                                  className='dcc_control',
+                                  style={'width': '98.5%'}),
+                    ],
+                        id='filter-query-input-container',
+                        style={'marginLeft': '5px',
+                               'width': '100%',
+                               'display': 'none'}
+                    ),
+                    html.Div(['filter_query = "None"'],
+                        id='filter-query-output',
+                        style={'display': 'inline-block',
+                               'marginLeft': '5px',
+                               'width': '100%'}
+                    ),
                 ],
-                    id='filter-query-input-container',
-                    style={'marginLeft': '5px',
-                           'width': '100%',
-                           'display': 'none'}
-                ),
-                html.Div(
-                    id='filter-query-output',
-                    style={'display': 'inline-block',
-                           'marginLeft': '15px'}
-                ),
-            ],
-                style={'height': '35px', 'width': '100%'}
-            ),
-            html.Hr(),
-            html.Div([
-                html.Button('Update Grid', id='update-grid-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                html.Button('Select All', id='select-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                html.Button('Export All', id='export-all-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                dcc.Download(id='datatable-download'),
-                html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                dcc.Download(id='datatable-filtered-download'),
-                html.Button('Add Row', id='add-row-button', n_clicks=0,
-                            style={'marginLeft': '5px'}, className='button'),
-                html.Button('Delete Row(s)', id='delete-row-button', n_clicks=0,
-                            style={'marginLeft': '5px'}, className='button'),
+                    style={'marginTop': '15px', 'marginLeft': '5px', 'display': 'flex',
+                           'justifyContent': 'space-between'}
+                )
             ]),
+])
             ]),
-            dcc.Loading(id='loading-icon-upload',
-                        children=[
-                            html.Div([],
-                                     style={
-                                         'width': '100%',
-                                         'display': 'block',
-                                         'marginLeft': 'auto',
-                                         'marginRight': 'auto'},
-                                     id='datatable-interactivity-container',
-                                    )],
-                        type='circle',
-                        fullscreen=True,
-                        color='#064779'),
+        html.Div([
+                html.Hr(),
+                html.Div([
+                    html.Button('Update Grid', id='update-grid-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Select All', id='select-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Export All', id='export-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-download'),
+                    html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-filtered-download'),
+                    html.Button('Add Row', id='add-row-button', n_clicks=0,
+                                style={'marginLeft': '5px'}, className='button'),
+                    html.Button('Delete Row(s)', id='delete-row-button', n_clicks=0,
+                                style={'marginLeft': '5px'}, className='button'),
+                ]),
+        ],
+            style={'width': '100%'}
+        ),
+        dcc.Loading(id='loading-icon-upload',
+                    children=[
+                        html.Div([],
+                                 style={
+                                     'width': '100%',
+                                     'display': 'block',
+                                     'marginLeft': 'auto',
+                                     'marginRight': 'auto'},
+                                 id='datatable-interactivity-container',
+                                )],
+                    type='circle',
+                    fullscreen=True,
+                    color='#064779'),
     ],
         id='output-data-upload',
         style={'display': 'none'}
@@ -822,13 +845,17 @@ def func(contents):
 
 @app.callback(
     [Output('loading-icon-upload', 'children'),
-     Output('weekdays-tabs-content', 'children')],
+     Output('weekdays-tabs-content', 'children'),
+     Output('upload-data-button', 'n_clicks')],
+     # Output('loading-icon-upload', 'fullscreen')],
     [Input('upload-data', 'contents'),
      State('weekdays-tabs', 'value'),
-     State('upload-data', 'filename')],
+     State('upload-data', 'filename'),
+     State('upload-data-button', 'n_clicks')],
+     # State('loading-icon-upload', 'fullscreen')],
 )
-def func(contents, tab, name):
-    if contents is not None:
+def func(contents, tab, name, n_clicks):#, fullscreen):
+    if contents is not None and n_clicks > 0:
         df = parse_contents(contents, name)
         data_children = [ dash_table.DataTable(
             id='datatable-interactivity',
@@ -869,7 +896,8 @@ def func(contents, tab, name):
         )]
         figs = update_grid(True, df.to_dict(), df.to_dict(), [])
         tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
-
+        n_clicks = 0
+        # fullscreen = False
     else:
         data_children = []
         tabs_children = [ generate_tab_fig(day, tab, None) for day in days]
@@ -885,7 +913,7 @@ def func(contents, tab, name):
                  id='datatable-interactivity-container',
                 )]
 
-    return loading_children, tabs_children
+    return loading_children, tabs_children, n_clicks#, fullscreen
 
 @app.callback(
     [Output('loading-icon-mon', 'children'),
@@ -988,43 +1016,35 @@ def add_row(n_clicks, rows, columns):
 
 @app.callback(
     [Output('filter-query-input-container', 'style'),
-     Output('filter-query-output', 'style')],
-    [Input('filter-query-read-write', 'value')]
+     Output('filter-query-output', 'style'),
+     Output('filter-query-output', 'children')],
+    [Input('filter-query-dropdown', 'value')]
 )
 def query_input_output(val):
-    if val == 'read':
-        input_style = {'display': 'none'}
-        output_style = {'display': 'inline-block', 'marginLeft': '15px'}
-    else:
-        input_style = {'marginLeft': '5px', 'width': '100%', 'display': 'inline-block'}
+    if val == 'custom':
+        input_style = {'marginLeft': '0px', 'width': '100%', 'display': 'inline-block'}
         output_style = {'display': 'none'}
-    return input_style, output_style
+    else:
+        input_style = {'display': 'none'}
+        output_style = {'display': 'inline-block',
+                        'marginLeft': '5px',
+                        'width': '100%'}
+    return input_style, output_style , html.P('filter_query = "{}"'.format(val)),
 
 @app.callback(
-    Output('datatable-interactivity', 'filter_query'),
-    [Input('filter-query-input', 'value')]
+    [Output('datatable-interactivity', 'filter_query')],
+    [Input('apply_query_button', 'n_clicks'),
+     State('filter-query-dropdown', 'value'),
+     State('filter-query-input', 'value')]
 )
-def write_query(query):
-    if query is None:
-        return ''
-    return query
-
-@app.callback(
-    Output('filter-query-output', 'children'),
-    [Input('datatable-interactivity', 'filter_query')]
-)
-def read_query(query):
-    if query is None or query=='':
-        return 'No filter query'
-    return html.P('filter_query = "{}"'.format(query)),
-
-@app.callback(
-    Output('filter-query-input', 'value'),
-    Input('filter-query-dropdown', 'value')
-)
-def read_query_dropdown(query):
-    if query is not None:
-        return query
+def func(n_clicks, dropdown_value, input_value):
+    if n_clicks > 0:
+        if dropdown_value == 'custom':
+            return [input_value]
+        else:
+            if dropdown_value is None:
+                return ['']
+            return [dropdown_value]
 
 @app.callback(
     Output('datatable-download', 'data'),
@@ -1048,5 +1068,26 @@ def func(n_clicks, data):
 
 # Main
 if __name__ == '__main__':
+    server = app.server
+
+    app.title = 'Scheduling'
+
+    app.config.update({
+        'suppress_callback_exceptions': True,
+    })
+
+    # specifics for the math.msudenver.edu server
+    # """
+    app.config.update({
+       'url_base_pathname':'/scheduling/',
+       'routes_pathname_prefix':'/scheduling/',
+       'requests_pathname_prefix':'/scheduling/',
+    })
+
+    app.run_server(debug=True)
+    # """
+
+    # specifics for home server
+    """
     app.run_server(debug=True, host='10.0.2.15', port='8050')
-    # app.run_server(debug=True)
+    """
