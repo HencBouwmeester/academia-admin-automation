@@ -187,6 +187,14 @@ a:hover {
    border-radius: 4px;
    background-color: #e9e9e9;
 }
+.button:disabled {
+   pointer-events: none;
+}
+.button[disabled]{
+  border: 1px solid #999999;
+  /*background-color: #cccccc;*/
+  color: #cccccc;
+}
 #upload-data-button {
    height: 38px;
    line-height: 38px;

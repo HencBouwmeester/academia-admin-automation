@@ -379,7 +379,28 @@ def parse_contents(contents, filename):#, date):
 
 def update_grid(toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = pd.DataFrame(data)
-    _df = pd.DataFrame(filtered_data)
+    if len(filtered_data) > 0:
+        _df = pd.DataFrame(filtered_data)
+    else:
+        blankFigure={
+            'data': [],
+            'layout': go.Layout(
+                xaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                },
+                yaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                }
+            )
+        }
+
+        return [ blankFigure for k in range(6)]
 
     # set the color pallete
     colorLight = ['#fbb4ae', '#b3cde3', '#ccebc5', '#decbe4', '#fed9a6',
@@ -413,10 +434,6 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
     _df = _df[_df['Loc'] != 'TBA']
     _df = _df[_df['Loc'] != 'OFFC  T']
 
-    # remove classes with zero credits
-    # _dfLoc = _dfLoc[_dfLoc['Credit'] != 0]
-    # _df = _df[_df['Credit'] != 0]
-
     # remove canceled classes
     _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
     _df = _df[_df['S'] != 'C']
@@ -435,11 +452,6 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
 
         # apply the mask and use a copy of the dataframe
         df = _df[mask].copy()
-
-        # for row in df[df.duplicated(subset=['timeLoc'],keep=False)].index.tolist():
-            # if df.loc[row, 'colorRec'] == colorLight[1] and df.loc[row, 'Credit'] > 0:
-                # df.loc[row, 'colorRec'] = '#d62246'
-                # df.loc[row, 'alphaRec'] = 0.25
 
         # unique rooms and total number of unique rooms
         if toggle:
@@ -479,9 +491,6 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             # highlight same time and location in red
             if df.loc[row, 'timeLoc'] in timeLoc:
                 timeLoc[df.loc[row, 'timeLoc']].append(row)
-                # df.loc[row, 'colorRec'] = '#d62246'
-                # df.loc[row, 'alphaRec'] = 0.25
-                # qty[row] += 1
             else:
                 timeLoc[df.loc[row, 'timeLoc']] = [row]
 
@@ -694,31 +703,6 @@ app.layout = html.Div([
                            'marginRight': 'auto',
                            'background': 'white'}
                 ),
-                html.Div([
-                    html.Div([
-                        html.Label('All rooms:',
-                                   style={'display': 'none'},
-                                   id='all-rooms-label'),
-                    ],
-                        style={'verticalAlign': 'middle',
-                               'marginTop': '10px',
-                               'width': '59%',
-                               'display': 'inline-block'},
-                    ),
-                    html.Div([
-                        daq.BooleanSwitch(id='toggle-rooms',
-                                          on=True,
-                                          disabled=True,
-                                          color='#e6e6e6',
-                                          style={'display': 'none'}),
-                    ],
-                        style={'verticalAlign': 'middle',
-                               'marginTop': '10px',
-                               'width': '39%',
-                               'display': 'inline-block'},
-                    ),
-                ],
-                    style={'float': 'right','marginRight': '5px'}),
             ]),
         ]),
         html.Div([
@@ -761,6 +745,14 @@ html.Div([
             ],
                 style={'display': 'inline-block'}
             ),
+            html.Label('All rooms:',
+                           style={'display': 'none'},
+                           id='all-rooms-label'),
+            daq.BooleanSwitch(id='toggle-rooms',
+                              on=True,
+                              disabled=False,
+                              color='#e6e6e6',
+                              style={'display': 'none'}),
             ],
             style={'marginTop': '7px', 'marginLeft': '5px', 'display': 'flex',
                    'justifyContent': 'space-between'}
@@ -808,7 +800,7 @@ html.Div([
                     dcc.Download(id='datatable-filtered-download'),
                     html.Button('Add Row', id='add-row-button', n_clicks=0,
                                 style={'marginLeft': '5px'}, className='button'),
-                    html.Button('Delete Row(s)', id='delete-row-button', n_clicks=0,
+                    html.Button('Delete Row(s)', id='delete-rows-button', n_clicks=0,
                                 style={'marginLeft': '5px'}, className='button'),
                 ]),
         ],
@@ -846,15 +838,15 @@ def func(contents):
 @app.callback(
     [Output('loading-icon-upload', 'children'),
      Output('weekdays-tabs-content', 'children'),
-     Output('upload-data-button', 'n_clicks')],
-     # Output('loading-icon-upload', 'fullscreen')],
+     Output('upload-data-button', 'n_clicks'),
+     Output('loading-icon-upload', 'fullscreen')],
     [Input('upload-data', 'contents'),
      State('weekdays-tabs', 'value'),
      State('upload-data', 'filename'),
-     State('upload-data-button', 'n_clicks')],
-     # State('loading-icon-upload', 'fullscreen')],
+     State('upload-data-button', 'n_clicks'),
+     State('loading-icon-upload', 'fullscreen')],
 )
-def func(contents, tab, name, n_clicks):#, fullscreen):
+def func(contents, tab, name, n_clicks, fullscreen):
     if contents is not None and n_clicks > 0:
         df = parse_contents(contents, name)
         data_children = [ dash_table.DataTable(
@@ -897,7 +889,7 @@ def func(contents, tab, name, n_clicks):#, fullscreen):
         figs = update_grid(True, df.to_dict(), df.to_dict(), [])
         tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
         n_clicks = 0
-        # fullscreen = False
+        fullscreen = False
     else:
         data_children = []
         tabs_children = [ generate_tab_fig(day, tab, None) for day in days]
@@ -913,7 +905,7 @@ def func(contents, tab, name, n_clicks):#, fullscreen):
                  id='datatable-interactivity-container',
                 )]
 
-    return loading_children, tabs_children, n_clicks#, fullscreen
+    return loading_children, tabs_children, n_clicks, fullscreen
 
 @app.callback(
     [Output('loading-icon-mon', 'children'),
@@ -923,7 +915,6 @@ def func(contents, tab, name, n_clicks):#, fullscreen):
      Output('loading-icon-fri', 'children'),
      Output('loading-icon-sat', 'children'),
      Output('toggle-rooms', 'color'),
-     Output('toggle-rooms', 'disabled'),
      Output('toggle-rooms', 'style'),
      Output('all-rooms-label', 'style')],
     [Input('update-grid-button', 'n_clicks'),
@@ -955,10 +946,12 @@ def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices
             )
             children.append(child)
 
-        bool_switch_disabled = False
-        bool_switch_style = {'display': 'inline-block'}
-        all_rooms_label_style = {'display': 'inline-block'}
-        return *children, '#064779', bool_switch_disabled, bool_switch_style, all_rooms_label_style
+        bool_switch_style = {'display': 'inline-block', 'marginTop': '5px'}
+        all_rooms_label_style = {'display': 'inline-block',
+                                 'white-space': 'nowrap',
+                                 'marginLeft': '5px',
+                                 'marginTop': '5px'}
+        return *children, '#064779', bool_switch_style, all_rooms_label_style
 
 
 @app.callback(
@@ -1001,18 +994,45 @@ def select_deselect(selbtn, deselbtn, selected_rows):
         return []
 
 @app.callback(
-    Output('datatable-interactivity', 'data'),
-    Input('add-row-button', 'n_clicks'),
-    State('datatable-interactivity', 'data'),
-    State('datatable-interactivity', 'columns'))
-def add_row(n_clicks, rows, columns):
-    if n_clicks > 0:
-        rows.append(
-            {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
-             'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
-             'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ','}
-        )
-    return rows
+    [Output('deselect-all-button', 'disabled'),
+     Output('delete-rows-button', 'disabled')],
+    Input('datatable-interactivity', 'selected_rows')
+)
+def func(rows):
+    if len(rows):
+        return False, False
+    return True, True
+
+@app.callback(
+    [Output('datatable-interactivity', 'data'),
+     Output('datatable-interactivity', 'derived_virtual_data'),
+     Output('deselect-all-button', 'n_clicks')],
+    [Input('add-row-button', 'n_clicks'),
+     Input('delete-rows-button', 'n_clicks'),
+     State('datatable-interactivity', 'selected_rows'),
+     State('datatable-interactivity', 'data'),
+     State('deselect-all-button', 'n_clicks')],
+)
+def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_clicks):
+    # print("Add Row or Delete Row(s) button clicked")
+    ctx = dash.callback_context
+    if ctx.triggered:
+        trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
+    if trigger == 'add-row-button':
+        if add_n_clicks > 0:
+            # print("Add Row button clicked")
+            rows.append(
+                {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
+                 'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
+                 'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ','}
+            )
+        return rows, rows, deselect_n_clicks
+    else:
+        if delete_n_clicks > 0:
+            # print("Delete Row(s) button clicked")
+            for row in selected_rows[::-1]:
+                rows.pop(row)
+        return rows, rows, 1
 
 @app.callback(
     [Output('filter-query-input-container', 'style'),
@@ -1077,7 +1097,7 @@ if __name__ == '__main__':
     })
 
     # specifics for the math.msudenver.edu server
-    # """
+    """
     app.config.update({
        'url_base_pathname':'/scheduling/',
        'routes_pathname_prefix':'/scheduling/',
@@ -1085,9 +1105,9 @@ if __name__ == '__main__':
     })
 
     app.run_server(debug=True)
-    # """
+    """
 
     # specifics for home server
-    """
+    # """
     app.run_server(debug=True, host='10.0.2.15', port='8050')
-    """
+    # """
