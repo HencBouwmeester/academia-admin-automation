@@ -14,6 +14,8 @@ import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
 
+DEBUG = False
+
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
 
@@ -23,9 +25,29 @@ app = dash.Dash(
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
 )
+
+server = app.server
+
+app.title = 'Scheduling'
+
+app.config.update({
+    'suppress_callback_exceptions': True,
+})
+
+# specifics for the math.msudenver.edu server
+# """
+app.config.update({
+   'url_base_pathname':'/scheduling/',
+   'routes_pathname_prefix':'/scheduling/',
+   'requests_pathname_prefix':'/scheduling/',
+})
+# """
+
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 def updateTitles(df):
+    if DEBUG:
+        print("function: updateTitles")
     course_titles = [
         ['MTH 1051', 'Principles of Math in Chem Lab',],
         ['MTH 1080', 'Mathematics for Liberal Arts',],
@@ -106,6 +128,8 @@ def updateTitles(df):
     return df
 
 def convertAMPMtime(timeslot):
+    if DEBUG:
+        print("function: convertAMPMtime")
     """Convert time format from 12hr to 24hr and account for TBA times.
 
     Args:
@@ -129,6 +153,8 @@ def convertAMPMtime(timeslot):
     return timeslot
 
 def tidy_txt(file_contents):
+    if DEBUG:
+        print("function: tidy_txt")
     """Take in SWRCGSR output and format into pandas-compatible format.
 
     Args:
@@ -232,6 +258,8 @@ def tidy_txt(file_contents):
     return _df
 
 def tidy_csv(file_contents):
+    if DEBUG:
+        print("function: tidy_csv")
     """ Converts the CSV format to the TXT format from Banner
 
     Args:
@@ -258,6 +286,8 @@ def tidy_csv(file_contents):
     return tidy_txt(io.StringIO('\n'.join(_list)))
 
 def tidy_xlsx(file_contents):
+    if DEBUG:
+        print("function: tidy_xlsx")
     """ Converts an Excel Spreadsheet
 
     Make sure that you copy and paste all data as values before trying to import.
@@ -326,6 +356,8 @@ def tidy_xlsx(file_contents):
     return _df
 
 def generate_weekday_tab(day):
+    if DEBUG:
+        print("generate_weekday_tab")
     tab_style = {
         'height': '30px',
         'padding': '2px',
@@ -344,6 +376,8 @@ def generate_weekday_tab(day):
 
 
 def parse_contents(contents, filename):#, date):
+    if DEBUG:
+        print("function: parse_contents")
     """Assess filetype of uploaded file and pass to appropriate processing functions,
     then return html of enrollment statistics.
 
@@ -378,6 +412,9 @@ def parse_contents(contents, filename):#, date):
     return df
 
 def update_grid(toggle, data, filtered_data, slctd_row_indices):
+    if DEBUG:
+        print("function: update_grid")
+
     _dfLoc = pd.DataFrame(data)
     if len(filtered_data) > 0:
         _df = pd.DataFrame(filtered_data)
@@ -406,24 +443,10 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
     colorLight = ['#fbb4ae', '#b3cde3', '#ccebc5', '#decbe4', '#fed9a6',
                   '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2']
 
-    # add columns for rectangle dimensions and annotation
-    if not 'xRec' in _df.columns:
-        _df.insert(len(_df.columns), 'xRec', 0)
-    if not 'yRec' in _df.columns:
-        _df.insert(len(_df.columns), 'yRec', 0)
-    if not 'wRec' in _df.columns:
-        _df.insert(len(_df.columns), 'wRec', 0)
-    if not 'hRec' in _df.columns:
-        _df.insert(len(_df.columns), 'hRec', 0)
-    if not 'textRec' in _df.columns:
-        _df.insert(len(_df.columns), 'textRec', 0)
-    if not 'colorRec' in _df.columns:
-        _df.insert(len(_df.columns), 'colorRec', 0)
-    if not 'alphaRec' in _df.columns:
-        _df.insert(len(_df.columns), 'alphaRec', 0.5)
-
     colors = [colorLight[4] if k in slctd_row_indices else colorLight[1]
               for k in range(len(_df))]
+    if not 'colorRec' in _df.columns:
+        _df.insert(len(_df.columns), 'colorRec', '')
     _df['colorRec'] = colors
 
     # remove classes without rooms
@@ -438,6 +461,20 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
     _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
     _df = _df[_df['S'] != 'C']
 
+    # add columns for rectangle dimensions and annotation
+    if not 'xRec' in _df.columns:
+        _df.insert(len(_df.columns), 'xRec', 0)
+    if not 'yRec' in _df.columns:
+        _df.insert(len(_df.columns), 'yRec', 0)
+    if not 'wRec' in _df.columns:
+        _df.insert(len(_df.columns), 'wRec', 1)
+    if not 'hRec' in _df.columns:
+        _df.insert(len(_df.columns), 'hRec', 0)
+    if not 'textRec' in _df.columns:
+        _df.insert(len(_df.columns), 'textRec', '')
+    if not 'alphaRec' in _df.columns:
+        _df.insert(len(_df.columns), 'alphaRec', 1.0)
+
     if not 'timeLoc' in _df.columns:
         _df.insert(len(_df.columns), 'timeLoc', 0)
     _df['timeLoc'] = _df['Time'] + _df['Loc']
@@ -447,11 +484,16 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
     figs = []
     for d in ['M', 'T', 'W', 'R', 'F', 'S']:
 
+        if DEBUG:
+            print("function: update_grid {:s}".format(d))
+
         # create mask for particular tab
         mask = _df['Days'].str.contains(d, case=True, na=False)
 
         # apply the mask and use a copy of the dataframe
         df = _df[mask].copy()
+        if DEBUG:
+            print("function: update_grid {:s} {:d}".format(d, len(df.index.tolist())))
 
         # unique rooms and total number of unique rooms
         if toggle:
@@ -464,6 +506,8 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         # compute dimensions based on class time
         timeLoc = {}
         for row in df.index.tolist():
+
+            # calculate x,y position and height of rectangles
             strTime = df.loc[row, 'Time']
             s = strTime[:5]
             e = strTime[-5:]
@@ -481,19 +525,22 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 df.loc[row, 'xRec'] = 0
 
             df.loc[row, 'yRec'] = yRec
-            df.loc[row, 'wRec'] = 1
             df.loc[row, 'hRec'] = hRec
+
+            # create annotation for rectangle
             try:
                 df.loc[row, 'textRec'] = df.loc[row, 'Subject'] + ' ' + df.loc[row, 'Number'] + '-' + df.loc[row, 'Section']
             except TypeError:
                 df.loc[row, 'textRec'] = ''
 
-            # highlight same time and location in red
+            # check if time/location block is already in use
             if df.loc[row, 'timeLoc'] in timeLoc:
-                timeLoc[df.loc[row, 'timeLoc']].append(row)
+                timeLoc[df.loc[row, 'timeLoc']].append(row) # already in use, add to list
             else:
-                timeLoc[df.loc[row, 'timeLoc']] = [row]
+                timeLoc[df.loc[row, 'timeLoc']] = [row] # not in use, so create list
 
+        # where times are already in use, change size of rectangles to place them
+        # side-by-side in the grid
         for row in timeLoc.values():
             if len(row) > 1:
                 for k in range(len(row)):
@@ -502,72 +549,60 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
 
         fig = go.Figure()
 
-        # alternating vertical shading for rooms
-        for k in range(nLoc):
-            if k%2:
-                fig.add_vrect(
-                    xref='x', yref='y',
-                    x0 = k, x1 = k+1,
-                    fillcolor=colorLight[8],
-                    layer='below', line_width=0,
-                )
-            else:
-                fig.add_vrect(
-                    xref='x', yref='y',
-                    x0 = k, x1 = k+1,
-                    fillcolor='white',
-                    layer='below', line_width=0,
-                )
-
-        # create list of dictionaries of rectangle for each course this will allow
-        # me to find overlaps later
-        recAnnotations = []
-        recDimensions = []
+        # we create a dictionary of all the shapes and annotations that will be on the grid
+        ply_shapes = {}
+        ply_annotations = {}
         for row in df.index.tolist():
-            xRec = df.loc[row, 'xRec']
-            yRec = df.loc[row, 'yRec']
             wRec = df.loc[row, 'wRec']
             hRec = df.loc[row, 'hRec']
+            xRec = df.loc[row, 'xRec']
+            yRec = df.loc[row, 'yRec']
             textRec = df.loc[row, 'textRec']
             colorRec = df.loc[row, 'colorRec']
             alphaRec = df.loc[row, 'alphaRec']
 
-            recAnnotations.append(
-                dict(
-                    xref='x', yref='y',
-                    x = xRec + wRec/2,
-                    y = -(yRec + hRec/2),
-                    text = textRec,
-                    showarrow = False,
-                    # font = dict(size=min(int(16/nLoc*8),14)),
-                    # font = dict(size=min(int(wRec*16/nLoc*8),16)),
-                    font = dict(size=min(int(128*wRec/nLoc),16)),
-                )
+            ply_shapes['shape_' + str(row)] = go.layout.Shape(
+                type='rect',
+                xref='x', yref='y',
+                x0 = xRec, y0 = -yRec,
+                x1 = xRec + wRec, y1 = -(yRec + hRec),
+                line=dict(
+                    color='LightGray',
+                    width=1,
+                ),
+                fillcolor=colorRec,
+                opacity=alphaRec,
+            )
+            ply_annotations['annotation_' + str(row)] = go.layout.Annotation(
+                xref='x', yref='y',
+                x = xRec + wRec/2,
+                y = -(yRec + hRec/2),
+                text = textRec,
+                showarrow = False,
+                font = dict(size=min(int(128*wRec/nLoc),16)),
             )
 
-            recDimensions.append(
-                dict(
+        # alternating vertical shading for rooms
+        for k in range(nLoc):
+            if k%2:
+                ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
                     type='rect',
                     xref='x', yref='y',
-                    x0 = xRec, y0 = -yRec,
-                    x1 = xRec + wRec, y1 = -(yRec + hRec),
-                    line=dict(
-                        color='LightGray',
-                        width=1,
-                    ),
-                    fillcolor=colorRec,
-                    opacity=alphaRec,
+                    x0 = k, x1 = k+1,
+                    y0 = 0, y1 = -170,
+                    fillcolor=colorLight[8],
+                    layer='below', line_width=0,
                 )
-            )
-
-        # draw the rectangles and annotations
-        for ann,rec in zip(recAnnotations, recDimensions):
-            fig.add_annotation(
-                ann
-            )
-            fig.add_shape(
-                rec
-            )
+            else:
+                ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
+                    xref='x', yref='y',
+                    x0 = k, x1 = k+1,
+                    y0 = 0, y1 = -170,
+                    fillcolor='white',
+                    layer='below', line_width=0,
+                )
+        lst_shapes=list(ply_shapes.values())
+        lst_annotations=list(ply_annotations.values())
 
         # setup the axes and tick marks
         fig.update_layout(
@@ -589,13 +624,18 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 gridcolor='#DDD',
                 linecolor='#CCC',
                 mirror=True,
-            )
+            ),
+            showlegend=False,
+            annotations = lst_annotations,
+            shapes=lst_shapes,
         )
         figs.append(fig)
 
     return figs
 
 def to_excel(df):
+    if DEBUG:
+        print("function: to_excel")
     _df = df.copy()
 
     # only grab needed columns and correct ordering
@@ -618,7 +658,8 @@ def to_excel(df):
     return data
 
 def generate_tab_fig(day, tab, fig):
-
+    if DEBUG:
+        print("function: generate_tab_fig")
     # blank figure when no data is present
     blankFigure={
         'data': [],
@@ -831,7 +872,9 @@ html.Div([
     Output('output-data-upload', 'style'),
     Input('upload-data', 'contents')
 )
-def func(contents):
+def show_contents(contents):
+    if DEBUG:
+        print("function: show_contents")
     if contents is not None:
         return {'display': 'block'}
 
@@ -846,7 +889,9 @@ def func(contents):
      State('upload-data-button', 'n_clicks'),
      State('loading-icon-upload', 'fullscreen')],
 )
-def func(contents, tab, name, n_clicks, fullscreen):
+def initial_data_loading(contents, tab, name, n_clicks, fullscreen):
+    if DEBUG:
+        print("function: initial_data_loading")
     if contents is not None and n_clicks > 0:
         df = parse_contents(contents, name)
         data_children = [ dash_table.DataTable(
@@ -925,6 +970,8 @@ def func(contents, tab, name, n_clicks, fullscreen):
      State('datatable-interactivity', 'derived_virtual_selected_rows')],
 )
 def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices):
+    if DEBUG:
+        print("function: render_contents")
     if n_clicks > 0:
         figs = update_grid(toggle, data, filtered_data, slctd_row_indices)
 
@@ -964,6 +1011,8 @@ def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices
     [Input('weekdays-tabs', 'value')],
 )
 def update_tab_display(tab):
+    if DEBUG:
+        print("function: update_tab_display")
     ctx = dash.callback_context
     if 'weekdays-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
@@ -982,6 +1031,8 @@ def update_tab_display(tab):
     State('datatable-interactivity', 'derived_virtual_indices'),
 )
 def select_deselect(selbtn, deselbtn, selected_rows):
+    if DEBUG:
+        print("function: select_deselect")
     ctx = dash.callback_context
     if ctx.triggered:
         trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
@@ -998,7 +1049,9 @@ def select_deselect(selbtn, deselbtn, selected_rows):
      Output('delete-rows-button', 'disabled')],
     Input('datatable-interactivity', 'selected_rows')
 )
-def func(rows):
+def deselect_delete_enable(rows):
+    if DEBUG:
+        print("function: deselect_delete_enable")
     if len(rows):
         return False, False
     return True, True
@@ -1014,13 +1067,13 @@ def func(rows):
      State('deselect-all-button', 'n_clicks')],
 )
 def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_clicks):
-    # print("Add Row or Delete Row(s) button clicked")
+    if DEBUG:
+        print("function: alter_row")
     ctx = dash.callback_context
     if ctx.triggered:
         trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
     if trigger == 'add-row-button':
         if add_n_clicks > 0:
-            # print("Add Row button clicked")
             rows.append(
                 {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
                  'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
@@ -1029,7 +1082,6 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_cli
         return rows, rows, deselect_n_clicks
     else:
         if delete_n_clicks > 0:
-            # print("Delete Row(s) button clicked")
             for row in selected_rows[::-1]:
                 rows.pop(row)
         return rows, rows, 1
@@ -1041,6 +1093,8 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_cli
     [Input('filter-query-dropdown', 'value')]
 )
 def query_input_output(val):
+    if DEBUG:
+        print("function: query_input_output")
     if val == 'custom':
         input_style = {'marginLeft': '0px', 'width': '100%', 'display': 'inline-block'}
         output_style = {'display': 'none'}
@@ -1057,7 +1111,9 @@ def query_input_output(val):
      State('filter-query-dropdown', 'value'),
      State('filter-query-input', 'value')]
 )
-def func(n_clicks, dropdown_value, input_value):
+def apply_query(n_clicks, dropdown_value, input_value):
+    if DEBUG:
+        print("function: apply_query")
     if n_clicks > 0:
         if dropdown_value == 'custom':
             return [input_value]
@@ -1071,7 +1127,9 @@ def func(n_clicks, dropdown_value, input_value):
     [Input('export-all-button', 'n_clicks'),
      State('datatable-interactivity', 'data')]
 )
-def func(n_clicks, data):
+def export_all(n_clicks, data):
+    if DEBUG:
+        print("function: export_all")
     _df = pd.DataFrame(data)
     if n_clicks > 0:
         return {'base64': True, 'content': to_excel(_df), 'filename': 'Schedule.xlsx', }
@@ -1081,33 +1139,14 @@ def func(n_clicks, data):
     [Input('export-filtered-button', 'n_clicks'),
      State('datatable-interactivity', 'derived_virtual_data')]
 )
-def func(n_clicks, data):
+def export_filtered(n_clicks, data):
+    if DEBUG:
+        print("function: export_filtered")
     _df = pd.DataFrame(data)
     if n_clicks > 0:
         return {'base64': True, 'content': to_excel(_df), 'filename': 'Schedule.xlsx', }
 
 # Main
 if __name__ == '__main__':
-    server = app.server
-
-    app.title = 'Scheduling'
-
-    app.config.update({
-        'suppress_callback_exceptions': True,
-    })
-
-    # specifics for the math.msudenver.edu server
-    """
-    app.config.update({
-       'url_base_pathname':'/scheduling/',
-       'routes_pathname_prefix':'/scheduling/',
-       'requests_pathname_prefix':'/scheduling/',
-    })
-
+    # app.run_server(debug=True, host='10.0.2.15', port='8050')
     app.run_server(debug=True)
-    """
-
-    # specifics for home server
-    # """
-    app.run_server(debug=True, host='10.0.2.15', port='8050')
-    # """
