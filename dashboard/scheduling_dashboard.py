@@ -15,6 +15,7 @@ import datetime
 import dash_daq as daq
 
 DEBUG = False
+mathserver = True
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -35,13 +36,12 @@ app.config.update({
 })
 
 # specifics for the math.msudenver.edu server
-"""
-app.config.update({
-   'url_base_pathname':'/scheduling/',
-   'routes_pathname_prefix':'/scheduling/',
-   'requests_pathname_prefix':'/scheduling/',
-})
-"""
+if mathserver:
+    app.config.update({
+       'url_base_pathname':'/scheduling/',
+       'routes_pathname_prefix':'/scheduling/',
+       'requests_pathname_prefix':'/scheduling/',
+    })
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -788,13 +788,13 @@ def generate_tab_fig(day, tab, fig):
 # Create app layout
 app.layout = html.Div([
     html.Div([
+        html.Img(id='msudenver-logo',
+                 src=app.get_asset_url('msudenver-logo.png')),
+        html.H3('Scheduling'),
         dcc.Upload(id='upload-data',
                    children=html.Button(['Upload file'],id='upload-data-button',n_clicks=0),
                    multiple=False,
                    accept='.txt, .csv, .xlsx'),
-        html.H3('Scheduling'),
-        html.Img(id='msudenver-logo',
-                 src=app.get_asset_url('msudenver-logo.png')),
     ],
         id='header',
         style={'display': 'flex',
@@ -1157,9 +1157,10 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_cli
     [Output('filter-query-input-container', 'style'),
      Output('filter-query-output', 'style'),
      Output('filter-query-output', 'children')],
-    [Input('filter-query-dropdown', 'value')]
+    [Input('filter-query-dropdown', 'value'),
+     Input('datatable-interactivity', 'filter_query')],
 )
-def query_input_output(val):
+def query_input_output(val, query):
     if DEBUG:
         print("function: query_input_output")
     if val == 'custom':
@@ -1170,7 +1171,7 @@ def query_input_output(val):
         output_style = {'display': 'inline-block',
                         'marginLeft': '5px',
                         'width': '100%'}
-    return input_style, output_style , html.P('filter_query = "{}"'.format(val)),
+    return input_style, output_style , html.P('filter_query = "{}"'.format(query)),
 
 @app.callback(
     [Output('datatable-interactivity', 'filter_query')],
@@ -1215,8 +1216,10 @@ def export_filtered(n_clicks, data):
 
 # Main
 if __name__ == '__main__':
-    app.run_server(debug=True, host='10.0.2.15', port='8050')
-    # app.run_server(debug=True)
+    if mathserver:
+        app.run_server(debug=True)
+    else:
+        app.run_server(debug=True, host='10.0.2.15', port='8050')
 
 
 

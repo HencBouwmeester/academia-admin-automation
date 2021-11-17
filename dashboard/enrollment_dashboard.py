@@ -14,13 +14,19 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
+DEBUG = False
+mathserver = True
+
 # Include pretty graph formatting
-pio.templates.default = "plotly_white"
+pio.templates.default = 'plotly_white'
 
 # Initialize server
 app = dash.Dash(
-    __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
+    __name__,
+    meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
+    prevent_initial_callbacks=True,
 )
+
 server = app.server
 
 app.title = "Enrollment Report Statistics"
@@ -30,73 +36,33 @@ app.config.update({
 })
 
 # specifics for the math.msudenver.edu server
-"""
-app.config.update({
-   'url_base_pathname':'/dash/',
-   'routes_pathname_prefix':'/dash/',
-   'requests_pathname_prefix':'/dash/',
-})
-"""
+if mathserver:
+    app.config.update({
+       'url_base_pathname':'/dash/',
+       'routes_pathname_prefix':'/dash/',
+       'requests_pathname_prefix':'/dash/',
+    })
 
 df = pd.DataFrame()
 
-# Create app layout
-app.layout = html.Div([
-    dcc.Store(id="aggregate_data"),
-    # empty Div to trigger javascript file for graph resizing
-    html.Div(id="output-clientside"),
-    html.Div([
-        html.Div([
-            html.Img(
-                id="msudenver-logo",
-                src=app.get_asset_url('msudenver-logo.png'),
-
-            ),
-        ],
-            className="three offset-right columns",
-        ),
-        html.Div([
-            html.Div([
-                html.H3(
-                    "SWRCGSR Enrollment",
-                    id="title-report-semester",
-                    style={"marginBottom": "0px"},
-                ),
-                html.H5(
-                    "Statistics and Graphs",
-                    style={"marginTop": "0px"}
-                ),
-            ],
-                id="main_title",
-            )
-        ],
-            className="six offset-left offset-right columns",
-            id="title",
-        ),
-        html.Div([
-            dcc.Upload(
-                id="upload-data",
-                children=html.Div(
-                    ["Drag and Drop or ", html.A("Select Files")]
-                ),
-                multiple=False,
-                accept=".txt, .csv, .xlsx",
-            )
-        ],
-            className="three offset-left columns",
-            id="button",
-        ),
-    ],
-        id="header",
-        className="row flex-display",
-        style={"marginBottom": "25px"},
-    ),
-    html.Div(id="output-data-upload"),
-],
-id="mainContainer",
-style={"display": "flex", "flexDirection": "column"},
-)
-
+# blank figure when no data is present
+blankFigure={
+    'data': [],
+    'layout': go.Layout(
+        xaxis={
+            'showticklabels': False,
+            'ticks': '',
+            'showgrid': False,
+            'zeroline': False
+        },
+        yaxis={
+            'showticklabels': False,
+            'ticks': '',
+            'showgrid': False,
+            'zeroline': False
+        }
+    )
+}
 
 # Helper Functions
 def data_bars(column_data, column_apply):
@@ -536,7 +502,7 @@ def to_access(df, report_term):
     xlsx_io.seek(0)
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
-    return f"data:{media_type};base64,{data}"
+    return data
 
 def to_excel(df, report_term):
     _df = df.copy()
@@ -637,7 +603,7 @@ def to_excel(df, report_term):
     xlsx_io.seek(0)
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
-    return f"data:{media_type};base64,{data}"
+    return data
 
 def parse_contents(contents, filename, date):
     """Assess filetype of uploaded file and pass to appropriate processing functions,
@@ -691,27 +657,120 @@ def parse_contents(contents, filename, date):
     else:
         report_term = "Unknown " + term_code[0:4]
 
+    return df, report_term, term_code, data_date
 
-    # blank figure when no data is present
-    blankFigure={
-        'data': [],
-        'layout': go.Layout(
-            xaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
+def create_datatable(df):
+    return [
+        dash_table.DataTable(
+            id="datatable",
+            data=df.to_dict("records"),
+            # export_format="csv",
+            columns=[{'name': n, 'id': i} for n,i in zip([
+                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
+                "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
+                "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
+            ],[*df.columns[:6],*df.columns[7:-3]])],
+            style_header={
+                "backgroundColor": "rgb(230, 230, 230)",
+                "fontWeight": "bold",
             },
-            yaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            }
+            style_cell={"font-family": "sans-serif", "font-size": "1rem"},
+            style_cell_conditional=[
+                {
+                    'if': {'column_id': i},
+                    'textAlign': 'left',
+                    'minWidth': w, 'width': w, 'maxWidth': w,
+                    'whiteSpace': 'normal'
+                }
+                for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
+                               ['3.5%', '4%', '4%', '3%', '2%', '3%',
+                                '18%', '4%', '3%', '4%', '4%', '4%', '4%',
+                                '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
+            ],
+            sort_action="native",
+            filter_action="native",
+            fixed_rows={"headers": True, "data": 0},
+            page_size=5000,
+            style_data_conditional=[
+                *data_bars('Ratio', 'Max'),
+                {
+                    "if": {"row_index": "odd"},
+                    "backgroundColor": "rgb(248, 248, 248)",
+                },
+                {
+                    'if': {
+                        'filter_query': '{WList} > 0',
+                        'column_id': 'WList'
+                    },
+                    'backgroundColor': '#FFEB9C',
+                    'color': '#9C6500'
+                },
+                {
+                    'if': {
+                        'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#FFC7CE',
+                    'color': '#9C0006'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Ratio} > 80',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#C6EFCE',
+                    'color': '#006100'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Ratio} > 94',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#008000',
+                    'color': 'white'
+                },
+                {
+                    'if': {
+                        'filter_query': '{S} contains C',
+                    },
+                    'backgroundColor': '#FF4136',
+                },
+            ],
         )
-    }
+    ]
 
-    html_layout = [
+
+# Create app layout
+app.layout = html.Div([
+    html.Div([
+        html.Img(id='msudenver-logo',
+                 src=app.get_asset_url('msudenver-logo.png')),
+        html.Div([
+                html.H3(
+                    "SWRCGSR Enrollment",
+                    id="title-report-semester",
+                    style={"marginBottom": "0px"},
+                ),
+                html.H5(
+                    "Statistics and Graphs",
+                    id='stats-graph-title',
+                    style={"marginTop": "0px"}
+                ),
+        ],
+            style={'textAlign': 'center'},
+        ),
+        dcc.Upload(id='upload-data',
+                   children=html.Button(['Upload file'],id='upload-data-button',n_clicks=0),
+                   multiple=False,
+                   accept='.txt, .csv, .xlsx'),
+    ],
+        id='header',
+        style={'display': 'flex',
+               'justifyContent': 'space-between',
+               'alignItems': 'center',
+              },
+    ),
+    html.Div([
         html.Div([
             html.Div([
                 html.Div([
@@ -890,301 +949,244 @@ def parse_contents(contents, filename, date):
         ),
         html.Div([
             html.Div([
-                html.Div([
-                    html.Div([
-                        html.Label([
-                            "Predefined Queries:",
-                            dcc.Dropdown(
-                                id='filter-query-dropdown',
-                                options=[
-                                    {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                                    {'label': 'Active Classes', 'value': '{S} contains A'},
-                                    {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
-                                    {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                                    {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                                    {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                                    {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                                    {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                                    {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                                    # {'label': 'Active CS Classes', 'value': '{Subject} contains C && {S} contains A'},
-                                    # {'label': 'Active CS Lower Division', 'value': '{Subject} contains C && {Number} < 3000 && {S} contains A'},
-                                    # {'label': 'Active CS Upper Division', 'value': '{Subject} contains C && {Number} >= 3000 && {S} contains A'},
-                                    {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                                    {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                                    {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                                    {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                                    {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                                    {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                                    {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                                    {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                                    {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                                    {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
-                                    {'label': 'Canceled CRNs', 'value': '{S} contains C'},
-                                ],
-                                placeholder='Select a query',
-                                value='',
-                            ),
-                        ]),
-                    ], style={'marginLeft': '5px',}),
-
-                    html.Br(),
-
-                    html.Div([
-                        html.Label([
-                            "Custom Queries:",
-                            dcc.RadioItems(
-                                id='filter-query-read-write',
-                                options=[
-                                    {'label': 'Read filter_query', 'value': 'read'},
-                                    {'label': 'Write to filter_query', 'value': 'write'}
-                                ],
-                                className="dcc_control",
-                                value='read'
-                            ),
-                        ]),
-                    ], style={'marginLeft': '5px',}),
-
-                    html.Br(),
-
-                    html.Div([
-                        dcc.Input(
-                            id='filter-query-input',
-                            placeholder='Enter filter query',
-                            className="dcc_control",
-                        ),
-                    ], style={'marginLeft': '5px',}),
-                    html.Br(),
-                    html.Div(id='filter-query-output'),
-
-                    html.Hr(),
-                    ]),
-                    html.Div([
-                        dash_table.DataTable(
-                            id="datatable-filtering",
-                            data=df.to_dict("records"),
-                            export_format="csv",
-                            columns=[{'name': n, 'id': i} for n,i in zip([
-                                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
-                                "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
-                                "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
-                            ],[*df.columns[:6],*df.columns[7:-3]])],
-                            style_header={
-                                "backgroundColor": "rgb(230, 230, 230)",
-                                "fontWeight": "bold",
-                            },
-                            style_cell={"font-family": "sans-serif", "font-size": "1rem"},
-                            style_cell_conditional=[
-                                {
-                                    'if': {'column_id': i},
-                                    'textAlign': 'left',
-                                    'minWidth': w, 'width': w, 'maxWidth': w,
-                                    'whiteSpace': 'normal'
-                                }
-                                for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
-                                               ['3.5%', '4%', '4%', '3%', '2%', '3%',
-                                                '18%', '4%', '3%', '4%', '4%', '4%', '4%',
-                                                '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
-                            ],
-                            sort_action="native",
-                            filter_action="native",
-                            fixed_rows={"headers": True, "data": 0},
-                            page_size=5000,
-                            style_data_conditional=[
-                                *data_bars('Ratio', 'Max'),
-                                {
-                                    "if": {"row_index": "odd"},
-                                    "backgroundColor": "rgb(248, 248, 248)",
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{WList} > 0',
-                                        'column_id': 'WList'
-                                    },
-                                    'backgroundColor': '#FFEB9C',
-                                    'color': '#9C6500'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#FFC7CE',
-                                    'color': '#9C0006'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{Ratio} > 80',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#C6EFCE',
-                                    'color': '#006100'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{Ratio} > 94',
-                                        'column_id': 'Enrolled'
-                                    },
-                                    'backgroundColor': '#008000',
-                                    'color': 'white'
-                                },
-                                {
-                                    'if': {
-                                        'filter_query': '{S} contains C',
-                                    },
-                                    'backgroundColor': '#FF4136',
-                                },
-                            ],
-                    )
-                ],
-                    style={
-                        'width': '98%',
-                        'display': 'block',
-                        'marginLeft': 'auto',
-                        'marginRight': 'auto',
-                    }
-                ),
+                dcc.Dropdown(
+                    id='filter-query-dropdown',
+                    options=[
+                        {'label': 'Custom...', 'value': 'custom'},
+                        {'label': 'Active Classes', 'value': '{S} contains A'},
+                        {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
+                        {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                        {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                        {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                        {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                        {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                        {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                        {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                        {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                        {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                        {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                        {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                        {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                        {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                        {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                        {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                        {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                        {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                    ],
+                    placeholder='Select a query',
+                    value=''),
             ],
-                # className="pretty_container full-width column",
-                className="pretty_container twelve columns",
+                style={'display': 'inline-block', 'width': '100%'}
+            ),
+            html.Div([
+                html.Button('Apply Query', id='apply_query_button', className='button')
+            ],
+                style={'display': 'inline-block'}
             ),
         ],
-            className="row flex-display",
+            style={'marginTop': '7px', 'marginLeft': '5px', 'display': 'flex',
+                   'justifyContent': 'space-between'}
         ),
-    ]
-    return html_layout, df, term_code, report_term, data_date
+        html.Div([
+            html.Div([
+                dcc.Input(id='filter-query-input',
+                          placeholder='Enter filter query',
+                          className='dcc_control',
+                          style={'width': '98.5%'}),
+            ],
+                id='filter-query-input-container',
+                style={'marginLeft': '5px',
+                       'width': '100%',
+                       'display': 'none'}
+            ),
+            html.Div(['filter_query = "None"'],
+                     id='filter-query-output',
+                     style={'display': 'inline-block',
+                            'marginLeft': '5px',
+                            'width': '100%'}
+                    ),
+        ],
+            style={'marginTop': '15px',
+                   'marginBottom': '15px',
+                   'marginLeft': '5px',
+                   'display': 'flex',
+                   'justifyContent': 'space-between'}
+        ),
+        html.Div([
+                html.Hr(),
+                html.Div([
+                    html.Button('Export All', id='export-all-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-download'),
+                    html.Button('Export Filtered', id='export-filtered-button',n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-filtered-download'),
+                    html.Button('Export to Access', id='export-access-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-access-download'),
+                ]),
+        ],
+            style={'width': '100%'}
+        ),
+        html.Div([
+            dcc.Loading(id='loading-icon-upload',
+                        children=[
+                            html.Div([],
+                                     style={
+                                         'width': '100%',
+                                         'display': 'block',
+                                         'marginLeft': 'auto',
+                                         'marginRight': 'auto'
+                                     },
+                                     id='datatable-container',
+                                    )],
+                        type='circle',
+                        fullscreen=True,
+                        color='#064779'),
+        ]),
+    ],
+        id='output-data-upload',
+        style={'display': 'none'}),
+html.Div([dcc.Input(id='report-term', placeholder='', style={'display': 'none'})]),
+html.Div([dcc.Input(id='term-code', placeholder='', style={'display': 'none'})])
+],
+)
 
 @app.callback(
-    [Output("output-data-upload", "children"),
-     Output("main_title", "children")],
-    [Input("upload-data", "contents")],
-    [State("upload-data", "filename"), State("upload-data", "last_modified")],
+    [Output('loading-icon-upload', 'children'),
+     Output('title-report-semester', 'children'),
+     Output('stats-graph-title', 'children'),
+     Output('loading-icon-upload', 'fullscreen'),
+     Output('upload-data-button', 'n_clicks'),
+     Output('report-term', 'value'),
+     Output('term-code', 'value')],
+    Input('upload-data', 'contents'),
+    [State('upload-data-button', 'n_clicks'),
+     State('upload-data', 'filename'),
+     State('upload-data', 'last_modified')],
 )
-def update_output(contents, name, date):
-    """When files are selected, call parse-contents and return the new html elements."""
-
-    if contents is not None:
-        data_children, df, term_code, report_term, data_date = parse_contents(contents, name, date)
-
-        title_children = [
-            html.H3(
-                "SWRCGSR Enrollment for " + report_term,
-                id="title-report-semester",
-                style={"marginBottom": "0px"},
-            ),
-            html.H5(
-                "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper(),
-                style={"marginTop": "0px"}
-            ),
-            html.Div([
-            html.A(
-                "Download Excel Data",
-                id="excel-download",
-                download="SWRCGSR_{0}.xlsx".format(
-                    term_code
-                ),
-                href=to_excel(df, report_term),
-                target="_blank",
-            ),
-            ]),
-            html.Div([
-            html.A(
-                "Download Access Table",
-                id="access-download",
-                download="Schedule_{0}.xlsx".format(
-                    term_code
-                ),
-                href=to_access(df, report_term),
-                target="_blank",
-            ),
-            ]),
-        ]
+def initial_data_loading(contents, n_clicks, filename, date):
+    if contents is not None and n_clicks > 0:
+        df, report_term, term_code, data_date = parse_contents(contents, filename, date)
+        data_children = create_datatable(df)
+        stats_graph_title = "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper()
+        title_report_semester = "SWRCGSR Enrollment for " + report_term
+        fullscreen = False
+        n_clicks = 1
     else:
         data_children = []
-        title_children = [
-            html.H3(
-                "SWRCGSR Enrollment",
-                id="title-report-semester",
-                style={"marginBottom": "0px"},
-            ),
-            html.H5(
-                "Statistics and Graphs",
-                style={"marginTop": "0px"}
-            ),
-        ]
-    return [data_children, title_children]
+        report_term = ''
+        term_code = ''
+        stats_graph_title = "Statistics and Graphs"
+        fullscreen = True
+        n_clicks = 0
+
+    loading_children = [
+        html.Div(data_children,
+                 style={
+                     'width': '100%',
+                     'display': 'block',
+                     'marginLeft': 'auto',
+                     'marginRight': 'auto',
+                 },
+                 id='datatable-container',
+                )]
+
+    return loading_children, title_report_semester, stats_graph_title, fullscreen, n_clicks, report_term, term_code
 
 @app.callback(
-    [Output("total_sections_text", "children"),
-     Output("total_courses_text", "children"),
-     Output("total_CHP_text", "children"),
-     Output("avg_enrollment_text", "children"),
-     Output("avg_fill_rate_text", "children"),
-     Output("avg_enrollment_by_instructor_text", "children"),
-     Output("avg_waitlist_text", "children"),
-    ],
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Output('datatable-download', 'data'),
+    [Input('export-all-button', 'n_clicks'),
+     Input('export-access-button', 'n_clicks'),
+     State('datatable', 'data'),
+     State('report-term', 'value'),
+     State('term-code', 'value')],
 )
-def update_stats(data):
-    if data:
-        df = pd.DataFrame(data).copy()
-        df = df[df["Credit"] != 0]
-        return [
-            "{:,.0f}".format(df["CRN"].nunique()),
-            "{:,.0f}".format(df["Course"].nunique()),
-            "{:,.0f}".format(df["CHP"].sum()),
-            round(df["Enrolled"].mean(), 2),
-            "{}%".format(round(df["Ratio"].mean(), 2)),
-            round(df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2),
-            round(df["WList"].mean(), 2),
-        ]
+def export_all(all_n_clicks, access_n_clicks, data, report_term, term_code):
+    if DEBUG:
+        print("function: export_all")
+    ctx = dash.callback_context
+    if ctx.triggered:
+        trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
+    _df = pd.DataFrame(data)
+    if 'export-all-button' == trigger and all_n_clicks > 0:
+        return {'base64': True,
+                'content': to_excel(_df, report_term),
+                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+    elif 'export-access-button' == trigger and access_n_clicks > 0:
+        return {'base64': True,
+                'content': to_access(_df, report_term),
+                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+
+@app.callback(
+    Output('datatable-filtered-download', 'data'),
+    [Input('export-filtered-button', 'n_clicks'),
+     State('datatable', 'derived_virtual_data'),
+     State('report-term', 'value'),
+     State('term-code', 'value')]
+)
+def export_filtered(n_clicks, data, report_term, term_code):
+    if DEBUG:
+        print("function: export_filtered")
+    _df = pd.DataFrame(data)
+    if n_clicks > 0:
+        return {'base64': True,
+                'content': to_excel(_df, report_term),
+                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+
+@app.callback(
+    Output('output-data-upload', 'style'),
+    Input('upload-data-button', 'n_clicks')
+)
+def show_contents(n_clicks):
+    if n_clicks > 0:
+        return {'display': 'block'}
+    return {'display': 'none'}
+
+@app.callback(
+    [Output('filter-query-input-container', 'style'),
+     Output('filter-query-output', 'style'),
+     Output('filter-query-output', 'children')],
+    [Input('filter-query-dropdown', 'value'),
+     Input('datatable','filter_query')],
+)
+def query_input_output(val, query):
+    if DEBUG:
+        print("function: query_input_output")
+    if val == 'custom':
+        input_style = {'marginLeft': '0px', 'width': '100%', 'display': 'inline-block'}
+        output_style = {'display': 'none'}
     else:
-        return ["0", "0", "0", "0.00", "0.00", "0.00", "0.00"]
+        input_style = {'display': 'none'}
+        output_style = {'display': 'inline-block',
+                        'marginLeft': '5px',
+                        'width': '100%'}
+    return input_style, output_style , html.P('filter_query = "{}"'.format(query)),
+    # return input_style, output_style , html.P('filter_query = "{}"'.format(val)),
 
 @app.callback(
-    [Output('filter-query-input', 'style'),
-     Output('filter-query-output', 'style')],
-    [Input('filter-query-read-write', 'value')]
+    [Output('datatable', 'filter_query')],
+    [Input('apply_query_button', 'n_clicks'),
+     Input('filter-query-input', 'n_submit'),
+     State('filter-query-dropdown', 'value'),
+     State('filter-query-input', 'value')]
 )
-def query_input_output(val):
-    input_style = {'width': '100%', 'height': '35px'}
-    output_style = {'height': '35px'}
-    if val == 'read':
-        input_style.update(display='none')
-        output_style.update(display='inline-block', marginLeft='15px')
-    else:
-        input_style.update(display='inline-block')
-        output_style.update(display='none')
-    return input_style, output_style
-
-@app.callback(
-    Output('datatable-filtering', 'filter_query'),
-    [Input('filter-query-input', 'value')]
-)
-def write_query(query):
-    if query is None:
-        return ''
-    return query
-
-@app.callback(
-    Output('filter-query-output', 'children'),
-    [Input('datatable-filtering', 'filter_query')]
-)
-def read_query(query):
-    if query is None:
-        return "No filter query"
-    return html.P('filter_query = "{}"'.format(query)),
-
-@app.callback(
-    Output('filter-query-input', 'value'),
-    Input('filter-query-dropdown', 'value')
-)
-def read_query_dropdown(query):
-    if query is not None:
-        return query
+def apply_query(n_clicks, n_submit, dropdown_value, input_value):
+    if DEBUG:
+        print("function: apply_query")
+    if n_clicks > 0 or n_submit > 0:
+        if dropdown_value == 'custom':
+            return [input_value]
+        else:
+            if dropdown_value is None:
+                return ['']
+            return [dropdown_value]
 
 @app.callback(
     Output('max_v_enrl_by_crn_graph', 'figure'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
     State('max_v_enrl_by_crn_graph', 'figure'),
 )
 def max_v_enrl_by_crn(data, fig):
@@ -1220,7 +1222,7 @@ def max_v_enrl_by_crn(data, fig):
 
 @app.callback(
     Output('max_v_enrl_by_course_graph', 'figure'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
     State('max_v_enrl_by_course_graph', 'figure'),
 )
 def max_v_enrl_by_course(data, fig):
@@ -1261,7 +1263,7 @@ def max_v_enrl_by_course(data, fig):
 
 @app.callback(
     Output('graph_f2f', 'figure'),
-    [Input('datatable-filtering', 'derived_viewport_data'),
+    [Input('datatable', 'derived_viewport_data'),
      Input('enrollment-max-actual', 'value'),],
     State('graph_f2f', 'figure'),
 )
@@ -1366,7 +1368,7 @@ def graph_f2f(data, toggle, fig):
 
 @app.callback(
     Output('enrl_by_instructor_graph', 'figure'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
     State('enrl_by_instructor_graph', 'figure'),
 )
 def graph_enrollment_by_instructor(data, fig):
@@ -1397,7 +1399,7 @@ def graph_enrollment_by_instructor(data, fig):
 
 @app.callback(
     Output('chp_by_course_graph', 'figure'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
     State('chp_by_course_graph', 'figure'),
 )
 def chp_by_course(data, fig):
@@ -1421,7 +1423,7 @@ def chp_by_course(data, fig):
 
 @app.callback(
     Output('enrl_by_instructor', 'children'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
 )
 def enrl_by_instructor(data):
     if data:
@@ -1488,7 +1490,7 @@ def enrl_by_instructor(data):
 
 @app.callback(
     Output('chp_by_course', 'children'),
-    Input('datatable-filtering', 'derived_viewport_data'),
+    Input('datatable', 'derived_viewport_data'),
 )
 def chp_by_course(data):
     if data:
@@ -1553,7 +1555,37 @@ def chp_by_course(data):
     else:
         return []
 
+@app.callback(
+    [Output("total_sections_text", "children"),
+     Output("total_courses_text", "children"),
+     Output("total_CHP_text", "children"),
+     Output("avg_enrollment_text", "children"),
+     Output("avg_fill_rate_text", "children"),
+     Output("avg_enrollment_by_instructor_text", "children"),
+     Output("avg_waitlist_text", "children"),
+    ],
+    Input('datatable', 'derived_viewport_data'),
+)
+def update_stats(data):
+    if data:
+        df = pd.DataFrame(data).copy()
+        df = df[df["Credit"] != 0]
+        return [
+            "{:,.0f}".format(df["CRN"].nunique()),
+            "{:,.0f}".format(df["Course"].nunique()),
+            "{:,.0f}".format(df["CHP"].sum()),
+            round(df["Enrolled"].mean(), 2),
+            "{}%".format(round(df["Ratio"].mean(), 2)),
+            round(df.groupby("Instructor").agg({"Enrolled": "sum"}).values.mean(), 2),
+            round(df["WList"].mean(), 2),
+        ]
+    else:
+        return ["0", "0", "0", "0.00", "0.00", "0.00", "0.00"]
+
+
 # Main
 if __name__ == "__main__":
-    app.run_server(debug=True, host='10.0.2.15', port='8050')
-    # app.run_server(debug=True)
+    if mathserver:
+        app.run_server(debug=True)
+    else:
+        app.run_server(debug=True, host='10.0.2.15', port='8050')

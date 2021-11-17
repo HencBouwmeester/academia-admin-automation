@@ -217,7 +217,7 @@ a:hover {
    text-align: center;
    margin: 5px;
    margin-right: 10px;
-   float: right;
+   /*float: right;*/
 }
 #upload-data-button:hover {
    color: #323232;
