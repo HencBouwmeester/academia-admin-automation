@@ -35,13 +35,13 @@ app.config.update({
 })
 
 # specifics for the math.msudenver.edu server
-# """
+"""
 app.config.update({
    'url_base_pathname':'/scheduling/',
    'routes_pathname_prefix':'/scheduling/',
    'requests_pathname_prefix':'/scheduling/',
 })
-# """
+"""
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -411,6 +411,47 @@ def parse_contents(contents, filename):#, date):
 
     return df
 
+def create_datatable(df):
+        return [
+            dash_table.DataTable(
+                id='datatable-interactivity',
+                columns=[{'name': n, 'id': i} for n,i in zip([
+                    'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
+                    'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor'
+                ],[ *df.columns ])],
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold',
+                },
+                style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
+                style_cell_conditional=[
+                    {
+                        'if': {'column_id': i},
+                        'textAlign': 'left',
+                        'minWidth': w, 'width': w, 'maxWidth': w,
+                        'whiteSpace': 'normal'
+                    }
+                    for i,w in zip([ *df.columns ],
+                                   ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
+                                    '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
+                ],
+                fixed_rows={'headers': True, 'data': 0},
+                page_size=500,
+                data=df.to_dict('records'),
+                editable=True,
+                filter_action='native',
+                sort_action='native',
+                sort_mode='multi',
+                row_selectable='multi',
+                row_deletable=True,
+                selected_rows=[],
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                },
+            )
+        ]
+
 def update_grid(toggle, data, filtered_data, slctd_row_indices):
     if DEBUG:
         print("function: update_grid")
@@ -578,6 +619,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 x = xRec + wRec/2,
                 y = -(yRec + hRec/2),
                 text = textRec,
+                hovertext = textRec,
                 showarrow = False,
                 font = dict(size=min(int(128*wRec/nLoc),16)),
             )
@@ -629,6 +671,11 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             annotations = lst_annotations,
             shapes=lst_shapes,
         )
+
+        # place one point on the grid and hide it so that zoom reset works
+        fig.add_trace(go.Scatter(x=[0.5*nLoc],y=[-85],
+                                 hoverinfo='none',
+                                 marker={'opacity': 0}))
         figs.append(fig)
 
     return figs
@@ -682,8 +729,36 @@ def generate_tab_fig(day, tab, fig):
     if fig is None:
         fig = blankFigure
 
-    modeBarButtonsToRemove = ['zoom2d', 'pan2d', 'lasso2d', 'zoomIn2d',
-                              'zoomOut2d', 'autoScale2d', 'resetScale2d']
+    modeBarButtonsToRemove = ['zoom2d',
+                              'pan2d',
+                              'select2d',
+                              'lasso2d',
+                              'zoomIn2d',
+                              'zoomOut2d',
+                              'autoScale2d',
+                              'resetScale2d',
+                              'hoverClosestCartesian',
+                              'hoverCompareCartesian',
+                              'zoom3d',
+                              'pan3d',
+                              'resetCameraDefault3d',
+                              'resetCameraLastSave3d',
+                              'hoverClosest3d',
+                              'orbitRotation',
+                              'tableRotation',
+                              'zoomInGeo',
+                              'zoomOutGeo',
+                              'resetGeo',
+                              'hoverClosestGeo',
+                              # 'toImage',
+                              'sendDataToCloud',
+                              'hoverClosestGl2d',
+                              'hoverClosestPie',
+                              'toggleHover',
+                              'resetViews',
+                              'toggleSpikelines',
+                              'resetViewMapbox']
+
 
     day_abbrv = day.lower()[:3]
 
@@ -894,43 +969,7 @@ def initial_data_loading(contents, tab, name, n_clicks, fullscreen):
         print("function: initial_data_loading")
     if contents is not None and n_clicks > 0:
         df = parse_contents(contents, name)
-        data_children = [ dash_table.DataTable(
-            id='datatable-interactivity',
-            columns=[{'name': n, 'id': i} for n,i in zip([
-                'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
-                'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor'
-            ],[ *df.columns ])],
-            style_header={
-                'backgroundColor': 'rgb(230, 230, 230)',
-                'fontWeight': 'bold',
-            },
-            style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
-            style_cell_conditional=[
-                {
-                    'if': {'column_id': i},
-                    'textAlign': 'left',
-                    'minWidth': w, 'width': w, 'maxWidth': w,
-                    'whiteSpace': 'normal'
-                }
-                for i,w in zip([ *df.columns ],
-                               ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
-            ],
-            fixed_rows={'headers': True, 'data': 0},
-            page_size=500,
-            data=df.to_dict('records'),
-            editable=True,
-            filter_action='native',
-            sort_action='native',
-            sort_mode='multi',
-            row_selectable='multi',
-            row_deletable=True,
-            selected_rows=[],
-            style_data={
-                'whiteSpace': 'normal',
-                'height': 'auto',
-            },
-        )]
+        data_children = create_datatable(df)
         figs = update_grid(True, df.to_dict(), df.to_dict(), [])
         tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
         n_clicks = 0
@@ -975,8 +1014,36 @@ def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices
     if n_clicks > 0:
         figs = update_grid(toggle, data, filtered_data, slctd_row_indices)
 
-        modeBarButtonsToRemove = ['zoom2d', 'pan2d', 'lasso2d', 'zoomIn2d',
-                                  'zoomOut2d', 'autoScale2d', 'resetScale2d']
+        modeBarButtonsToRemove = ['zoom2d',
+                                  'pan2d',
+                                  'select2d',
+                                  'lasso2d',
+                                  'zoomIn2d',
+                                  'zoomOut2d',
+                                  'autoScale2d',
+                                  'resetScale2d',
+                                  'hoverClosestCartesian',
+                                  'hoverCompareCartesian',
+                                  'zoom3d',
+                                  'pan3d',
+                                  'resetCameraDefault3d',
+                                  'resetCameraLastSave3d',
+                                  'hoverClosest3d',
+                                  'orbitRotation',
+                                  'tableRotation',
+                                  'zoomInGeo',
+                                  'zoomOutGeo',
+                                  'resetGeo',
+                                  'hoverClosestGeo',
+                                  # 'toImage',
+                                  'sendDataToCloud',
+                                  'hoverClosestGl2d',
+                                  'hoverClosestPie',
+                                  'toggleHover',
+                                  'resetViews',
+                                  'toggleSpikelines',
+                                  'resetViewMapbox']
+
         children = []
         for day,fig in zip(days, figs):
             day_abbrv = day.lower()[:3]
@@ -1148,5 +1215,24 @@ def export_filtered(n_clicks, data):
 
 # Main
 if __name__ == '__main__':
-    # app.run_server(debug=True, host='10.0.2.15', port='8050')
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='10.0.2.15', port='8050')
+    # app.run_server(debug=True)
+
+
+
+"""
+
+To zoom in on the annotation size...
+
+Hi
+I want to zoom in on annotations to make them look bigger when zoomed in and smaller when zoomed out.
+I wanted to use something like this:
+@app.callback(Output('my-graph', 'figure'), Input('my-graph', 'relayoutData'))
+to measure the graph diagonal, calculate the appropriate size and regenerate the annotations but it loops on itself infinitely with relayoutData.autosize=True. Probably because relayoutData triggers the callback when the figure is updated.
+
+EDIT:
+I managed to do this with hidden Divs, the PreventUpdate exception and State.
+The trick is to update the hidden div on relayoutData and give it the content of the Div itself as State so you can check if it should stay the same or change. If it should stay the same, use PreventUpdate instead of returning the same value. This way, the graph update callback (which has the hidden Div value as input) is triggered only when values actually change and not on every update recursively.
+
+Is there a better way to do this?
+"""
