@@ -490,6 +490,11 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         _df.insert(len(_df.columns), 'colorRec', '')
     _df['colorRec'] = colors
 
+    # replace all NaN or None in Loc with TBA
+    for row in _df.index.tolist():
+        if _df.loc[row, 'Loc'] != _df.loc[row, 'Loc'] or _df.loc[row, 'Loc'] == None:
+            _df.loc[row, 'Loc'] = 'TBA'
+
     # remove classes without rooms
     _dfLoc = _dfLoc[_dfLoc['Campus'] != 'I']
     _dfLoc = _dfLoc[_dfLoc['Loc'] != 'TBA']
@@ -538,9 +543,9 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
 
         # unique rooms and total number of unique rooms
         if toggle:
-            rooms = _dfLoc['Loc'].unique()
+            rooms = _dfLoc['Loc'].dropna().unique()
         else:
-            rooms = df['Loc'].unique()
+            rooms = df['Loc'].dropna().unique()
         Loc = dict(zip(sorted(rooms), range(len(rooms))))
         nLoc = len(list(Loc.keys()))
 
