@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 import datetime
 
 DEBUG = False
-mathserver = True
+mathserver = False
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -760,7 +760,12 @@ app.layout = html.Div([
             style={'textAlign': 'center'},
         ),
         dcc.Upload(id='upload-data',
-                   children=html.Button(['Upload file'],id='upload-data-button',n_clicks=0),
+                   children=html.Button(['Upload file'],
+                                        id='upload-data-button',
+                                        n_clicks=0,
+                                        style={'height': '38px'},
+                                        className='button'
+                                        ),
                    multiple=False,
                    accept='.txt, .csv, .xlsx'),
     ],
@@ -843,7 +848,8 @@ app.layout = html.Div([
                         className="mini_container",
                     ),
                 ],
-                    className="row container-display",
+                style={'display': 'flex'},
+                    # className="row container-display",
                 ),
             ],
                 className="pretty_container twelve columns",

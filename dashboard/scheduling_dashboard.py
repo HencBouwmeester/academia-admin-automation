@@ -15,7 +15,7 @@ import datetime
 import dash_daq as daq
 
 DEBUG = False
-mathserver = True
+mathserver = False
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -797,7 +797,11 @@ app.layout = html.Div([
                  src=app.get_asset_url('msudenver-logo.png')),
         html.H3('Scheduling'),
         dcc.Upload(id='upload-data',
-                   children=html.Button(['Upload file'],id='upload-data-button',n_clicks=0),
+                   children=html.Button(['Upload file'],
+                                        id='upload-data-button',
+                                        n_clicks=0,
+                                        style={'height': '38px'},
+                                        className='button'),
                    multiple=False,
                    accept='.txt, .csv, .xlsx'),
     ],
@@ -1224,7 +1228,7 @@ if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=True)
     else:
-        app.run_server(debug=True, host='10.0.2.15', port='8050')
+        app.run_server(debug=True, host='10.0.2.15', port='8051')
 
 
 
