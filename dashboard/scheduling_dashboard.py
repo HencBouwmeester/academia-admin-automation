@@ -624,7 +624,8 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 x = xRec + wRec/2,
                 y = -(yRec + hRec/2),
                 text = textRec,
-                hovertext = textRec,
+                hoverlabel = {'bgcolor': '#064779'},
+                hovertext = "Course: {}<br>CRN: {}<br>Time: {}<br>Credits: {}<br>Instr: {}".format(textRec, df.loc[row, 'CRN'], df.loc[row, 'Time'], df.loc[row, 'Credit'], df.loc[row, 'Instructor']),
                 showarrow = False,
                 font = dict(size=min(int(128*wRec/nLoc),16)),
             )
