@@ -99,6 +99,8 @@ def updateTitles(df):
         ['MTH 4250', 'Statistical Theory',],
         ['MTH 4290', 'Senior Statistics Project',],
         ['MTH 4410', 'Real Analysis I',],
+        ['MTH 4420', 'Real Analysis II',],
+        ['MTH 4450', 'Complex Variables',],
         ['MTH 4480', 'Numerical Analysis I',],
         ['MTH 4490', 'Numerical Analysis II',],
         ['MTH 4640', 'History of Mathematics',],
@@ -439,6 +441,7 @@ def create_datatable(df):
                 page_size=500,
                 data=df.to_dict('records'),
                 editable=True,
+                virtualization=True,
                 filter_action='native',
                 sort_action='native',
                 sort_mode='multi',
@@ -546,6 +549,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             rooms = _dfLoc['Loc'].dropna().unique()
         else:
             rooms = df['Loc'].dropna().unique()
+
         Loc = dict(zip(sorted(rooms), range(len(rooms))))
         nLoc = len(list(Loc.keys()))
 
@@ -610,8 +614,8 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             ply_shapes['shape_' + str(row)] = go.layout.Shape(
                 type='rect',
                 xref='x', yref='y',
-                x0 = xRec, y0 = -yRec,
-                x1 = xRec + wRec, y1 = -(yRec + hRec),
+                y0 = xRec, x0 = yRec,
+                y1 = xRec + wRec, x1 = (yRec + hRec),
                 line=dict(
                     color='LightGray',
                     width=1,
@@ -621,13 +625,15 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
             )
             ply_annotations['annotation_' + str(row)] = go.layout.Annotation(
                 xref='x', yref='y',
-                x = xRec + wRec/2,
-                y = -(yRec + hRec/2),
+                y = xRec + wRec/2,
+                x = (yRec + hRec/2),
                 text = textRec,
                 hoverlabel = {'bgcolor': '#064779'},
-                hovertext = "Course: {}<br>CRN: {}<br>Time: {}<br>Credits: {}<br>Instr: {}".format(textRec, df.loc[row, 'CRN'], df.loc[row, 'Time'], df.loc[row, 'Credit'], df.loc[row, 'Instructor']),
+                hovertext = "Course: {}<br>Title: {}<br>CRN: {}<br>Time: {}<br>Credits: {}<br>Instr: {}".format(textRec, df.loc[row, 'Title'], df.loc[row, 'CRN'], df.loc[row, 'Time'], df.loc[row, 'Credit'], df.loc[row, 'Instructor']),
                 showarrow = False,
-                font = dict(size=min(int(128*wRec/nLoc),16)),
+                # we are getting a 0 font size when there are many classes, so take at least
+                # the smallest font size to be 1.
+                font = dict(size=max(1,min(int(.75*hRec),12))),
             )
 
         # alternating vertical shading for rooms
@@ -636,16 +642,16 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
                     type='rect',
                     xref='x', yref='y',
-                    x0 = k, x1 = k+1,
-                    y0 = 0, y1 = -170,
+                    y0 = k, y1 = k+1,
+                    x0 = 0, x1 = 170,
                     fillcolor=colorLight[8],
                     layer='below', line_width=0,
                 )
             else:
                 ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
                     xref='x', yref='y',
-                    x0 = k, x1 = k+1,
-                    y0 = 0, y1 = -170,
+                    y0 = k, y1 = k+1,
+                    x0 = 0, x1 = 170,
                     fillcolor='white',
                     layer='below', line_width=0,
                 )
@@ -653,30 +659,55 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         lst_annotations=list(ply_annotations.values())
 
         # setup the axes and tick marks
-        fig.update_layout(
-            xaxis = dict(
-                range=[0,nLoc],
-                tickvals=[k+.5 for k in range(nLoc)],
-                ticktext=list(Loc.keys()),
-                side='top',
-                showgrid=False,
-                linecolor='#CCC',
-                mirror=True,
-            ),
-            yaxis = dict(
-                range=[-168, 0],
-                tickvals=[-k*12 for k in range(15)],
-                ticktext=[('0{:d}:00'.format(k))[-5:] for k in range(8,23)],
-                showgrid=True,
-                gridwidth=1,
-                gridcolor='#DDD',
-                linecolor='#CCC',
-                mirror=True,
-            ),
-            showlegend=False,
-            annotations = lst_annotations,
-            shapes=lst_shapes,
-        )
+        if nLoc:
+            fig.update_layout(
+                autosize=False,
+                height=45*nLoc,
+                margin=dict(
+                    l=50,
+                    r=70,
+                    b=10,
+                    t=10,
+                    pad=0
+                ),
+                yaxis = dict(
+                    range=[0,nLoc],
+                    tickvals=[k+.5 for k in range(nLoc)],
+                    ticktext=list(Loc.keys()),
+                    showgrid=False,
+                    linecolor='#CCC',
+                ),
+                xaxis = dict(
+                    range=[0,168.2],
+                    tickvals=[k*12 for k in range(15)],
+                    ticktext=[('0{:d}:00'.format(k))[-5:] for k in range(8,23)],
+                    showgrid=True,
+                    side='top',
+                    gridwidth=1,
+                    gridcolor='#DDD',
+                    linecolor='#CCC',
+                ),
+                showlegend=False,
+                annotations = lst_annotations,
+                shapes=lst_shapes,
+            )
+        else:
+            # nLoc is zero which makes the height zero, so show a blank figure
+            fig.update_layout(
+                xaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                },
+                yaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                },
+                showlegend=False,
+            )
 
         # place one point on the grid and hide it so that zoom reset works
         fig.add_trace(go.Scatter(x=[0.5*nLoc],y=[-85],
@@ -838,26 +869,17 @@ html.Div([
                 dcc.Dropdown(
                     id='filter-query-dropdown',
                     options=[
-                        {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                        {'label': 'Active Classes', 'value': '{S} contains A'},
-                        {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                        {'label': 'Active Math Classes', 'value': '{S} contains A'},
                         {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                        {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                        {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                        {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                        {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                        {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                        {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                        {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                        {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                        {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                        {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                        {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                        {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                        {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                        {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                        # {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1111 || {Number} > 1111) && ({Number} < 1115 || {Number} > 1115) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
+                        {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                        {'label': 'Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                        {'label': 'Applied Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3130 || {Number} = 3400 || {Number} = 3420 || {Number} = 3430 || {Number} = 3440 || {Number} = 4480 || {Number} = 4490)'},
+                        {'label': 'Statistics Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3210 || {Number} = 3220 || {Number} = 3230 || {Number} = 3240 || {Number} = 3270 || {Number} = 3510 || {Number} = 4210 || {Number} = 4230 || {Number} = 4250 || {Number} = 4290)'},
+                        {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 3470 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                         {'label': 'Custom...', 'value': 'custom'},
                     ],
@@ -1227,25 +1249,6 @@ def export_filtered(n_clicks, data):
 # Main
 if __name__ == '__main__':
     if mathserver:
-        app.run_server(debug=True)
+        app.run_server(debug=False)
     else:
-        app.run_server(debug=True, host='10.0.2.15', port='8051')
-
-
-
-"""
-
-To zoom in on the annotation size...
-
-Hi
-I want to zoom in on annotations to make them look bigger when zoomed in and smaller when zoomed out.
-I wanted to use something like this:
-@app.callback(Output('my-graph', 'figure'), Input('my-graph', 'relayoutData'))
-to measure the graph diagonal, calculate the appropriate size and regenerate the annotations but it loops on itself infinitely with relayoutData.autosize=True. Probably because relayoutData triggers the callback when the figure is updated.
-
-EDIT:
-I managed to do this with hidden Divs, the PreventUpdate exception and State.
-The trick is to update the hidden div on relayoutData and give it the content of the Div itself as State so you can check if it should stay the same or change. If it should stay the same, use PreventUpdate instead of returning the same value. This way, the graph update callback (which has the hidden Div value as input) is triggered only when values actually change and not on every update recursively.
-
-Is there a better way to do this?
-"""
+        app.run_server(debug=False, host='10.0.2.15', port='8051')

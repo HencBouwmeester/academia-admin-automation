@@ -161,6 +161,7 @@ def updateTitles(df):
         ["MTL 3760", "Geom & Stats in the K-8 Curriculum",],
         ["MTL 3850", "STEM Teaching and Learning",],
         ["MTL 3858", "STEM Practicum",],
+        ["MTL 4630", "Teaching Secondary Mathematics",],
         ["MTL 4690", "Student Teaching & Seminar: Secondary 7-12",],
         ["MTLM 5020", "Integrated Mathematics II",],
         ["MTLM 5600", "Mathematics of the Elementary Curriculum",],
