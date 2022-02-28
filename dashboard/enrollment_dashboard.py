@@ -241,17 +241,22 @@ def tidy_txt(file_contents):
         if i == 4:
             d = line.split()[-1]
             break
+
     data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
 
-    # reset to the start of the IO stream
-    file_contents.seek(0)
-
+    # read into a dataframe based on specified column spacing
     _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     # read the report Term and Year from file
-    term_code = str(_df.iloc[5][1])[3:] + str(_df.iloc[5][2])[:-2]
+    term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
 
-    _df.columns = _df.iloc[7]
+    # rename the columns
+    # make allowances for newer version of pandas
+    if pd.__version__ == '1.4.1':
+        k = 1
+    else:
+        k = 2
+    _df.columns = _df.iloc[k]
 
     # manual filtering of erroneous data which preserves data for MTH 1108/1109
     _df = _df.dropna(how='all')
@@ -305,7 +310,8 @@ def tidy_txt(file_contents):
         row_dict["Instructor"] = ","
         row_dict["Credit"] = 0
         row_dict["PTCR"] = 1
-        _df = _df.append(row_dict, ignore_index=True)
+        # _df = _df.append(row_dict, ignore_index=True)  # DEPRECATED
+        pd.concat((_df, pd.Series(row_dict)), ignore_index=True)
 
     # add columns for Access Table
     _df.insert(len(_df.columns), "Class", " ")
@@ -358,6 +364,10 @@ def tidy_csv(file_contents):
             line = ""
         else:
             line += char
+
+    # delete information in first line to match txt file type
+    _list = _list[1:]
+    _list.insert(0,'')
 
     return tidy_txt(io.StringIO("\n".join(_list)))
 
@@ -1596,3 +1606,4 @@ if __name__ == "__main__":
         app.run_server(debug=True)
     else:
         app.run_server(debug=True, host='10.0.2.15', port='8050')
+        # app.run_server(debug=False, port='8050')

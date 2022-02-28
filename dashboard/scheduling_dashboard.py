@@ -191,14 +191,25 @@ def tidy_txt(file_contents):
     ]
 
     # reset to the start of the IO stream
-    file_contents.seek(0)
+    # file_contents.seek(0)
 
+    # move cursor to first nonempty line
+    for i in range(5):
+        line = file_contents.readline()
+
+    # read into a dataframe based on specified column spacing
     _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     # read the report Term and Year from file
-    term_code = str(_df.iloc[5][1])[3:] + str(_df.iloc[5][2])[:-2]
+    term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
 
-    _df.columns = _df.iloc[7]
+    # rename the columns
+    # make allowances for newer version of pandas
+    if pd.__version__ == '1.4.1':
+        k = 1
+    else:
+        k = 2
+    _df.columns = _df.iloc[k]
 
     # manual filtering of erroneous data which preserves data for MTH 1108/1109
     _df = _df.dropna(how='all')
@@ -228,7 +239,8 @@ def tidy_txt(file_contents):
         row_dict = _df.loc[row].to_dict()
         row_dict['Instructor'] = ','
         row_dict['Credit'] = 0
-        _df = _df.append(row_dict, ignore_index=True)
+        # _df = _df.append(row_dict, ignore_index=True)  # DEPRECATED
+        pd.concat((_df, pd.Series(row_dict)), ignore_index=True)
 
     # update all titles to show full name
     _df.insert(len(_df.columns), 'Class', ' ')
@@ -284,6 +296,10 @@ def tidy_csv(file_contents):
             line = ''
         else:
             line += char
+
+    # delete information in first line to match txt file type
+    _list = _list[1:]
+    _list.insert(0, '')
 
     return tidy_txt(io.StringIO('\n'.join(_list)))
 
@@ -658,6 +674,8 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         lst_shapes=list(ply_shapes.values())
         lst_annotations=list(ply_annotations.values())
 
+        print(nLoc)
+
         # setup the axes and tick marks
         if nLoc:
             fig.update_layout(
@@ -694,6 +712,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         else:
             # nLoc is zero which makes the height zero, so show a blank figure
             fig.update_layout(
+                height=90,
                 xaxis={
                     'showticklabels': False,
                     'ticks': '',
@@ -1251,4 +1270,5 @@ if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=False)
     else:
-        app.run_server(debug=False, host='10.0.2.15', port='8051')
+        # app.run_server(debug=False, host='10.0.2.15', port='8051')
+        app.run_server(debug=False, port='8051')
