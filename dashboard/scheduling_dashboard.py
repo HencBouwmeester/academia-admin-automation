@@ -15,7 +15,7 @@ import datetime
 import dash_daq as daq
 
 DEBUG = False
-mathserver = False
+mathserver = True
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
