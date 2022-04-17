@@ -15,7 +15,7 @@ import datetime
 import dash_daq as daq
 
 DEBUG = False
-mathserver = True
+mathserver = False
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -364,6 +364,7 @@ def tidy_xlsx(file_contents):
     _df['Class'] = _df['Subject'] + ' ' + _df['Number']
     _df = updateTitles(_df)
 
+    print(_df)
     # there might be CRNs that are unknown (blank), so fill sequentially starting
     # from 99999 and go down
     i = 1
@@ -1268,7 +1269,7 @@ def export_filtered(n_clicks, data):
 # Main
 if __name__ == '__main__':
     if mathserver:
-        app.run_server(debug=False)
+        app.run_server(debug=DEBUG)
     else:
-        # app.run_server(debug=False, host='10.0.2.15', port='8051')
-        app.run_server(debug=False, port='8051')
+        app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
+        # app.run_server(debug=DEBUG, port='8051')
