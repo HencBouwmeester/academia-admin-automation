@@ -210,9 +210,6 @@ def tidy_txt(file_contents):
         (121, 140),
     ]
 
-    # reset to the start of the IO stream
-    # file_contents.seek(0)
-
     # move cursor to first nonempty line
     for i in range(5):
         line = file_contents.readline()
@@ -245,23 +242,6 @@ def tidy_txt(file_contents):
     _df = _df.reset_index()
     _df = _df.drop([_df.columns[0]], axis=1)
 
-    # correct report to also include missing data for MTH 1109
-    # for row in _df[_df['Subj'].str.contains('MTH') & _df['Nmbr'].str.contains('1109') & _df['S'].str.contains('A')].index.tolist():
-        # for col in ['Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'T', 'Title', 'Max', 'Enrl', 'WCap', 'WLst', 'Instructor']:
-            # _df.loc[row + 1, col] = _df.loc[row, col]
-        # _df.loc[row + 1, 'Credit'] = 0
-
-    # correct report to also include missing data for MTH 1108
-    # for row in _df[_df['Subj'].str.contains('MTH') & _df['Nmbr'].str.contains('1108') & _df['S'].str.contains('A')].index.tolist():
-        # for col in ['Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'T', 'Title', 'Max', 'Enrl', 'WCap', 'WLst', 'Instructor']:
-            # _df.loc[row + 1, col] = _df.loc[row, col]
-        # _df.loc[row + 1, 'Credit'] = 0
-        # row_dict = _df.loc[row].to_dict()
-        # row_dict['Instructor'] = ','
-        # row_dict['Credit'] = 0
-        # # _df = _df.append(row_dict, ignore_index=True)  # DEPRECATED
-        # pd.concat((_df, pd.Series(row_dict)), ignore_index=True)
-
     # update all titles to show full name
     _df.insert(len(_df.columns), 'Class', ' ')
     _df['Class'] = _df['Subj'] + ' ' + _df['Nmbr']
@@ -287,7 +267,7 @@ def tidy_txt(file_contents):
     ].apply(pd.to_numeric, errors='coerce')
 
     _df = _df.sort_values(by=['Subject', 'Number', 'Section'])
-    _df.drop(['T', 'Max', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
+    _df.drop(['T', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
 
     return _df
 
@@ -378,13 +358,12 @@ def tidy_xlsx(file_contents):
     )
 
     _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
-              'Credit', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
+              'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
 
     _df.insert(len(_df.columns), 'Class', ' ')
     _df['Class'] = _df['Subject'] + ' ' + _df['Number']
     _df = updateTitles(_df)
 
-    # print(_df)
     # there might be CRNs that are unknown (blank), so fill sequentially starting
     # from 99999 and go down
     i = 1
@@ -489,6 +468,7 @@ def parse_finals(contents):
             rows.append([CRN, Days, Time, Loc, Date])
 
     df = pd.DataFrame(rows, columns=['CRN', 'Days', 'Time', 'Loc', 'Date'])
+    df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
 
     return df
 
@@ -561,6 +541,19 @@ app.layout = html.Div([
                         'padding': '2px',
                     },
                 ),
+                dcc.Tab(
+                    label='Rooms',
+                    value='tab-rooms',
+                    style={
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                    selected_style = {
+                        'borderTop': '2px solid #064779',
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                ),
             ],
                 id='table-tabs',
                 value='tab-combined',
@@ -596,6 +589,15 @@ app.layout = html.Div([
                     'width': '100%',
                 }
             ),
+            html.Div([
+            ],
+                id='datatable-rooms-div',
+                style = {
+                    'background': 'white',
+                    'display': 'none',
+                    'width': '100%',
+                }
+            ),
         ],
             id='tab-contents',
         ),
@@ -613,37 +615,6 @@ app.layout = html.Div([
         },
     ),
     html.Div([
-        html.Div([
-            dash_table.DataTable(
-                id='datatable-rooms',
-                columns=[{'name': n, 'id': i} for n,i in zip([
-                    'Room', 'Cap'], [ *df_rooms.columns ])],
-                style_header={
-                    'backgroundColor': 'rgb(230, 230, 230)',
-                    'fontWeight': 'bold',
-                },
-                style_cell={
-                    'font-family': 'sans-serif',
-                    'font-size': '1rem',
-                    'textAlign': 'left',
-                    'whiteSpace': 'normal',
-                },
-                style_data_conditional=[
-                    {
-                        "if": {"row_index": "odd"},
-                        "backgroundColor": "rgb(248, 248, 248)",
-                    }
-                ],
-                fixed_rows={'headers': True, 'data': 0},
-                data=df_rooms.to_dict('records'),
-                editable=True,
-                filter_action='native',
-                sort_action='native',
-                sort_mode='multi',
-            ),
-            html.Button('Add Row', id='editing-rows-button', n_clicks=0),
-        ],
-        ),
         html.Div([
             html.Hr(),
             html.Label('Load:'),
@@ -722,7 +693,8 @@ app.layout = html.Div([
 @app.callback(
     [Output('datatable-combined-div', 'style'),
      Output('datatable-enrollment-div', 'style'),
-     Output('datatable-finals-div', 'style'),],
+     Output('datatable-finals-div', 'style'),
+     Output('datatable-rooms-div', 'style'),],
     [Input('table-tabs', 'value')],
 )
 def update_tab_display(tab):
@@ -731,7 +703,7 @@ def update_tab_display(tab):
     ctx = dash.callback_context
     if 'table-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
-        for t in ['tab-combined', 'tab-enrollment', 'tab-finals']:
+        for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms']:
             if t == tab:
                 styles.append({'display': 'block'})
             else:
@@ -740,7 +712,8 @@ def update_tab_display(tab):
 
 
 @app.callback(
-    Output('datatable-enrollment-div', 'children'),
+    [Output('datatable-enrollment-div', 'children'),
+     Output('datatable-rooms-div', 'children')],
     [Input('upload-enrollment', 'contents'),
      State('upload-enrollment', 'filename'),
      State('load-enrollmentreport-button', 'n_clicks')]
@@ -750,8 +723,17 @@ def load_enrollment_data(contents, name, n_clicks):
         print('function: load_enrollment')
     if contents is not None and n_clicks > 0:
         df_enrollment = parse_enrollment(contents, name)
-        # print(df_enrollment.columns)
-        data_children = [
+
+        rooms = df_enrollment[(df_enrollment['S']=='A') & (df_enrollment['Time']!='TBA') & (df_enrollment['Campus']=='M')]['Loc'].unique()
+        capacities = []
+        for room in rooms:
+            capacities.append(df_enrollment[(df_enrollment['Loc']==room)]['Max'].max())
+
+        df_rooms = pd.DataFrame({'Room': rooms, 'Cap': capacities})
+
+        df_enrollment.drop(['Max'], axis=1, inplace=True)
+
+        enrollment_children = [
             dash_table.DataTable(
                 id='datatable-enrollment',
                 columns=[{'name': n, 'id': i} for n,i in zip([
@@ -771,19 +753,17 @@ def load_enrollment_data(contents, name, n_clicks):
                         'whiteSpace': 'normal'
                     }
                     for i,w in zip([ *df_enrollment.columns ],
-                                   ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                    '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
+                                   ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '5.0%', '19.5%',
+                                    '6.0%', '4.5%', '5.5%', '8.5%', '7.0%', '9%', '11%'])
                 ],
                 fixed_rows={'headers': True, 'data': 0},
                 page_size=500,
                 data=df_enrollment.to_dict('records'),
                 editable=True,
-                # virtualization=True,
                 filter_action='native',
+                filter_options={'case': 'insensitive'},
                 sort_action='native',
                 sort_mode='multi',
-                # row_selectable='multi',
-                # row_deletable=True,
                 selected_rows=[],
                 style_data={
                     'whiteSpace': 'normal',
@@ -792,9 +772,42 @@ def load_enrollment_data(contents, name, n_clicks):
             )
         ]
 
+
+        rooms_children = [
+            dash_table.DataTable(
+                id='datatable-rooms',
+                columns=[{'name': n, 'id': i} for n,i in zip([
+                    'Room', 'Cap'], [ *df_rooms.columns ])],
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold',
+                },
+                style_cell={
+                    'font-family': 'sans-serif',
+                    'font-size': '1rem',
+                    'textAlign': 'left',
+                    'whiteSpace': 'normal',
+                },
+                style_data_conditional=[
+                    {
+                        "if": {"row_index": "odd"},
+                        "backgroundColor": "rgb(248, 248, 248)",
+                    }
+                ],
+                fixed_rows={'headers': True, 'data': 0},
+                data=df_rooms.to_dict('records'),
+                editable=True,
+                filter_action='native',
+                sort_action='native',
+                sort_mode='multi',
+            ),
+            html.Button('Add Row', id='editing-rows-button', n_clicks=0),
+        ]
+
     else:
-        data_children = []
-    return data_children
+        enrollment_children = []
+        rooms_children = []
+    return enrollment_children, rooms_children
 
 @app.callback(
     Output('datatable-finals-div', 'children'),
@@ -830,12 +843,10 @@ def load_finals_data(contents, n_clicks):
                 page_size=500,
                 data=df_finals.to_dict('records'),
                 editable=True,
-                # virtualization=True,
                 filter_action='native',
                 sort_action='native',
                 sort_mode='multi',
-                # row_selectable='multi',
-                # row_deletable=True,
+                row_deletable=True,
                 selected_rows=[],
                 style_data={
                     'whiteSpace': 'normal',
@@ -953,9 +964,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df_enrollment.drop(df_enrollment[df_enrollment.Number == "1116"].index, inplace=True)
     df_enrollment.drop(df_enrollment[df_enrollment.Number == "1312"].index, inplace=True)
 
-    # change time format from 12HR to 24HR
-    # df_enrollment['Time'] = df_enrollment['Time'].apply(lambda x: convertAMPMtime(x))
-
     # remove extraneous columns
     df_enrollment = df_enrollment.drop(columns=['Begin/End', 'S'])
 
@@ -970,9 +978,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df_enrollment['Final_Date'] = ''
     df_enrollment['Error'] = [[] for _ in range(len(df_enrollment))]
 
-    # change time format from 12HR to 24HR
-    df_finals['Time'] = df_finals['Time'].apply(lambda x: convertAMPMtime(x))
-
     # if DEBUG:
         # print(df_finals.sort_values(by='CRN'))
         # print(df_enrollment.sort_values(by='CRN'))
@@ -986,13 +991,15 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         # check if there is a final for this CRN
         if df_finals[df_finals['CRN'] == CRN].shape[0] == 0:
             # ERROR 0: No final for this CRN
-            df_enrollment.loc[row, 'Error'].append(0)
+            if 0 not in df_enrollment.loc[row, 'Error']:
+                df_enrollment.loc[row, 'Error'].append(0)
 
         # check for multiple finals for this CRN
         else:
             if df_finals[df_finals['CRN'] == CRN].shape[0] > 1:
                 # ERROR 1: Multiple finals for this CRN
-                df_enrollment.loc[row, 'Error'].append(1)
+                if 1 not in df_enrollment.loc[row, 'Error']:
+                    df_enrollment.loc[row, 'Error'].append(1)
 
             else: # only one final found
                 # check if day of final is one of the days of the class
@@ -1012,17 +1019,31 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                             df_enrollment.loc[row, 'Final_Loc'] = room
                         else:
                             # ERROR 2: Day of final incorrect
-                            df_enrollment.loc[row, 'Error'].append(2)
+                            if 2 not in df_enrollment.loc[row, 'Error']:
+                                df_enrollment.loc[row, 'Error'].append(2)
 
                     else:
                         # ERROR 2: Day of final incorrect
-                        df_enrollment.loc[row, 'Error'].append(2)
+                        if 2 not in df_enrollment.loc[row, 'Error']:
+                            df_enrollment.loc[row, 'Error'].append(2)
 
                 else:
                     df_enrollment.loc[row, 'Final_Day'] = day
                     df_enrollment.loc[row, 'Final_Date'] = date
                     df_enrollment.loc[row, 'Final_Time'] = time
                     df_enrollment.loc[row, 'Final_Loc'] = room
+
+                # check if room capacity is too low
+                try:
+                    if df_enrollment.loc[row, 'Enrolled'] > int(room_capacities[room]):
+                        # ERROR A: Room capacity too low
+                        if 'A' not in df_enrollment.loc[row, 'Error']:
+                            df_enrollment.loc[row, 'Error'].append('A')
+                except KeyError:
+                    # ERROR B: Room does not exist in Rooms Table
+                    if 'B' not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error'].append('B')
+
 
     # check for instructor overlap
     instructors = df_enrollment['Instructor'].unique()
@@ -1036,7 +1057,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
                 for row in df.index.tolist():
                     # ERROR 3: Overlap of time block
-                    df_enrollment.loc[row, 'Error'].append(3)
+                    if 3 not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error'].append(3)
 
             # check nonconformal overlaps; this uses SUMPRODUCT
             times = df['Final_Time'].unique().tolist()
@@ -1051,7 +1073,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 4: Overlap between time blocks
-                                df_enrollment.loc[row, 'Error'].append(4)
+                                if 4 not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error'].append(4)
 
                 # check for instructor back-to-back (different rooms) within 5 minutes
                 end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=5) for time in times]
@@ -1062,7 +1085,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 5: Instructor back-to-back within 5 minutes
-                                df_enrollment.loc[row, 'Error'].append(5)
+                                if 5 not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error'].append(5)
 
 
 
@@ -1078,7 +1102,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
                 for row in df.index.tolist():
                     # ERROR 6: Overlap of time block
-                    df_enrollment.loc[row, 'Error'].append(6)
+                    if 6 not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error'].append(6)
 
             # check nonconformal overlaps; this uses SUMPRODUCT
             times = df['Final_Time'].unique().tolist()
@@ -1093,7 +1118,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 7: Overlap between time blocks
-                                df_enrollment.loc[row, 'Error'].append(7)
+                                if 7 not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error'].append(7)
                 # check for back-to-back in same room
                 for k in range(n):
                     s = ([x == start_times[k] for x in end_times[:-1]])
@@ -1102,7 +1128,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 8: Back-to-back in same room
-                                df_enrollment.loc[row, 'Error'].append(8)
+                                if 8 not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error'].append(8)
 
     # check that start time is within one hour of regular class start time
     for row in df_enrollment.index.tolist():
@@ -1114,7 +1141,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             final_day = df_enrollment.loc[row, 'Final_Day']
             if (final_start < minusone or final_start > plusone) and (final_day != "S"):
                 # ERROR 9: Final start time not within one hour of regular start time
-                df_enrollment.loc[row, 'Error'].append(9)
+                if 9 not in df_enrollment.loc[row, 'Error']:
+                    df_enrollment.loc[row, 'Error'].append(9)
 
         except: # no final time provided
             pass
@@ -1128,12 +1156,21 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     # now add up all the enrollments and compare against room capacity
     df = df_enrollment[df_enrollment.index.isin(rows)]
     for row in rows:
-        enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Final_Time'] == df.loc[row, 'Final_Time'])]['Enrolled'].sum()
-        if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-            try: # only can be done if the room exists in the room_capacity dictionary
+        enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Final_Time'] == df.loc[row, 'Final_Time']) & (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
+        try: # only can be done if the room exists in the room_capacity dictionary
+            # print(df)
+            # print(df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Final_Time'] == df.loc[row, 'Final_Time'])]['Loc'].unique())
+            if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])): # and (df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Time'] == df.loc[row, 'Time'])].shape[0] == 1):
                 df_enrollment.loc[row, 'Error'].remove(3)
-            except:
-                pass
+            else:
+                if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
+                    # ERROR A: Room capacity too low
+                    if 'A' not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error'].append('A')
+        except KeyError:
+            # ERROR B: Room does not exist in Rooms Table
+            if 'B' not in df_enrollment.loc[row, 'Error']:
+                df_enrollment.loc[row, 'Error'].append('B')
 
     # check enrollment by room, if room large enough, remove error
     rows = []
@@ -1144,12 +1181,17 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     # now add up all the enrollments and compare against room capacity
     df = df_enrollment[df_enrollment.index.isin(rows)]
     for row in rows:
-        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & (df['Final_Time'] == df.loc[row, 'Final_Time'])]['Enrolled'].sum()
-        if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-            try: # only can be done if the room exists in the room_capacity dictionary
-                df_enrollment.loc[row, 'Error'].remove(6)
-            except:
-                pass
+        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & (df['Final_Time'] == df.loc[row, 'Final_Time']) & (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
+        try:
+            if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
+                try: # only can be done if the room exists in the room_capacity dictionary
+                    df_enrollment.loc[row, 'Error'].remove(6)
+                except:
+                    pass
+        except KeyError:
+            # ERROR B: Room does not exist in Rooms Table
+            if 'B' not in df_enrollment.loc[row, 'Error']:
+                df_enrollment.loc[row, 'Error'].append('B')
 
 
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
@@ -1182,12 +1224,9 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             page_size=500,
             data=df.to_dict('records'),
             editable=True,
-            # virtualization=True,
             filter_action='native',
             sort_action='native',
             sort_mode='multi',
-            # row_selectable='multi',
-            # row_deletable=True,
             selected_rows=[],
             style_data={
                 'whiteSpace': 'normal',
@@ -1208,6 +1247,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('7: Overlap between time blocks in same room'),
             html.Li('8: Back-to-back in same room'),
             html.Li('9: Final start time not within one hour of regular start time'),
+            html.Li('A: Room capacity too low'),
+            html.Li('B: Room does not exist in Rooms Table'),
         ],
             style={'list-style-type': 'none'},
         ),
