@@ -563,6 +563,7 @@ app.layout = html.Div([
         ),
         html.Div([
             html.Div([
+                # place holder
             ],
                 id='datatable-combined-div',
                 style = {
@@ -572,6 +573,7 @@ app.layout = html.Div([
                 }
             ),
             html.Div([
+                # place holder
             ],
                 id='datatable-enrollment-div',
                 style = {
@@ -581,6 +583,7 @@ app.layout = html.Div([
                 }
             ),
             html.Div([
+                # place holder
             ],
                 id='datatable-finals-div',
                 style = {
@@ -590,6 +593,7 @@ app.layout = html.Div([
                 }
             ),
             html.Div([
+                # place holder
             ],
                 id='datatable-rooms-div',
                 style = {
@@ -603,6 +607,7 @@ app.layout = html.Div([
         ),
     ],
         id='leftContainer',
+        className="pretty_container ten columns",
         style={
             'background': 'white',
             'width': '78%',
@@ -611,17 +616,16 @@ app.layout = html.Div([
             'marginLeft': 'auto',
             'marginRight': 'auto',
             'padding': '5px',
-            'vertical-align': 'top',
+            'verticalAlign': 'top',
         },
     ),
     html.Div([
         html.Div([
-            html.Hr(),
             html.Label('Load:'),
             dcc.Upload(
                 id='upload-enrollment',
                 children= html.Button(
-                    'Enrlmnt Report',
+                    'Enrollment Report',
                     id='load-enrollmentreport-button',
                     n_clicks=0,
                     style={
@@ -670,6 +674,7 @@ app.layout = html.Div([
         ),
     ],
         id='rightContainer',
+        className="pretty_container two columns",
         style={
             'background': 'white',
             'width': '18%',
@@ -678,7 +683,7 @@ app.layout = html.Div([
             'marginLeft': 'auto',
             'marginRight': 'auto',
             'padding': '5px',
-            'vertical-align': 'top',
+            'verticalAlign': 'top',
         },
     ),
 ],
@@ -687,8 +692,32 @@ app.layout = html.Div([
         'height': '900px',
         'width': '100%',
     },
-    className="container",
+    className="row flex-display",
 )
+
+@app.callback(
+     Output('table-tabs', 'value'),
+    [Input('load-enrollmentreport-button', 'n_clicks'),
+     Input('load-finalsexport-button', 'n_clicks'),
+     Input('update-button', 'n_clicks'),]
+)
+def display_tab(btn_enroll, btn_finals, btn_update):
+    # this function changes the view of the tab content based on
+    # which button was clicked
+    if DEBUG:
+        print("function: update_tab_display")
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        button_id = 'No clicks yet'
+    else:
+        btn_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if btn_id == 'load-enrollmentreport-button':
+            return 'tab-enrollment'
+        elif btn_id == 'load-finalsexport-button':
+            return 'tab-finals'
+        else:
+            return 'tab-combined'
+    return
 
 @app.callback(
     [Output('datatable-combined-div', 'style'),
@@ -759,7 +788,6 @@ def load_enrollment_data(contents, name, n_clicks):
                 fixed_rows={'headers': True, 'data': 0},
                 page_size=500,
                 data=df_enrollment.to_dict('records'),
-                editable=True,
                 filter_action='native',
                 filter_options={'case': 'insensitive'},
                 sort_action='native',
@@ -797,11 +825,14 @@ def load_enrollment_data(contents, name, n_clicks):
                 fixed_rows={'headers': True, 'data': 0},
                 data=df_rooms.to_dict('records'),
                 editable=True,
+                row_deletable=True,
                 filter_action='native',
+                filter_options={'case': 'insensitive'},
                 sort_action='native',
                 sort_mode='multi',
             ),
-            html.Button('Add Row', id='editing-rows-button', n_clicks=0),
+            html.Br(),
+            html.Button('Add Row', id='addrow-rooms-button', n_clicks=0),
         ]
 
     else:
@@ -844,6 +875,7 @@ def load_finals_data(contents, n_clicks):
                 data=df_finals.to_dict('records'),
                 editable=True,
                 filter_action='native',
+                filter_options={'case': 'insensitive'},
                 sort_action='native',
                 sort_mode='multi',
                 row_deletable=True,
@@ -855,6 +887,7 @@ def load_finals_data(contents, n_clicks):
                 page_action='none',
                 style_table={'height': '1600px', 'overflowY': 'auto'},
             ),
+            html.Br(),
             html.Button('Add Row', id='addrow-finals-button', n_clicks=0),
         ]
 
@@ -897,7 +930,7 @@ def add_row(n_clicks, rows, columns):
 
 @app.callback(
     Output('datatable-rooms', 'data'),
-    Input('editing-rows-button', 'n_clicks'),
+    Input('addrow-rooms-button', 'n_clicks'),
     State('datatable-rooms', 'data'),
     State('datatable-rooms', 'columns'))
 def add_row(n_clicks, rows, columns):
@@ -911,42 +944,96 @@ def add_row(n_clicks, rows, columns):
      State('datatable-combined', 'data')]
 )
 def export_all(n_clicks, data):
+    # download as MS Excel for import in MS Access Database
     if DEBUG:
         print("function: download")
-    _df = pd.DataFrame(data)
     if n_clicks > 0:
-        return {'base64': True, 'content': to_excel(_df), 'filename': 'Final Exam Schedule.xlsx', }
 
-    # 'DEPT/CID CALL and Title', 'CRN', 'Day', 'Final Exam Time',
-    # 'EndTime', 'Final Exam Date', 'Final Exam Rm', 'ContactName'
+        # retrieve the datatable
+        _df = pd.DataFrame(data)
+
+        # create columns for export
+        col_dept = []
+        col_endtime = []
+        for row in _df.index.tolist():
+            col_dept.append(
+                str(_df.loc[row, 'Subject']) + '-' +
+                str(_df.loc[row, 'Number']) + '-' +
+                str(_df.loc[row, 'Section']) + ' ' +
+                str(_df.loc[row, 'CRN']) + ' ' +
+                str(_df.loc[row, 'Title'])
+            )
+            col_endtime.append(str(_df.loc[row, 'Final_Time'][-5:]))
+
+        # create dictionary of all columns
+        d = {
+            'DEPT/CID CALL and Title': col_dept,
+            'CRN': _df['CRN'],
+            'Day': _df['Final_Day'],
+            'Final Exam Time': _df['Final_Time'],
+            'EndTime': col_endtime,
+            'Final Exam Date': _df['Final_Date'],
+            'Final Exam Rm': _df['Final_Loc'],
+            'ContactName': _df['Instructor']
+        }
+        df = pd.DataFrame(d)
+
+        xlsx_io = io.BytesIO()
+        writer = pd.ExcelWriter(
+            xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
+        )
+        df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
+
+        # Save it
+        writer.save()
+        xlsx_io.seek(0)
+        media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        data = base64.b64encode(xlsx_io.read()).decode('utf-8')
+
+        return {'base64': True, 'content': data, 'filename': 'Final Exam Schedule.xlsx', }
 
 @app.callback(
-    [Output('datatable-combined-div', 'children'),
-     Output('table-tabs', 'value')],
+    Output('datatable-combined-div', 'children'),
     [Input('update-button', 'n_clicks'),
      State('datatable-enrollment', 'data'),
      State('datatable-finals', 'data'),
      State('datatable-rooms', 'data')]
 )
 def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
+
+    # retrieve enrollment table
     df_enrollment = pd.DataFrame(data_enrollment)
-    df_enrollment.rename(
-        columns={
-            'Subj': 'Subject',
-            'Nmbr': 'Number',
-            'Sec': 'Section',
-            'Cam': 'Campus',
-            'Enrl': 'Enrolled',
-            'WLst': 'WList',
-            '%Ful': 'Full',
-        },
-        inplace=True,
-    )
+
+    # retrieve finals table
     df_finals = pd.DataFrame(data_finals)
+
+    # recalculate the day of the final based on the date of the final
+    for row in df_finals.index.tolist():
+        Date = df_finals.loc[row, 'Date']
+        # find the day of week and code it to MTWRFSU
+        day_str = datetime.datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
+        if day_str == "Monday":
+            Days = "M"
+        elif day_str == "Tuesday":
+            Days = "T"
+        elif day_str == "Wednesday":
+            Days = "W"
+        elif day_str == "Thursday":
+            Days = "R"
+        elif day_str == "Friday":
+            Days = "F"
+        elif day_str == "Saturday":
+            Days = "S"
+        else:
+            Days = "U"
+        df_finals.loc[row, 'Days'] = Days
+
+    # retrieve rooms table
     df_rooms = pd.DataFrame(data_rooms)
 
+    # create dictionary of capacities
     room_capacities = {
-        df_rooms.loc[row, 'Room']: df_rooms.loc[row, 'Cap'] for row in df_rooms.index.tolist()
+        df_rooms.loc[row, 'Room']: int(df_rooms.loc[row, 'Cap']) for row in df_rooms.index.tolist()
     }
 
     # remove all canceled classes
@@ -977,12 +1064,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df_enrollment['Final_Time'] = ''
     df_enrollment['Final_Date'] = ''
     df_enrollment['Error'] = [[] for _ in range(len(df_enrollment))]
-
-    # if DEBUG:
-        # print(df_finals.sort_values(by='CRN'))
-        # print(df_enrollment.sort_values(by='CRN'))
-    # df_finals.to_csv('finals.csv', index=False)
-    # df_enrollment.to_csv('enrollment.csv', index=False)
 
     # go through each row
     for row in df_enrollment.index.tolist():
@@ -1182,12 +1263,9 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df = df_enrollment[df_enrollment.index.isin(rows)]
     for row in rows:
         enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & (df['Final_Time'] == df.loc[row, 'Final_Time']) & (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
-        try:
+        try: # only can be done if the room exists in the room_capacity dictionary
             if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-                try: # only can be done if the room exists in the room_capacity dictionary
-                    df_enrollment.loc[row, 'Error'].remove(6)
-                except:
-                    pass
+                df_enrollment.loc[row, 'Error'].remove(6)
         except KeyError:
             # ERROR B: Room does not exist in Rooms Table
             if 'B' not in df_enrollment.loc[row, 'Error']:
@@ -1225,6 +1303,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             data=df.to_dict('records'),
             editable=True,
             filter_action='native',
+            filter_options={'case': 'insensitive'},
             sort_action='native',
             sort_mode='multi',
             selected_rows=[],
@@ -1232,32 +1311,40 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                 'whiteSpace': 'normal',
                 'height': 'auto',
             },
+            style_data_conditional=[
+                {
+                    'if': {
+                        'filter_query': '{Error} > " "',
+                    },
+                    'backgroundColor': '#FFDD33',
+                },
+            ],
         ),
         html.Hr(),
         html.P(),
         html.Label('The error codes are'),
         html.Ul([
-            html.Li('0: No final for this CRN'),
-            html.Li('1: Multiple finals for this CRN'),
-            html.Li('2: Day of final incorrect'),
-            html.Li('3: Overlap of time block for instructor'),
-            html.Li('4: Overlap between time blocks for instructor'),
-            html.Li('5: Instructor back-to-back within 5 minutes'),
-            html.Li('6: Overlap of time block in same room'),
-            html.Li('7: Overlap between time blocks in same room'),
-            html.Li('8: Back-to-back in same room'),
-            html.Li('9: Final start time not within one hour of regular start time'),
-            html.Li('A: Room capacity too low'),
-            html.Li('B: Room does not exist in Rooms Table'),
+            html.Li('0 : No final for this CRN'),
+            html.Li('1 : Multiple finals for this CRN'),
+            html.Li('2 : Day of final incorrect'),
+            html.Li('3 : Overlap of time block for instructor'),
+            html.Li('4 : Overlap between time blocks for instructor'),
+            html.Li('5 : Instructor back-to-back within 5 minutes'),
+            html.Li('6 : Overlap of time block in same room'),
+            html.Li('7 : Overlap between time blocks in same room'),
+            html.Li('8 : Back-to-back in same room'),
+            html.Li('9 : Final start time not within one hour of regular start time'),
+            html.Li('A : Room capacity too low'),
+            html.Li('B : Room does not exist in Rooms Table'),
         ],
-            style={'list-style-type': 'none'},
+            style={'listStyleType': 'none'},
         ),
     ]
-    return data_children, 'tab-combined'
+    return data_children
 
 # Main
 if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=DEBUG)
     else:
-        app.run_server(debug=True, host='10.0.2.15', port='8053')
+        app.run_server(debug=DEBUG, host='10.0.2.15', port='8053')
