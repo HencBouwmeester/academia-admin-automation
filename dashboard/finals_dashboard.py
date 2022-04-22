@@ -429,12 +429,12 @@ def parse_finals(contents):
 
     rows = []
     for line in file_contents:
-        line = line.replace('"','')
-        fields = line.split(',')
 
+        fields = [field.replace('"','') for field in line.split(',')]
 
         # only pick up classes for MTH or MTL
-        if fields[1][:3] == "MTH" or fields[1][:3] == "MTL":
+        subj = fields[1][:3]
+        if subj in ['MTH', 'MTL']:
             CRN = fields[1].split(' ')[1]
             Loc = fields[3]
             try:
@@ -607,16 +607,15 @@ app.layout = html.Div([
         ),
     ],
         id='leftContainer',
-        className="pretty_container ten columns",
         style={
             'background': 'white',
+            'float': 'left',
             'width': '78%',
             'height': '900px',
-            'display': 'inline-block',
-            'marginLeft': 'auto',
-            'marginRight': 'auto',
             'padding': '5px',
-            'verticalAlign': 'top',
+            'border': '1px solid rgba(0, 0, 0, 0.2)',
+            'border-radius': '5px',
+            'background-color': '#f9f9f9',
         },
     ),
     html.Div([
@@ -632,6 +631,7 @@ app.layout = html.Div([
                         'padding': '0px',
                         'textAlign': 'center',
                         'width': '95%',
+                        'fontSize': '1rem',
                     },
                     className='button'
                 ),
@@ -644,7 +644,12 @@ app.layout = html.Div([
                     'Finals Export',
                     id='load-finalsexport-button',
                     n_clicks=0,
-                    style={'padding': '0px', 'textAlign': 'center', 'width': '95%'},
+                    style={
+                        'padding': '0px',
+                        'textAlign': 'center',
+                        'width': '95%',
+                        'fontSize': '1rem',
+                    },
                     className='button'
                 ),
                 multiple=False,
@@ -657,7 +662,12 @@ app.layout = html.Div([
                 id='update-button',
                 n_clicks=0,
                 disabled=True,
-                style={'padding': '0px', 'textAlign': 'center', 'width': '95%'},
+                style={
+                    'padding': '0px',
+                    'textAlign': 'center',
+                    'width': '95%',
+                    'fontSize': '1rem',
+                },
                 className='button'
             ),
             html.Button(
@@ -665,7 +675,12 @@ app.layout = html.Div([
                 id='download-button',
                 n_clicks=0,
                 disabled=True,
-                style={'padding': '0px', 'textAlign': 'center', 'width': '95%'},
+                style={
+                    'padding': '0px',
+                    'textAlign': 'center',
+                    'width': '95%',
+                    'fontSize': '1rem',
+                },
                 className='button'
             ),
             dcc.Download(id='datatable-download'),
@@ -674,25 +689,28 @@ app.layout = html.Div([
         ),
     ],
         id='rightContainer',
-        className="pretty_container two columns",
         style={
-            'background': 'white',
             'width': '18%',
-            'height': '900px',
-            'display': 'inline-block',
-            'marginLeft': 'auto',
-            'marginRight': 'auto',
+            'margin-left': '1rem',
+            'float': 'left',
+            'border': '1px solid rgba(0, 0, 0, 0.2)',
+            'border-radius': '5px',
+            'background-color': '#f9f9f9',
             'padding': '5px',
-            'verticalAlign': 'top',
         },
     ),
 ],
     id='mainContainer',
-    style={
-        'height': '900px',
-        'width': '100%',
-    },
-    className="row flex-display",
+    # style={
+        # 'height': '900px',
+        # 'width': '100%',
+        # 'position': 'relative',
+        # 'width': '100%',
+        # 'max-width': '1200px',
+        # 'margin': '0 auto',
+        # 'padding': '0 20px',
+        # 'box-sizing': 'border-box',
+    # },
 )
 
 @app.callback(
@@ -832,7 +850,7 @@ def load_enrollment_data(contents, name, n_clicks):
                 sort_mode='multi',
             ),
             html.Br(),
-            html.Button('Add Row', id='addrow-rooms-button', n_clicks=0),
+            html.Button('Add Row', id='addrow-rooms-button', className='button', n_clicks=0),
         ]
 
     else:
@@ -888,7 +906,7 @@ def load_finals_data(contents, n_clicks):
                 style_table={'height': '1600px', 'overflowY': 'auto'},
             ),
             html.Br(),
-            html.Button('Add Row', id='addrow-finals-button', n_clicks=0),
+            html.Button('Add Row', id='addrow-finals-button', className='button', n_clicks=0),
         ]
 
     else:
@@ -1347,4 +1365,4 @@ if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=DEBUG)
     else:
-        app.run_server(debug=DEBUG, host='10.0.2.15', port='8053')
+        app.run_server(debug=True, host='10.0.2.15', port='8053')
