@@ -409,7 +409,9 @@ def parse_enrollment(contents, filename):#, date):
 
     return df
 
-def parse_finals(contents):
+def parse_finals(contents, subjects):
+
+    # subjects: list of subjects from enrollment report
 
     content_type, content_string = contents.split(',')
 
@@ -432,9 +434,9 @@ def parse_finals(contents):
 
         fields = [field.replace('"','') for field in line.split(',')]
 
-        # only pick up classes for MTH or MTL
+        # only pick up classes for subject listed in enrollment report
         subj = fields[1][:3]
-        if subj in ['MTH', 'MTL']:
+        if subj in subjects:
             CRN = fields[1].split(' ')[1]
             Loc = fields[3]
             try:
@@ -627,6 +629,7 @@ app.layout = html.Div([
                     'Enrollment Report',
                     id='load-enrollmentreport-button',
                     n_clicks=0,
+                    disabled=False,
                     style={
                         'padding': '0px',
                         'textAlign': 'center',
@@ -644,6 +647,7 @@ app.layout = html.Div([
                     'Finals Export',
                     id='load-finalsexport-button',
                     n_clicks=0,
+                    disabled=True,
                     style={
                         'padding': '0px',
                         'textAlign': 'center',
@@ -760,7 +764,9 @@ def update_tab_display(tab):
 
 @app.callback(
     [Output('datatable-enrollment-div', 'children'),
-     Output('datatable-rooms-div', 'children')],
+     Output('datatable-rooms-div', 'children'),
+     Output('load-finalsexport-button', 'disabled'),
+     Output('load-enrollmentreport-button', 'n_clicks')],
     [Input('upload-enrollment', 'contents'),
      State('upload-enrollment', 'filename'),
      State('load-enrollmentreport-button', 'n_clicks')]
@@ -856,18 +862,27 @@ def load_enrollment_data(contents, name, n_clicks):
     else:
         enrollment_children = []
         rooms_children = []
-    return enrollment_children, rooms_children
+    return enrollment_children, rooms_children, False, 0
 
 @app.callback(
-    Output('datatable-finals-div', 'children'),
+    [Output('datatable-finals-div', 'children'),
+     Output('load-finalsexport-button', 'n_clicks')],
     [Input('upload-finals', 'contents'),
-     State('load-finalsexport-button', 'n_clicks')]
+     State('load-finalsexport-button', 'n_clicks'),
+     State('datatable-enrollment', 'data')]
 )
-def load_finals_data(contents, n_clicks):
+def load_finals_data(contents, n_clicks, data_enrollment):
     if DEBUG:
         print('function: load_finals')
     if contents is not None and n_clicks > 0:
-        df_finals = parse_finals(contents)
+
+        # retrieve enrollment table
+        df_enrollment = pd.DataFrame(data_enrollment)
+
+        # obtain list of subjects from enrollment report
+        subjects = df_enrollment['Subject'].unique()
+
+        df_finals = parse_finals(contents, subjects)
         data_children = [
             dash_table.DataTable(
                 id='datatable-finals',
@@ -911,7 +926,7 @@ def load_finals_data(contents, n_clicks):
 
     else:
         data_children = []
-    return data_children
+    return data_children, 0
 
 @app.callback(
     Output('update-button', 'disabled'),
@@ -1176,14 +1191,14 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                                     df_enrollment.loc[row, 'Error'].append(4)
 
                 # check for instructor back-to-back (different rooms) within 5 minutes
-                end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=5) for time in times]
+                end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=15) for time in times]
                 for k in range(n):
                     s = ([x > start_times[k] for x in end_times])
                     e = ([x < end_times[k] for x in start_times])
                     if sum([x*y for x,y in zip(s,e)]) > 1:
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
-                                # ERROR 5: Instructor back-to-back within 5 minutes
+                                # ERROR 5: Instructor back-to-back within 15 minutes
                                 if 5 not in df_enrollment.loc[row, 'Error']:
                                     df_enrollment.loc[row, 'Error'].append(5)
 
@@ -1347,7 +1362,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('2 : Day of final incorrect'),
             html.Li('3 : Overlap of time block for instructor'),
             html.Li('4 : Overlap between time blocks for instructor'),
-            html.Li('5 : Instructor back-to-back within 5 minutes'),
+            html.Li('5 : Instructor back-to-back within 15 minutes'),
             html.Li('6 : Overlap of time block in same room'),
             html.Li('7 : Overlap between time blocks in same room'),
             html.Li('8 : Back-to-back in same room'),
