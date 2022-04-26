@@ -40,30 +40,10 @@ app.config.update({
 # specifics for the math.msudenver.edu server
 if mathserver:
     app.config.update({
-       'url_base_pathname':'/scheduling/',
-       'routes_pathname_prefix':'/scheduling/',
-       'requests_pathname_prefix':'/scheduling/',
+       'url_base_pathname':'/finals/',
+       'routes_pathname_prefix':'/finals/',
+       'requests_pathname_prefix':'/finals/',
     })
-
-room_capacities = {
-    "CN 109": 47,
-    "KC 307": 48,
-    "KC 313": 48,
-    "PL 329": 24,
-    "PL M204": 110,
-    "PL M206": 46,
-    "SI 1007": 25,
-    "SI 1008": 44,
-    "SI 1010": 40,
-    "SI 1011": 42,
-    "SI 1015": 36,
-    "SI 1058": 40,
-    "SI 1068": 16,
-    "SI 1113": 54,
-    "SSB 213": 24,
-}
-
-df_rooms = pd.DataFrame({'Room': room_capacities.keys(), 'Cap': room_capacities.values()})
 
 def updateTitles(df):
     if DEBUG:
@@ -145,7 +125,6 @@ def updateTitles(df):
     df.update(df_titles.set_index('Class'))
     df.reset_index(inplace=True)
     df = df[cols]
-
 
     return df
 
