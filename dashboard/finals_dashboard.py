@@ -388,7 +388,7 @@ def parse_enrollment(contents, filename):#, date):
 
     return df
 
-def parse_finals(contents, subjects):
+def parse_finals(contents, CRNs):
 
     # subjects: list of subjects from enrollment report
 
@@ -413,40 +413,42 @@ def parse_finals(contents, subjects):
 
         fields = [field.replace('"','') for field in line.split(',')]
 
-        # only pick up classes for subject listed in enrollment report
-        subj = fields[1][:3]
-        if subj in subjects:
+        # only pick up classes for CRN listed in enrollment report
+        try:
             CRN = fields[1].split(' ')[1]
-            Loc = fields[3]
-            try:
-                Date = datetime.datetime.strptime(fields[6], '%m/%d/%Y').strftime('%m/%d/%Y')
-            except ValueError:
-                Date = datetime.datetime.strptime(fields[6], '%x').strftime('%m/%d/%Y')
+            if CRN in CRNs:
+                Loc = fields[3]
+                try:
+                    Date = datetime.datetime.strptime(fields[6], '%m/%d/%Y').strftime('%m/%d/%Y')
+                except ValueError:
+                    Date = datetime.datetime.strptime(fields[6], '%x').strftime('%m/%d/%Y')
 
-            # reformat the time to match the SWRCGSR formatting
-            start_time = fields[7].replace(':','')[:-2].zfill(4)
-            end_time = fields[8].replace(':','')[:-2].zfill(4)
-            AMPM = fields[8][-2:]
-            Time = start_time + '-' + end_time + AMPM
+                # reformat the time to match the SWRCGSR formatting
+                start_time = fields[7].replace(':','')[:-2].zfill(4)
+                end_time = fields[8].replace(':','')[:-2].zfill(4)
+                AMPM = fields[8][-2:]
+                Time = start_time + '-' + end_time + AMPM
 
-            # find the day of week and code it to MTWRFSU
-            day_str = datetime.datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
-            if day_str == "Monday":
-                Days = "M"
-            elif day_str == "Tuesday":
-                Days = "T"
-            elif day_str == "Wednesday":
-                Days = "W"
-            elif day_str == "Thursday":
-                Days = "R"
-            elif day_str == "Friday":
-                Days = "F"
-            elif day_str == "Saturday":
-                Days = "S"
-            else:
-                Days = "U"
+                # find the day of week and code it to MTWRFSU
+                day_str = datetime.datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
+                if day_str == "Monday":
+                    Days = "M"
+                elif day_str == "Tuesday":
+                    Days = "T"
+                elif day_str == "Wednesday":
+                    Days = "W"
+                elif day_str == "Thursday":
+                    Days = "R"
+                elif day_str == "Friday":
+                    Days = "F"
+                elif day_str == "Saturday":
+                    Days = "S"
+                else:
+                    Days = "U"
 
-            rows.append([CRN, Days, Time, Loc, Date])
+                rows.append([CRN, Days, Time, Loc, Date])
+        except IndexError:
+            pass
 
     df = pd.DataFrame(rows, columns=['CRN', 'Days', 'Time', 'Loc', 'Date'])
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
@@ -858,10 +860,10 @@ def load_finals_data(contents, n_clicks, data_enrollment):
         # retrieve enrollment table
         df_enrollment = pd.DataFrame(data_enrollment)
 
-        # obtain list of subjects from enrollment report
-        subjects = df_enrollment['Subject'].unique()
+        # obtain list of CRNs from enrollment report
+        CRNs = df_enrollment['CRN'].unique()
 
-        df_finals = parse_finals(contents, subjects)
+        df_finals = parse_finals(contents, CRNs)
         data_children = [
             dash_table.DataTable(
                 id='datatable-finals',
@@ -1349,7 +1351,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('A : Room capacity too low'),
             html.Li('B : Room does not exist in Rooms Table'),
         ],
-            style={'listStyleType': 'none'},
+            style={'listStyleType': 'none', 'lineHeight': 1.25},
         ),
     ]
     return data_children
