@@ -128,6 +128,176 @@ def updateTitles(df):
 
     return df
 
+def convertAMPMtime_grid(timeslot):
+    try:
+        starthour = int(timeslot.split(':')[0])
+
+        if timeslot[-2:].upper() == 'PM':
+            starthour = starthour + 12 if starthour < 12 else starthour
+        timeslot = '{:s}:{:s}'.format(
+            str(starthour).zfill(2), timeslot.split(':')[1][:2]
+        )
+    except ValueError:  # catch the TBA times
+        pass
+
+    return timeslot
+
+finals_grid = [
+    3, 2, 'M W', '6:30am', '7:45am', 'W', '06:30-08:30',
+    3, 2, 'M W', '8:00am', '9:15am', 'M', '08:00-10:00',
+    3, 2, 'M W', '9:30am', '10:45am', 'W', '09:30-11:30',
+    3, 2, 'M W', '11:00am', '12:15pm', 'M', '11:00-13:00',
+    3, 2, 'M W', '12:30pm', '1:45pm', 'W', '12:30-14:30',
+    3, 2, 'M W', '2:00pm', '3:15pm', 'M', '14:00-16:00',
+    3, 2, 'M W', '3:30pm', '4:45pm', 'W', '15:30-17:30',
+    3, 2, 'M W', '5:00pm', '6:15pm', 'M', '17:00-19:00',
+    3, 2, 'M W', '6:30pm', '7:45pm', 'W', '18:30-20:30',
+    3, 2, 'M W', '8:00pm', '9:15pm', 'M', '20:00-22:00',
+    3, 2, 'M W', '9:30pm', '10:45pm', 'W', '21:30-23:30',
+    3, 2, 'T R', '6:30am', '7:45am', 'R', '06:30-08:30',
+    3, 2, 'T R', '8:00am', '9:15am', 'T', '08:00-10:00',
+    3, 2, 'T R', '9:30am', '10:45am', 'R', '09:30-11:30',
+    3, 2, 'T R', '11:00am', '12:15pm', 'T', '11:00-13:00',
+    3, 2, 'T R', '12:30pm', '1:45pm', 'R', '12:30-14:30',
+    3, 2, 'T R', '2:00pm', '3:15pm', 'T', '14:00-16:00',
+    3, 2, 'T R', '3:30pm', '4:45pm', 'R', '15:30-17:30',
+    3, 2, 'T R', '5:00pm', '6:15pm', 'T', '17:00-19:00',
+    3, 2, 'T R', '6:30pm', '7:45pm', 'R', '18:30-20:30',
+    3, 2, 'T R', '8:00pm', '9:15pm', 'T', '20:00-22:00',
+    3, 2, 'T R', '9:30pm', '10:45pm', 'R', '21:30-23:30',
+    3, 1, 'M', '8:00am', '10:50am', 'M', '08:00-10:00',
+    3, 1, 'M', '9:30am', '12:20pm', 'M', '11:00-13:00',
+    3, 1, 'M', '11:00am', '1:50pm', 'M', '11:00-13:00',
+    3, 1, 'M', '12:30pm', '3:20pm', 'M', '14:00-16:00',
+    3, 1, 'M', '2:00pm', '4:50pm', 'M', '14:00-16:00',
+    3, 1, 'M', '3:30pm', '6:20pm', 'M', '17:00-19:00',
+    3, 1, 'M', '5:00pm', '7:50pm', 'M', '17:00-19:00',
+    3, 1, 'M', '6:30pm', '9:20pm', 'M', '20:00-22:00',
+    3, 1, 'M', '8:00pm', '10:50pm', 'M', '20:00-22:00',
+    3, 1, 'T', '8:00am', '10:50am', 'T', '08:00-10:00',
+    3, 1, 'T', '9:30am', '12:20pm', 'T', '11:00-13:00',
+    3, 1, 'T', '11:00am', '1:50pm', 'T', '11:00-13:00',
+    3, 1, 'T', '12:30pm', '3:20pm', 'T', '14:00-16:00',
+    3, 1, 'T', '2:00pm', '4:50pm', 'T', '14:00-16:00',
+    3, 1, 'T', '3:30pm', '6:20pm', 'T', '17:00-19:00',
+    3, 1, 'T', '5:00pm', '7:50pm', 'T', '17:00-19:00',
+    3, 1, 'T', '6:30pm', '9:20pm', 'T', '20:00-22:00',
+    3, 1, 'T', '8:00pm', '10:50pm', 'T', '20:00-22:00',
+    3, 1, 'W', '8:00am', '10:50am', 'W', '09:30-11:30',
+    3, 1, 'W', '9:30am', '12:20pm', 'W', '09:30-11:30',
+    3, 1, 'W', '11:00am', '1:50pm', 'W', '12:30-14:30',
+    3, 1, 'W', '12:30pm', '3:20pm', 'W', '12:30-14:30',
+    3, 1, 'W', '2:00pm', '4:50pm', 'W', '15:30-17:30',
+    3, 1, 'W', '3:30pm', '6:20pm', 'W', '15:30-17:30',
+    3, 1, 'W', '5:00pm', '7:50pm', 'W', '18:30-20:30',
+    3, 1, 'W', '6:30pm', '9:20pm', 'W', '18:30-20:30',
+    3, 1, 'W', '8:00pm', '10:50pm', 'W', '21:30-23:30',
+    3, 1, 'R', '8:00am', '10:50am', 'R', '09:30-11:30',
+    3, 1, 'R', '9:30am', '12:20pm', 'R', '09:30-11:30',
+    3, 1, 'R', '11:00am', '1:50pm', 'R', '12:30-14:30',
+    3, 1, 'R', '12:30pm', '3:20pm', 'R', '12:30-14:30',
+    3, 1, 'R', '2:00pm', '4:50pm', 'R', '15:30-17:30',
+    3, 1, 'R', '3:30pm', '6:20pm', 'R', '15:30-17:30',
+    3, 1, 'R', '5:00pm', '7:50pm', 'R', '18:30-20:30',
+    3, 1, 'R', '6:30pm', '9:20pm', 'R', '18:30-20:30',
+    3, 1, 'R', '8:00pm', '10:50pm', 'R', '21:30-23:30',
+    3, 3, 'M W F', '6:00am', '6:50am', 'W', '06:30-08:30',
+    3, 3, 'M W F', '7:00am', '7:50am', 'F', '07:00-09:00',
+    3, 3, 'M W F', '8:00am', '8:50am', 'M', '08:00-10:00',
+    3, 3, 'M W F', '9:00am', '9:50am', 'W', '09:30-11:30',
+    3, 3, 'M W F', '10:00am', '10:50am', 'F', '10:00-12:00',
+    3, 3, 'M W F', '11:00am', '11:50am', 'M', '11:00-13:00',
+    3, 3, 'M W F', '12:00pm', '12:50pm', 'W', '12:30-14:30',
+    3, 3, 'M W F', '1:00pm', '1:50pm', 'F', '13:00-15:00',
+    3, 3, 'M W F', '2:00pm', '2:50pm', 'M', '14:00-16:00',
+    3, 3, 'M W F', '3:00pm', '3:50pm', 'W', '15:30-17:30',
+    3, 3, 'M W F', '4:00pm', '4:50pm', 'F', '16:00-18:00',
+    3, 3, 'M W F', '5:00pm', '5:50pm', 'M', '17:00-19:00',
+    3, 3, 'M W F', '6:00pm', '6:50pm', 'W', '18:30-20:30',
+    3, 3, 'M W F', '7:00pm', '7:50pm', 'F', '19:00-21:00',
+    3, 3, 'M W F', '8:00pm', '8:50pm', 'M', '20:00-22:00',
+    3, 3, 'M W F', '9:00pm', '9:50pm', 'W', '21:30-23:30',
+    3, 3, 'M W F', '10:00pm', '10:50pm', 'F', '22:00-24:00',
+    4, 3, 'M W F', '8:00am', '9:10am', 'M', '08:00-10:00',
+    4, 3, 'M W F', '9:30am', '10:40am', 'F', '10:00-12:00',
+    4, 3, 'M W F', '11:00am', '12:10pm', 'M', '11:00-13:00',
+    4, 3, 'M W F', '12:30pm', '1:40pm', 'F', '13:00-15:00',
+    4, 3, 'M W F', '2:00pm', '3:10pm', 'M', '14:00-16:00',
+    4, 3, 'M W F', '3:30pm', '4:40pm', 'F', '16:00-18:00',
+    4, 3, 'M W F', '5:00pm', '6:10pm', 'M', '17:00-19:00',
+    4, 3, 'M W F', '6:30pm', '7:40pm', 'F', '19:00-21:00',
+    4, 3, 'M W F', '8:00pm', '9:10pm', 'M', '20:00-22:00',
+    4, 1, 'M', '8:00am', '11:50am', 'M', '08:00-10:00',
+    4, 1, 'M', '12:00pm', '3:50pm', 'M', '14:00-16:00',
+    4, 1, 'M', '4:00pm', '7:50pm', 'M', '17:00-19:00',
+    4, 1, 'T', '8:00am', '11:50am', 'T', '08:00-10:00',
+    4, 1, 'T', '12:00pm', '3:50pm', 'T', '14:00-16:00',
+    4, 1, 'T', '4:00pm', '7:50pm', 'T', '17:00-19:00',
+    4, 1, 'W', '8:00am', '11:50am', 'W', '09:30-11:30',
+    4, 1, 'W', '12:00pm', '3:50pm', 'W', '12:30-14:30',
+    4, 1, 'W', '4:00pm', '7:50pm', 'W', '18:30-20:30',
+    4, 1, 'R', '8:00am', '11:50am', 'R', '09:30-11:30',
+    4, 1, 'R', '12:00pm', '3:50pm', 'R', '12:30-14:30',
+    4, 1, 'R', '4:00pm', '7:50pm', 'R', '18:30-20:30',
+    4, 1, 'F', '8:00am', '11:50am', 'F', '10:00-12:00',
+    4, 1, 'F', '12:00pm', '3:50pm', 'F', '13:00-15:00',
+    4, 1, 'F', '4:00pm', '7:50pm', 'F', '16:00-18:00',
+    5, 3, 'M W F', '8:00am', '9:24am', 'M', '08:00-10:00',
+    5, 3, 'M W F', '10:00am', '11:25am', 'F', '10:00-12:00',
+    5, 3, 'M W F', '12:00pm', '1:25pm', 'W', '12:30-14:30',
+    5, 3, 'M W F', '2:00pm', '3:25pm', 'M', '14:00-16:00',
+    5, 3, 'M W F', '4:00pm', '5:25pm', 'F', '16:00-18:00',
+    5, 3, 'M W F', '6:00pm', '7:25pm', 'W', '18:30-20:30',
+    5, 3, 'M W F', '8:00pm', '9:25pm', 'M', '20:00-22:00',
+    4, 2, 'M W', '8:00am', '9:50am', 'M', '08:00-10:00',
+    4, 2, 'M W', '10:00am', '11:50am', 'W', '09:30-11:30',
+    4, 2, 'M W', '12:00pm', '1:50pm', 'M', '11:00-13:00',
+    4, 2, 'M W', '2:00pm', '3:50pm', 'M', '14:00-16:00',
+    4, 2, 'M W', '4:00pm', '5:50pm', 'W', '15:30-17:30',
+    4, 2, 'M W', '6:00pm', '7:50pm', 'M', '17:00-19:00',
+    4, 2, 'M W', '8:00pm', '9:50pm', 'M', '20:00-22:00',
+    4, 2, 'T R', '8:00am', '9:50am', 'T', '08:00-10:00',
+    4, 2, 'T R', '10:00am', '11:50am', 'R', '09:30-11:30',
+    4, 2, 'T R', '12:00pm', '1:50pm', 'T', '11:00-13:00',
+    4, 2, 'T R', '2:00pm', '3:50pm', 'T', '14:00-16:00',
+    4, 2, 'T R', '4:00pm', '5:50pm', 'R', '15:30-17:30',
+    4, 2, 'T R', '6:00pm', '7:50pm', 'T', '17:00-19:00',
+    4, 2, 'T R', '8:00pm', '9:50pm', 'T', '20:00-22:00',
+    2, 2, 'M W', '8:00am', '9:50am', 'M', '08:00-10:00',
+    2, 2, 'M W', '10:00am', '11:50am', 'W', '09:30-11:30',
+    2, 2, 'M W', '12:00pm', '1:50pm', 'M', '11:00-13:00',
+    2, 2, 'M W', '2:00pm', '3:50pm', 'M', '14:00-16:00',
+    2, 2, 'M W', '4:00pm', '5:50pm', 'W', '15:30-17:30',
+    2, 2, 'M W', '6:00pm', '7:50pm', 'M', '17:00-19:00',
+    2, 2, 'M W', '8:00pm', '9:50pm', 'M', '20:00-22:00',
+    2, 2, 'T R', '8:00am', '9:50am', 'T', '08:00-10:00',
+    2, 2, 'T R', '10:00am', '11:50am', 'R', '09:30-11:30',
+    2, 2, 'T R', '12:00pm', '1:50pm', 'T', '11:00-13:00',
+    2, 2, 'T R', '2:00pm', '3:50pm', 'T', '14:00-16:00',
+    2, 2, 'T R', '4:00pm', '5:50pm', 'R', '15:30-17:30',
+    2, 2, 'T R', '6:00pm', '7:50pm', 'T', '17:00-19:00',
+    2, 2, 'T R', '8:00pm', '9:50pm', 'T', '20:00-22:00',
+    2, 1, 'M W', '8:00am', '9:50am', 'M', '08:00-10:00',
+    2, 1, 'M W', '10:00am', '11:50am', 'W', '09:30-11:30',
+    2, 1, 'M W', '12:00pm', '1:50pm', 'M', '11:00-13:00',
+    2, 1, 'M W', '2:00pm', '3:50pm', 'M', '14:00-16:00',
+    2, 1, 'M W', '4:00pm', '5:50pm', 'W', '15:30-17:30',
+    2, 1, 'M W', '6:00pm', '7:50pm', 'M', '17:00-19:00',
+    2, 1, 'M W', '8:00pm', '9:50pm', 'M', '20:00-22:00',
+    2, 1, 'T R', '8:00am', '9:50am', 'T', '08:00-10:00',
+    2, 1, 'T R', '10:00am', '11:50am', 'R', '09:30-11:30',
+    2, 1, 'T R', '12:00pm', '1:50pm', 'T', '11:00-13:00',
+    2, 1, 'T R', '2:00pm', '3:50pm', 'T', '14:00-16:00',
+    2, 1, 'T R', '4:00pm', '5:50pm', 'R', '15:30-17:30',
+    2, 1, 'T R', '6:00pm', '7:50pm', 'T', '17:00-19:00',
+    2, 1, 'T R', '8:00pm', '9:50pm', 'T', '20:00-22:00',
+]
+
+df_grid = pd.DataFrame({'Credit': finals_grid[::7], 'Meetings': finals_grid[1::7],
+                        'Class_Days': finals_grid[2::7], 'Class_Start': finals_grid[3::7],
+                        'Final_Day': finals_grid[5::7], 'Final_Time': finals_grid[6::7]})
+df_grid['Class_Start'] = df_grid['Class_Start'].apply(lambda x: convertAMPMtime_grid(x))
+
 def convertAMPMtime(timeslot):
     if DEBUG:
         print("function: convertAMPMtime")
@@ -537,6 +707,19 @@ app.layout = html.Div([
                         'padding': '2px',
                     },
                 ),
+                dcc.Tab(
+                    label='Finals Grid',
+                    value='tab-grid',
+                    style={
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                    selected_style = {
+                        'borderTop': '2px solid #064779',
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                ),
             ],
                 id='table-tabs',
                 value='tab-combined',
@@ -579,6 +762,40 @@ app.layout = html.Div([
                 # place holder
             ],
                 id='datatable-rooms-div',
+                style = {
+                    'background': 'white',
+                    'display': 'none',
+                    'width': '100%',
+                }
+            ),
+            html.Div([
+                # place holder
+                dash_table.DataTable(
+                    id='datatable-grid',
+                    columns=[{'name': n, 'id': i} for n,i in zip([
+                        'Credit', 'Meetings', 'Class Days',
+                        'Class Start', 'Final Day', 'Final Time'
+                    ],[ *df_grid.columns ])],
+                    style_header={
+                        'backgroundColor': 'rgb(230, 230, 230)',
+                        'fontWeight': 'bold',
+                    },
+                    style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
+                    fixed_rows={'headers': True, 'data': 0},
+                    page_size=500,
+                    data=df_grid.to_dict('records'),
+                    filter_action='native',
+                    filter_options={'case': 'insensitive'},
+                    sort_action='native',
+                    sort_mode='multi',
+                    selected_rows=[],
+                    style_data={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                    },
+                )
+            ],
+                id='datatable-grid-div',
                 style = {
                     'background': 'white',
                     'display': 'none',
@@ -726,7 +943,8 @@ def display_tab(btn_enroll, btn_finals, btn_update):
     [Output('datatable-combined-div', 'style'),
      Output('datatable-enrollment-div', 'style'),
      Output('datatable-finals-div', 'style'),
-     Output('datatable-rooms-div', 'style'),],
+     Output('datatable-rooms-div', 'style'),
+     Output('datatable-grid-div', 'style'),],
     [Input('table-tabs', 'value')],
 )
 def update_tab_display(tab):
@@ -735,7 +953,7 @@ def update_tab_display(tab):
     ctx = dash.callback_context
     if 'table-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
-        for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms']:
+        for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms', 'tab-grid']:
             if t == tab:
                 styles.append({'display': 'block'})
             else:
@@ -1020,6 +1238,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
 
     # retrieve finals table
     df_finals = pd.DataFrame(data_finals)
+    print(df_finals.columns)
 
     # recalculate the day of the final based on the date of the final
     for row in df_finals.index.tolist():
@@ -1116,11 +1335,19 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                             # ERROR 2: Day of final incorrect
                             if 2 not in df_enrollment.loc[row, 'Error']:
                                 df_enrollment.loc[row, 'Error'].append(2)
+                                df_enrollment.loc[row, 'Final_Day'] = day
+                                df_enrollment.loc[row, 'Final_Date'] = date
+                                df_enrollment.loc[row, 'Final_Time'] = time
+                                df_enrollment.loc[row, 'Final_Loc'] = room
 
                     else:
                         # ERROR 2: Day of final incorrect
                         if 2 not in df_enrollment.loc[row, 'Error']:
                             df_enrollment.loc[row, 'Error'].append(2)
+                            df_enrollment.loc[row, 'Final_Day'] = day
+                            df_enrollment.loc[row, 'Final_Date'] = date
+                            df_enrollment.loc[row, 'Final_Time'] = time
+                            df_enrollment.loc[row, 'Final_Loc'] = room
 
                 else:
                     df_enrollment.loc[row, 'Final_Day'] = day
@@ -1285,6 +1512,44 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if 'B' not in df_enrollment.loc[row, 'Error']:
                 df_enrollment.loc[row, 'Error'].append('B')
 
+    # check if day and time correspond to Finals Grid
+    rows = []
+    for row in df_enrollment.index.tolist():
+        if (0 not in df_enrollment.loc[row, 'Error']) and (1 not in df_enrollment.loc[row, 'Error']):
+            rows.append(row)
+    df = df_enrollment[df_enrollment.index.isin(rows)]
+    for row in rows:
+        CRN = df_enrollment.loc[row, 'CRN']
+        # print(CRN)
+        credit = df_enrollment.loc[row, 'Credit']
+        days = df_enrollment.loc[row, 'Days']
+        meetings = len(days) - days.count(" ")
+        start_time = df_enrollment.loc[row, 'Time'][:5]
+        final_day = df_finals[df_finals['CRN']==CRN]['Days'].iloc[0]
+        final_time = df_finals[df_finals['CRN']==CRN]['Time'].iloc[0]#[:5]
+
+        _df = df_grid[(df_grid['Credit']==credit) & (df_grid['Class_Start']==start_time) & (df_grid['Meetings']==meetings) & (df_grid['Class_Days']==days)]
+        # print(_df)
+        # print(credit, meetings, start_time, final_day, final_time)
+        try:
+            grid_day = _df['Final_Day'].iloc[0]
+            grid_time = _df['Final_Time'].iloc[0]
+            # print(credit, meetings, start_time, final_day, final_time, grid_day, grid_time)
+            # print(_df)
+            if (grid_day != final_day) or (grid_time != final_time):
+                if (df_enrollment.loc[row, 'Number'] in ['1109', '1110', '1111']) and (final_day == "S"):
+                    pass
+                else:
+                    # print('Error')
+                    df_enrollment.loc[row, 'Error'].append('C')
+        except IndexError:
+            pass # could not find day/time in finals grid
+
+
+
+
+
+
 
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
                        'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error']]
@@ -1350,6 +1615,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('9 : Final start time not within one hour of regular start time'),
             html.Li('A : Room capacity too low'),
             html.Li('B : Room does not exist in Rooms Table'),
+            html.Li('C : Final day/time does not agree with Finals Grid'),
         ],
             style={'listStyleType': 'none', 'lineHeight': 1.25},
         ),
