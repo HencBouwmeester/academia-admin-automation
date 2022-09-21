@@ -45,6 +45,34 @@ if mathserver:
        'requests_pathname_prefix':'/finals/',
     })
 
+def create_time(row):
+    return row['Start Time'][:-3].replace(':','').zfill(4) + '-' + row['End Time'][:-3].replace(':','').zfill(4) + row['End Time'][-2:]
+
+def find_day(row):
+    try:
+        day_str = datetime.datetime.strptime(row['Date'][:-4], '%m/%d/%Y').strftime('%A')
+        if day_str == "Monday":
+            Days = "M"
+        elif day_str == "Tuesday":
+            Days = "T"
+        elif day_str == "Wednesday":
+            Days = "W"
+        elif day_str == "Thursday":
+            Days = "R"
+        elif day_str == "Friday":
+            Days = "F"
+        elif day_str == "Saturday":
+            Days = "S"
+        else:
+            Days = "U"
+    except:
+        print(row)#['Date'])
+
+    return Days
+
+def correct_date(row):
+    return row['Date'][:-4]
+
 def updateTitles(df):
     if DEBUG:
         print("function: updateTitles")
@@ -560,7 +588,41 @@ def parse_enrollment(contents, filename):#, date):
 
     return df
 
-def parse_finals(contents, CRNs):
+def parse_finals_xlsx(contents, CRNs):
+    content_type, content_string = contents.split(',')
+
+    decoded = base64.b64decode(content_string)
+    df = pd.read_excel(io.BytesIO(decoded),
+                       engine='openpyxl',
+                       converters={
+                           'CRN': str,
+                           'Final Exam Date': str,
+                           'Start TIme': str,
+                           'End Time': str,
+                           'Location': str
+                       },
+                      )
+    df = df[df['CRN'].notna()]
+    indexCRN =  df[df['CRN']=="CRN"].index
+    df.drop(indexCRN, inplace=True)
+    df.rename(columns={'Final Exam Date': 'Date', 'Location': 'Loc', 'Days': 'Days_old'}, inplace=True)
+    df.insert(len(df.columns), 'Time', ' ')
+    df.insert(len(df.columns), 'Days', ' ')
+    df['Time'] = df.apply(lambda row: create_time(row), axis=1)
+    df['Days'] = df.apply(lambda row: find_day(row), axis=1)
+    df['Date'] = df.apply(lambda row: correct_date(row), axis=1)
+    df = df[['CRN', 'Days', 'Time', 'Loc', 'Date']]
+
+    df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
+
+    df = pd.merge(pd.DataFrame({'CRN': CRNs}), df, how="left", on="CRN")
+    df = df[df['Date'].notna()]
+
+    df.drop_duplicates(inplace=True)
+    return df
+
+
+def parse_finals_csv(contents, CRNs):
 
     # subjects: list of subjects from enrollment report
 
@@ -1068,10 +1130,11 @@ def load_enrollment_data(contents, name, n_clicks):
     [Output('datatable-finals-div', 'children'),
      Output('load-finalsexport-button', 'n_clicks')],
     [Input('upload-finals', 'contents'),
+     State('upload-finals', 'filename'),
      State('load-finalsexport-button', 'n_clicks'),
      State('datatable-enrollment', 'data')]
 )
-def load_finals_data(contents, n_clicks, data_enrollment):
+def load_finals_data(contents, filename, n_clicks, data_enrollment):
     if DEBUG:
         print('function: load_finals')
     if contents is not None and n_clicks > 0:
@@ -1082,7 +1145,15 @@ def load_finals_data(contents, n_clicks, data_enrollment):
         # obtain list of CRNs from enrollment report
         CRNs = df_enrollment['CRN'].unique()
 
-        df_finals = parse_finals(contents, CRNs)
+        try:
+            if 'csv' in filename:
+                df_finals = parse_finals_csv(contents, CRNs)
+            elif 'xlsx' in filename:
+                df_finals = parse_finals_xlsx(contents, CRNs)
+        except Exception as e:
+            print(e)
+            return html.Div(['There was an error processing this file.'])
+
         data_children = [
             dash_table.DataTable(
                 id='datatable-finals',
@@ -1489,10 +1560,16 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])): # and (df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Time'] == df.loc[row, 'Time'])].shape[0] == 1):
                 df_enrollment.loc[row, 'Error'].remove(3)
             else:
-                if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
-                    # ERROR A: Room capacity too low
-                    if 'A' not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error'].append('A')
+                try:
+                    if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
+                        # ERROR A: Room capacity too low
+                        if 'A' not in df_enrollment.loc[row, 'Error']:
+                            df_enrollment.loc[row, 'Error'].append('A')
+                except IndexError:
+                    # ERROR 0: The CRN does not have a final assigned
+                    if 0 not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error'].append(0)
+
         except KeyError:
             # ERROR B: Room does not exist in Rooms Table
             if 'B' not in df_enrollment.loc[row, 'Error']:
