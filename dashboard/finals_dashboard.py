@@ -1367,8 +1367,9 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df_enrollment['Final_Loc'] = ''
     df_enrollment['Final_Time'] = ''
     df_enrollment['Final_Date'] = ''
-    df_enrollment['Error'] = [[] for _ in range(len(df_enrollment))]
+    df_enrollment['Error'] = ['' for _ in range(len(df_enrollment))]
 
+    indexFilter = df_enrollment.index.tolist()
     # go through each row
     for row in df_enrollment.index.tolist():
         CRN = df_enrollment.loc[row, 'CRN']
@@ -1376,15 +1377,18 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         # check if there is a final for this CRN
         if df_finals[df_finals['CRN'] == CRN].shape[0] == 0:
             # ERROR 0: No final for this CRN
-            if 0 not in df_enrollment.loc[row, 'Error']:
-                df_enrollment.loc[row, 'Error'].append(0)
+            if '0' not in df_enrollment.loc[row, 'Error']:
+                df_enrollment.loc[row, 'Error']+='0'
+
+            indexFilter.remove(row)
 
         # check for multiple finals for this CRN
         else:
             if df_finals[df_finals['CRN'] == CRN].shape[0] > 1:
                 # ERROR 1: Multiple finals for this CRN
-                if 1 not in df_enrollment.loc[row, 'Error']:
-                    df_enrollment.loc[row, 'Error'].append(1)
+                if '1' not in df_enrollment.loc[row, 'Error']:
+                    df_enrollment.loc[row, 'Error']+='1'
+                indexFilter.remove(row)
 
             else: # only one final found
                 # check if day of final is one of the days of the class
@@ -1404,8 +1408,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                             df_enrollment.loc[row, 'Final_Loc'] = room
                         else:
                             # ERROR 2: Day of final incorrect
-                            if 2 not in df_enrollment.loc[row, 'Error']:
-                                df_enrollment.loc[row, 'Error'].append(2)
+                            if '2' not in df_enrollment.loc[row, 'Error']:
+                                df_enrollment.loc[row, 'Error']+='2'
 
                                 # it may be wrong, but display anyways
                                 df_enrollment.loc[row, 'Final_Day'] = day
@@ -1415,8 +1419,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
 
                     else:
                         # ERROR 2: Day of final incorrect
-                        if 2 not in df_enrollment.loc[row, 'Error']:
-                            df_enrollment.loc[row, 'Error'].append(2)
+                        if '2' not in df_enrollment.loc[row, 'Error']:
+                            df_enrollment.loc[row, 'Error']+='2'
 
                             # it may be wrong, but display anyways
                             df_enrollment.loc[row, 'Final_Day'] = day
@@ -1435,12 +1439,11 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                     if df_enrollment.loc[row, 'Enrolled'] > int(room_capacities[room]):
                         # ERROR A: Room capacity too low
                         if 'A' not in df_enrollment.loc[row, 'Error']:
-                            df_enrollment.loc[row, 'Error'].append('A')
+                            df_enrollment.loc[row, 'Error']+='A'
                 except KeyError:
                     # ERROR B: Room does not exist in Rooms Table
                     if 'B' not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error'].append('B')
-
+                        df_enrollment.loc[row, 'Error']+='B'
 
     # check for instructor overlap
     instructors = df_enrollment['Instructor'].unique()
@@ -1454,8 +1457,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
                 for row in df.index.tolist():
                     # ERROR 3: Overlap of time block
-                    if 3 not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error'].append(3)
+                    if '3' not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error']+='3'
 
             # check nonconformal overlaps; this uses SUMPRODUCT
             times = df['Final_Time'].unique().tolist()
@@ -1471,7 +1474,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 4: Overlap between time blocks
                                 if 4 not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error'].append(4)
+                                    df_enrollment.loc[row, 'Error']+='4'
 
                 # check for instructor back-to-back (different rooms) within 5 minutes
                 end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=15) for time in times]
@@ -1482,8 +1485,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 5: Instructor back-to-back within 15 minutes
-                                if 5 not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error'].append(5)
+                                if '5' not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error']+='5'
 
 
 
@@ -1499,8 +1502,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
                 for row in df.index.tolist():
                     # ERROR 6: Overlap of time block
-                    if 6 not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error'].append(6)
+                    if '6' not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error']+='6'
 
             # check nonconformal overlaps; this uses SUMPRODUCT
             times = df['Final_Time'].unique().tolist()
@@ -1515,8 +1518,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 7: Overlap between time blocks
-                                if 7 not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error'].append(7)
+                                if '7' not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error']+='7'
                 # check for back-to-back in same room
                 for k in range(n):
                     s = ([x == start_times[k] for x in end_times[:-1]])
@@ -1525,11 +1528,12 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 8: Back-to-back in same room
-                                if 8 not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error'].append(8)
+                                if '8' not in df_enrollment.loc[row, 'Error']:
+                                    df_enrollment.loc[row, 'Error']+='8'
 
     # check that start time is within one hour of regular class start time
-    for row in df_enrollment.index.tolist():
+    # for row in df_enrollment.index.tolist():
+    for row in indexFilter:
         class_start = datetime.datetime.strptime(df_enrollment.loc[row, 'Time'][:5], "%H:%M")
         plusone = class_start + datetime.timedelta(hours=1)
         minusone = class_start + datetime.timedelta(hours=-1)
@@ -1538,8 +1542,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             final_day = df_enrollment.loc[row, 'Final_Day']
             if (final_start < minusone or final_start > plusone) and (final_day != "S"):
                 # ERROR 9: Final start time not within one hour of regular start time
-                if 9 not in df_enrollment.loc[row, 'Error']:
-                    df_enrollment.loc[row, 'Error'].append(9)
+                if '9' not in df_enrollment.loc[row, 'Error']:
+                    df_enrollment.loc[row, 'Error']+='9'
 
         except: # no final time provided
             pass
@@ -1548,38 +1552,32 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     rows = []
     for row in df_enrollment.index.tolist():
         # same room, different instructor
-        if 3 in df_enrollment.loc[row, 'Error']:
+        if '3' in df_enrollment.loc[row, 'Error']:
             rows.append(row)
     # now add up all the enrollments and compare against room capacity
     df = df_enrollment[df_enrollment.index.isin(rows)]
     for row in rows:
+        CRN = df_enrollment.loc[row, 'CRN']
         enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Final_Time'] == df.loc[row, 'Final_Time']) & (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
         try: # only can be done if the room exists in the room_capacity dictionary
-            # print(df)
-            # print(df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Final_Time'] == df.loc[row, 'Final_Time'])]['Loc'].unique())
             if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])): # and (df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Time'] == df.loc[row, 'Time'])].shape[0] == 1):
-                df_enrollment.loc[row, 'Error'].remove(3)
+                df_enrollment.loc[row, 'Error'].replace('3','')
             else:
-                try:
-                    if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
-                        # ERROR A: Room capacity too low
-                        if 'A' not in df_enrollment.loc[row, 'Error']:
-                            df_enrollment.loc[row, 'Error'].append('A')
-                except IndexError:
-                    # ERROR 0: The CRN does not have a final assigned
-                    if 0 not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error'].append(0)
+                if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
+                    # ERROR A: Room capacity too low
+                    if 'A' not in df_enrollment.loc[row, 'Error']:
+                        df_enrollment.loc[row, 'Error']+='A'
 
         except KeyError:
             # ERROR B: Room does not exist in Rooms Table
             if 'B' not in df_enrollment.loc[row, 'Error']:
-                df_enrollment.loc[row, 'Error'].append('B')
+                df_enrollment.loc[row, 'Error']+='B'
 
     # check enrollment by room, if room large enough, remove error
     rows = []
     for row in df_enrollment.index.tolist():
         # same room, different CRN
-        if 6 in df_enrollment.loc[row, 'Error']:
+        if '6' in df_enrollment.loc[row, 'Error']:
             rows.append(row)
     # now add up all the enrollments and compare against room capacity
     df = df_enrollment[df_enrollment.index.isin(rows)]
@@ -1587,17 +1585,17 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & (df['Final_Time'] == df.loc[row, 'Final_Time']) & (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
         try: # only can be done if the room exists in the room_capacity dictionary
             if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-                df_enrollment.loc[row, 'Error'].remove(6)
+                df_enrollment.loc[row, 'Error'].replace('6','')
         except KeyError:
             # ERROR B: Room does not exist in Rooms Table
             if 'B' not in df_enrollment.loc[row, 'Error']:
-                df_enrollment.loc[row, 'Error'].append('B')
+                df_enrollment.loc[row, 'Error']+='B'
 
     # check if day and time correspond to Finals Grid
     rows = []
     for row in df_enrollment.index.tolist():
         # only rows that have exactly one final exam scheduled
-        if (0 not in df_enrollment.loc[row, 'Error']) and (1 not in df_enrollment.loc[row, 'Error']):
+        if ('0' not in df_enrollment.loc[row, 'Error']) and ('1' not in df_enrollment.loc[row, 'Error']):
             rows.append(row)
     df = df_enrollment[df_enrollment.index.isin(rows)]
     for row in rows:
@@ -1620,7 +1618,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                     pass
                 else:
                     # ERROR C : Final day/time does not agree with Finals Grid
-                    df_enrollment.loc[row, 'Error'].append('C')
+                    df_enrollment.loc[row, 'Error']+='C'
         except IndexError:
             pass # could not find day/time in finals grid
 
