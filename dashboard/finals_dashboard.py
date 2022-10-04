@@ -1278,7 +1278,8 @@ def export_all(n_clicks, data):
             'EndTime': col_endtime,
             'Final Exam Date': _df['Final_Date'],
             'Final Exam Rm': _df['Final_Loc'],
-            'ContactName': _df['Instructor']
+            'ContactName': _df['Instructor'],
+            'Error': _df['Error']
         }
         df = pd.DataFrame(d)
 
@@ -1473,10 +1474,10 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 # ERROR 4: Overlap between time blocks
-                                if 4 not in df_enrollment.loc[row, 'Error']:
+                                if '4' not in df_enrollment.loc[row, 'Error']:
                                     df_enrollment.loc[row, 'Error']+='4'
 
-                # check for instructor back-to-back (different rooms) within 5 minutes
+                # check for instructor back-to-back (different rooms) within 15 minutes
                 end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=15) for time in times]
                 for k in range(n):
                     s = ([x > start_times[k] for x in end_times])
@@ -1622,12 +1623,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         except IndexError:
             pass # could not find day/time in finals grid
 
-
-
-
-
-
-
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
                        'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error']]
 
@@ -1690,7 +1685,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('7 : Overlap between time blocks in same room'),
             html.Li('8 : Back-to-back in same room'),
             html.Li('9 : Final start time not within one hour of regular start time'),
-            html.Li('A : Room capacity too low'),
+            html.Li('A : Room capacity may be too low (check in Banner)'),
             html.Li('B : Room does not exist in Rooms Table'),
             html.Li('C : Final day/time does not agree with Finals Grid'),
         ],
