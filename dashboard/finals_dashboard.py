@@ -106,7 +106,7 @@ def updateTitles(df):
         ['MTH 2620', 'Integrated Mathematics II',],
         ['MTH 3100', 'Intro to Mathematical Proofs',],
         ['MTH 3110', 'Abstract Algebra I',],
-        ['MTH 3130', 'Advd Matrix Mthds Phy Sciences',],
+        ['MTH 3130', 'Applied Methods in Linear Algebra',],
         ['MTH 3140', 'Linear Algebra',],
         ['MTH 3170', 'Discrete Math for Comp Science',],
         ['MTH 3210', 'Probability and Statistics',],
@@ -713,6 +713,64 @@ def to_excel(df):
 
     return data
 
+def no_final(e, f):
+    indexFilter = []
+    for row in e.index.tolist():
+        CRN = e.loc[row, 'CRN']
+
+        if f[f['CRN'] == CRN].shape[0] == 0:
+            indexFilter.append(row)
+    return indexFilter
+
+def multiple_finals(e, f):
+    indexFilter = []
+    for row in e.index.tolist():
+        CRN = e.loc[row, 'CRN']
+
+        if f[f['CRN'] == CRN].shape[0] > 1:
+            indexFilter.append(row)
+    return indexFilter
+
+def correct_final_day(e, f):
+    indexFilter = []
+    for row in e.index.tolist():
+        CRN = e.loc[row, 'CRN']
+
+        day = f[f['CRN'] == CRN]['Days'].iloc[0]
+        days = e.loc[row, 'Days']
+
+        if days.find(day) < 0:
+
+            # day of week does not match, is this an Algebra class
+            if e.loc[row, 'Number'] in ['1109', '1110', '1111']:
+                if day != "S":
+                    indexFilter.append(row)
+
+            else:
+                indexFilter.append(row)
+
+    return indexFilter
+
+def room_exist(e, f):
+    indexFilter = []
+    for row in e.index.tolist():
+        CRN = e.loc[row, 'CRN']
+
+        d = f[f['CRN'] == CRN]
+        if d.iloc[0, 3] not in e['Loc'].tolist():
+            indexFilter.append(row)
+    return indexFilter
+
+def final_room_capacity(e, f, room_capacities):
+    indexFilter = []
+    for row in e.index.tolist():
+        CRN = e.loc[row, 'CRN']
+        room = f[f['CRN'] == CRN]['Loc'].iloc[0]
+        if e.loc[row, 'Enrolled'] > int(room_capacities[room]):
+            indexFilter.append(row)
+    return indexFilter
+
+
 # Create app layout
 
 app.layout = html.Div([
@@ -907,6 +965,7 @@ app.layout = html.Div([
                         'width': '95%',
                         'fontSize': '1rem',
                     },
+                    title='Enrollment report downloaded from Banner (SWRCGSR)',
                     className='button'
                 ),
                 multiple=False,
@@ -925,6 +984,7 @@ app.layout = html.Div([
                         'width': '95%',
                         'fontSize': '1rem',
                     },
+                    title='Export of finals schedule from AHEC master calendar',
                     className='button'
                 ),
                 multiple=False,
@@ -1371,6 +1431,50 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     df_enrollment['Error'] = ['' for _ in range(len(df_enrollment))]
 
     indexFilter = df_enrollment.index.tolist()
+
+    # '''
+    # check to see if every course has a final
+    _indexFilter = no_final(df_enrollment, df_finals)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '0'
+
+    # check to see if there are multiple finals for a given CRN
+    _indexFilter = multiple_finals(df_enrollment[~df_enrollment['Error'].str.contains('0')], df_finals)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '1'
+
+    # check to see if final is on one of the class days
+    _indexFilter = correct_final_day(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '2'
+
+    # check to see if final room is in room table
+    _indexFilter = room_exist(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += 'B'
+
+    # check final room capacity
+    _indexFilter = final_room_capacity(df_enrollment[~df_enrollment['Error'].str.contains('0|1|B')], df_finals, room_capacities)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += 'A'
+
+    # fill in finals data
+    _indexFilter = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
+    for row in _indexFilter:
+        CRN = df_enrollment.loc[row, 'CRN']
+
+        day = df_finals[df_finals['CRN'] == CRN]['Days'].iloc[0]
+        date = df_finals[df_finals['CRN'] == CRN]['Date'].iloc[0]
+        time = df_finals[df_finals['CRN'] == CRN]['Time'].iloc[0]
+        room = df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]
+
+        df_enrollment.loc[row, 'Final_Day'] = day
+        df_enrollment.loc[row, 'Final_Date'] = date
+        df_enrollment.loc[row, 'Final_Time'] = time
+        df_enrollment.loc[row, 'Final_Loc'] = room
+
+
+    '''
     # go through each row
     for row in df_enrollment.index.tolist():
         CRN = df_enrollment.loc[row, 'CRN']
@@ -1445,6 +1549,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
                     # ERROR B: Room does not exist in Rooms Table
                     if 'B' not in df_enrollment.loc[row, 'Error']:
                         df_enrollment.loc[row, 'Error']+='B'
+
+    '''
 
     # check for instructor overlap
     instructors = df_enrollment['Instructor'].unique()

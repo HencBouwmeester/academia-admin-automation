@@ -78,7 +78,7 @@ def updateTitles(df):
         ['MTH 2620', 'Integrated Mathematics II',],
         ['MTH 3100', 'Intro to Mathematical Proofs',],
         ['MTH 3110', 'Abstract Algebra I',],
-        ['MTH 3130', 'Advd Matrix Mthds Phy Sciences',],
+        ['MTH 3130', 'Applied Methods in Linear Algebra',],
         ['MTH 3140', 'Linear Algebra',],
         ['MTH 3170', 'Discrete Math for Comp Science',],
         ['MTH 3210', 'Probability and Statistics',],
