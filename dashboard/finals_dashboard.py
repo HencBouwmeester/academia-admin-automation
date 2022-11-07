@@ -751,13 +751,13 @@ def correct_final_day(e, f):
 
     return indexFilter
 
-def room_exist(e, f):
+def room_exist(e, f, r):
     indexFilter = []
     for row in e.index.tolist():
         CRN = e.loc[row, 'CRN']
 
         d = f[f['CRN'] == CRN]
-        if d.iloc[0, 3] not in e['Loc'].tolist():
+        if d.iloc[0, 3] not in r['Room'].tolist():
             indexFilter.append(row)
     return indexFilter
 
@@ -1102,7 +1102,12 @@ def load_enrollment_data(contents, name, n_clicks):
         rooms = df_enrollment[(df_enrollment['S']=='A') & (df_enrollment['Time']!='TBA') & (df_enrollment['Campus']=='M')]['Loc'].unique()
         capacities = []
         for room in rooms:
-            capacities.append(df_enrollment[(df_enrollment['Loc']==room)]['Max'].max())
+            # capcaity is the largest of max or enrolled
+            capacities.append(max(
+                df_enrollment[(df_enrollment['Loc']==room)]['Max'].max(),
+                df_enrollment[(df_enrollment['Loc']==room)]['Enrolled'].max()
+            )
+            )
 
         df_rooms = pd.DataFrame({'Room': rooms, 'Cap': capacities})
 
@@ -1449,7 +1454,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         df_enrollment.loc[_indexFilter, 'Error'] += '2'
 
     # check to see if final room is in room table
-    _indexFilter = room_exist(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals)
+    _indexFilter = room_exist(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals, df_rooms)
     if _indexFilter:
         df_enrollment.loc[_indexFilter, 'Error'] += 'B'
 
