@@ -872,6 +872,15 @@ app.layout = html.Div([
             ),
             html.Div([
                 # place holder
+                html.Ol([
+                    html.Li(['Navigate to ',html.A("AHEC Master Calendar", href='https://ems.ahec.edu/mastercalendar/MasterCalendar.aspx', target="_blank")]),
+                    html.Li('Unmark all calendars except MSU Finals'),
+                    html.Li('Click on "GO" for the "Search for Events" text box'),
+                    html.Li('Change the dates to include the Saturday before finals week through the Saturday of finals week.'),
+                    html.Li('Select the checkbox for "Use Selected Filters"'),
+                    html.Li('Click on "GO" for the "Search for Events" text box'),
+                    html.Li('Click on "Export"'),
+                ]),
             ],
                 id='datatable-finals-div',
                 style = {
@@ -1261,7 +1270,7 @@ def load_finals_data(contents, filename, n_clicks, data_enrollment):
         ]
 
     else:
-        data_children = []
+        data_children = [ ]
     return data_children, 0
 
 @app.callback(
@@ -1494,84 +1503,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
 
         except: # no final time provided
             pass
-
-    '''
-    # go through each row
-    for row in df_enrollment.index.tolist():
-        CRN = df_enrollment.loc[row, 'CRN']
-
-        # check if there is a final for this CRN
-        if df_finals[df_finals['CRN'] == CRN].shape[0] == 0:
-            # ERROR 0: No final for this CRN
-            if '0' not in df_enrollment.loc[row, 'Error']:
-                df_enrollment.loc[row, 'Error']+='0'
-
-            indexFilter.remove(row)
-
-        # check for multiple finals for this CRN
-        else:
-            if df_finals[df_finals['CRN'] == CRN].shape[0] > 1:
-                # ERROR 1: Multiple finals for this CRN
-                if '1' not in df_enrollment.loc[row, 'Error']:
-                    df_enrollment.loc[row, 'Error']+='1'
-                indexFilter.remove(row)
-
-            else: # only one final found
-                # check if day of final is one of the days of the class
-                day = df_finals[df_finals['CRN'] == CRN]['Days'].iloc[0]
-                date = df_finals[df_finals['CRN'] == CRN]['Date'].iloc[0]
-                time = df_finals[df_finals['CRN'] == CRN]['Time'].iloc[0]
-                room = df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]
-                days = df_enrollment.loc[row, 'Days']
-                if days.find(day) < 0:
-
-                    # day of week does not match, is this an Algebra class
-                    if df_enrollment.loc[row, 'Number'] in ['1109', '1110', '1111']:
-                        if day == "S":
-                            df_enrollment.loc[row, 'Final_Day'] = day
-                            df_enrollment.loc[row, 'Final_Date'] = date
-                            df_enrollment.loc[row, 'Final_Time'] = time
-                            df_enrollment.loc[row, 'Final_Loc'] = room
-                        else:
-                            # ERROR 2: Day of final incorrect
-                            if '2' not in df_enrollment.loc[row, 'Error']:
-                                df_enrollment.loc[row, 'Error']+='2'
-
-                                # it may be wrong, but display anyways
-                                df_enrollment.loc[row, 'Final_Day'] = day
-                                df_enrollment.loc[row, 'Final_Date'] = date
-                                df_enrollment.loc[row, 'Final_Time'] = time
-                                df_enrollment.loc[row, 'Final_Loc'] = room
-
-                    else:
-                        # ERROR 2: Day of final incorrect
-                        if '2' not in df_enrollment.loc[row, 'Error']:
-                            df_enrollment.loc[row, 'Error']+='2'
-
-                            # it may be wrong, but display anyways
-                            df_enrollment.loc[row, 'Final_Day'] = day
-                            df_enrollment.loc[row, 'Final_Date'] = date
-                            df_enrollment.loc[row, 'Final_Time'] = time
-                            df_enrollment.loc[row, 'Final_Loc'] = room
-
-                else:
-                    df_enrollment.loc[row, 'Final_Day'] = day
-                    df_enrollment.loc[row, 'Final_Date'] = date
-                    df_enrollment.loc[row, 'Final_Time'] = time
-                    df_enrollment.loc[row, 'Final_Loc'] = room
-
-                # check if room capacity is too low
-                try:
-                    if df_enrollment.loc[row, 'Enrolled'] > int(room_capacities[room]):
-                        # ERROR A: Room capacity too low
-                        if 'A' not in df_enrollment.loc[row, 'Error']:
-                            df_enrollment.loc[row, 'Error']+='A'
-                except KeyError:
-                    # ERROR B: Room does not exist in Rooms Table
-                    if 'B' not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error']+='B'
-
-    '''
 
     # check for instructor overlap
     instructors = df_enrollment['Instructor'].unique()
