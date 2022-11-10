@@ -757,12 +757,13 @@ def room_exist(e, f, r):
             indexFilter.append(row)
     return indexFilter
 
-def final_room_capacity(e, f, room_capacities):
+def final_room_capacity(df, room_capacities):
     indexFilter = []
-    for row in e.index.tolist():
-        CRN = e.loc[row, 'CRN']
-        room = f[f['CRN'] == CRN]['Loc'].iloc[0]
-        if e.loc[row, 'Enrolled'] > int(room_capacities[room]):
+    for row in df.index.tolist():
+        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & \
+                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
+                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
+        if (enrl > int(room_capacities[df.loc[row, 'Final_Loc']])):
             indexFilter.append(row)
     return indexFilter
 
@@ -790,11 +791,13 @@ def instructor_overlap(enrl):
             # filter by day
             df = _df[_df['Final_Day'] == day]
 
-            # check for instructor overlap of same time blocks (this does not calculate all overlaps)
-            # but do not count if there are multiple sections at the same time
-            if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
+            # check for instructor overlap of same time blocks
+            # (this does not calculate all overlaps)
+            if df.shape[0] > 1:
+                # every final time block should have a unique location
                 for row in df.index.tolist():
-                    indexFilter.append(row)
+                    if df[df['Final_Time'] == df.loc[row, 'Final_Time']]['Final_Loc'].nunique() > 1:
+                        indexFilter.append(row)
     return indexFilter
 
 def instructor_nonconformal_overlap(enrl):
@@ -849,23 +852,6 @@ def instructor_back_to_back(enrl):
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 indexFilter.append(row)
     return indexFilter
-
-def enrl_vs_instructor(df, f,  room_capacities):
-    indexFilter_1 = []
-    indexFilter_2 = []
-    for row in df.index.tolist():
-        CRN = df.loc[row, 'CRN']
-        enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & \
-                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
-                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
-
-        if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])):
-            indexFilter_1.append(row)
-        else:
-            # if df.loc[row , 'Loc'] == f[f['CRN'] == CRN]['Loc'].iloc[0]:
-            indexFilter_2.append(row)
-
-    return indexFilter_1, indexFilter_2
 
 def room_overlap(enrl):
     indexFilter = []
@@ -937,18 +923,6 @@ def room_back_to_back(enrl):
                         for row in df.index.tolist():
                             if df.loc[row, 'Final_Time'] == times[k]:
                                 indexFilter.append(row)
-
-    return indexFilter
-
-def enrl_vs_capacity(df, room_capacities):
-    indexFilter = []
-    # add up all the enrollments and compare against room capacity
-    for row in df.index.tolist():
-        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & \
-                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
-                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
-        if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-            indexFilter.append(row)
 
     return indexFilter
 
@@ -1319,11 +1293,9 @@ def load_enrollment_data(contents, name, n_clicks):
         rooms = df_enrollment[(df_enrollment['S']=='A') & (df_enrollment['Time']!='TBA') & (df_enrollment['Campus']=='M')]['Loc'].unique()
         capacities = []
         for room in rooms:
-            # capcaity is the largest of max or enrolled
-            capacities.append(max(
+            # capcaity is the max but this may not be the actual room capacity per Banner
+            capacities.append(
                 df_enrollment[(df_enrollment['Loc']==room)]['Max'].max(),
-                df_enrollment[(df_enrollment['Loc']==room)]['Enrolled'].max()
-            )
             )
 
         df_rooms = DataFrame({'Room': rooms, 'Cap': capacities})
@@ -1401,6 +1373,9 @@ def load_enrollment_data(contents, name, n_clicks):
             ),
             html.Br(),
             html.Button('Add Row', id='addrow-rooms-button', className='button', n_clicks=0),
+            html.Div([
+                html.P("Room capacities are taken from 'Max' and may not reflect what is the actual capacity.  Please verify in Banner."),
+            ]),
         ]
 
     else:
@@ -1727,7 +1702,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         df_enrollment.loc[_indexFilter, 'Error'] += 'A'
 
     # check final room capacity
-    _indexFilter = final_room_capacity(df_enrollment[~df_enrollment['Error'].str.contains('0|1|A')], df_finals, room_capacities)
+    _indexFilter = final_room_capacity(df_enrollment[~df_enrollment['Error'].str.contains('0|1|A')], room_capacities)
     if _indexFilter:
         df_enrollment.loc[_indexFilter, 'Error'] += 'B'
 
@@ -1735,28 +1710,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     _indexFilter = accord_with_finals_grid(df, df_finals, df_grid)
     if _indexFilter:
         df_enrollment.loc[_indexFilter, 'Error'] += 'C'
-
-    # check enrollment by instructor, if room large enough, remove error
-    _indexFilter_1, _indexFilter_2 = enrl_vs_instructor(
-        df_enrollment[df_enrollment['Error'].str.contains('3') & \
-                      ~df_enrollment['Error'].str.contains('A')],
-        df_finals,
-        room_capacities
-    )
-    for row in _indexFilter_1:
-        df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('3','')
-    if _indexFilter_2:
-        df_enrollment.loc[_indexFilter_2, 'Error'] += 'B'
-
-    # check enrollment by room, if room large enough, remove error
-    _indexFilter = enrl_vs_capacity(
-        df_enrollment[
-            df_enrollment['Error'].str.contains('6') & \
-            ~df_enrollment['Error'].str.contains('A')],
-        room_capacities
-    )
-    for row in _indexFilter:
-        df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('6','')
 
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
                        'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error']]
