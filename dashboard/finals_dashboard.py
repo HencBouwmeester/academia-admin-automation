@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 
 # Import required libraries
-import dash
-from dash import html, dcc, dash_table
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.io as pio
-# import numpy as np
-import base64
-import io
-from dash.dependencies import Input, Output, State, ClientsideFunction
-import plotly.graph_objects as go
-import datetime
-import dash_daq as daq
+from dash import html, dcc, dash_table, callback_context, Dash
+from pandas import set_option, DataFrame, read_fwf, __version__, \
+        to_numeric, read_excel, merge, ExcelWriter
+from plotly import io as pio
+from base64 import b64decode, b64encode
+from io import StringIO, BytesIO
+from dash.dependencies import Input, Output, State
+from datetime import datetime, timedelta
 
 DEBUG = False
 mathserver = False
@@ -20,10 +16,10 @@ mathserver = False
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
 
-pd.set_option('display.max_rows',None)
+set_option('display.max_rows', None)
 
 # Initialize server
-app = dash.Dash(
+app = Dash(
     __name__,
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
@@ -50,7 +46,7 @@ def create_time(row):
 
 def find_day(row):
     try:
-        day_str = datetime.datetime.strptime(row['Date'][:-4], '%m/%d/%Y').strftime('%A')
+        day_str = datetime.strptime(row['Date'][:-4], '%m/%d/%Y').strftime('%A')
         if day_str == "Monday":
             Days = "M"
         elif day_str == "Tuesday":
@@ -146,7 +142,7 @@ def updateTitles(df):
         ['MTLM 5600', 'Mathematics of the Elementary Curriculum',],
     ]
 
-    df_titles = pd.DataFrame(course_titles, columns=['Class', 'Title'])
+    df_titles = DataFrame(course_titles, columns=['Class', 'Title'])
 
     cols = df.columns
     df = df.set_index('Class')
@@ -321,7 +317,7 @@ finals_grid = [
    '2','1', 'T R', '8:00pm', '9:50pm', 'T', '20:00-22:00',
 ]
 
-df_grid = pd.DataFrame({'Credit': finals_grid[::7], 'Meetings': finals_grid[1::7],
+df_grid = DataFrame({'Credit': finals_grid[::7], 'Meetings': finals_grid[1::7],
                         'Class_Days': finals_grid[2::7], 'Class_Start': finals_grid[3::7],
                         'Class_End': finals_grid[4::7], 'Final_Day': finals_grid[5::7],
                         'Final_Time': finals_grid[6::7]})
@@ -394,14 +390,14 @@ def tidy_txt(file_contents):
         line = file_contents.readline()
 
     # read into a dataframe based on specified column spacing
-    _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
+    _df = read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     # read the report Term and Year from file
     term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
 
     # rename the columns
     # make allowances for newer version of pandas
-    if pd.__version__ == '1.4.1':
+    if __version__ == '1.4.1':
         k = 1
     else:
         k = 2
@@ -443,7 +439,7 @@ def tidy_txt(file_contents):
     )
     _df[['Credit', 'Max', 'Enrolled', 'WCap', 'WList']] = _df[
         ['Credit', 'Max', 'Enrolled', 'WCap', 'WList']
-    ].apply(pd.to_numeric, errors='coerce')
+    ].apply(to_numeric, errors='coerce')
 
     _df = _df.sort_values(by=['Subject', 'Number', 'Section'])
     _df.drop(['T', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
@@ -480,7 +476,7 @@ def tidy_csv(file_contents):
     _list = _list[1:]
     _list.insert(0, '')
 
-    return tidy_txt(io.StringIO('\n'.join(_list)))
+    return tidy_txt(StringIO('\n'.join(_list)))
 
 def tidy_xlsx(file_contents):
     if DEBUG:
@@ -497,7 +493,7 @@ def tidy_xlsx(file_contents):
         Dataframe.
     """
 
-    _df = pd.read_excel(file_contents,
+    _df = read_excel(file_contents,
                         engine='openpyxl',
                         converters={
                             'Subject':str,
@@ -570,18 +566,18 @@ def parse_enrollment(contents, filename):#, date):
 
     content_type, content_string = contents.split(',')
 
-    decoded = base64.b64decode(content_string)
+    decoded = b64decode(content_string)
     try:
         if 'txt' in filename:
             # Assume that the user uploaded a banner fixed width file with .txt extension
-            df = tidy_txt(io.StringIO(decoded.decode('utf-8')))
+            df = tidy_txt(StringIO(decoded.decode('utf-8')))
             df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
         elif 'csv' in filename:
             # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
-            df = tidy_csv(io.StringIO(decoded.decode('utf-8')))
+            df = tidy_csv(StringIO(decoded.decode('utf-8')))
             df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
         elif 'xlsx' in filename:
-            df = tidy_xlsx(io.BytesIO(decoded))
+            df = tidy_xlsx(BytesIO(decoded))
     except Exception as e:
         print(e)
         return html.Div(['There was an error processing this file.'])
@@ -591,8 +587,8 @@ def parse_enrollment(contents, filename):#, date):
 def parse_finals_xlsx(contents, CRNs):
     content_type, content_string = contents.split(',')
 
-    decoded = base64.b64decode(content_string)
-    df = pd.read_excel(io.BytesIO(decoded),
+    decoded = b64decode(content_string)
+    df = read_excel(BytesIO(decoded),
                        engine='openpyxl',
                        converters={
                            'CRN': str,
@@ -615,7 +611,7 @@ def parse_finals_xlsx(contents, CRNs):
 
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
 
-    df = pd.merge(pd.DataFrame({'CRN': CRNs}), df, how="left", on="CRN")
+    df = merge(DataFrame({'CRN': CRNs}), df, how="left", on="CRN")
     df = df[df['Date'].notna()]
 
     df.drop_duplicates(inplace=True)
@@ -628,9 +624,9 @@ def parse_finals_csv(contents, CRNs):
 
     content_type, content_string = contents.split(',')
 
-    decoded = base64.b64decode(content_string)
+    decoded = b64decode(content_string)
 
-    _file = io.StringIO(decoded.decode('utf-8')).read()
+    _file = StringIO(decoded.decode('utf-8')).read()
     _file = _file.replace('\r','')
 
     file_contents = []
@@ -653,9 +649,9 @@ def parse_finals_csv(contents, CRNs):
             if CRN in CRNs:
                 Loc = fields[3]
                 try:
-                    Date = datetime.datetime.strptime(fields[6], '%m/%d/%Y').strftime('%m/%d/%Y')
+                    Date = datetime.strptime(fields[6], '%m/%d/%Y').strftime('%m/%d/%Y')
                 except ValueError:
-                    Date = datetime.datetime.strptime(fields[6], '%x').strftime('%m/%d/%Y')
+                    Date = datetime.strptime(fields[6], '%x').strftime('%m/%d/%Y')
 
                 # reformat the time to match the SWRCGSR formatting
                 start_time = fields[7].replace(':','')[:-2].zfill(4)
@@ -664,7 +660,7 @@ def parse_finals_csv(contents, CRNs):
                 Time = start_time + '-' + end_time + AMPM
 
                 # find the day of week and code it to MTWRFSU
-                day_str = datetime.datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
+                day_str = datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
                 if day_str == "Monday":
                     Days = "M"
                 elif day_str == "Tuesday":
@@ -684,7 +680,7 @@ def parse_finals_csv(contents, CRNs):
         except IndexError:
             pass
 
-    df = pd.DataFrame(rows, columns=['CRN', 'Days', 'Time', 'Loc', 'Date'])
+    df = DataFrame(rows, columns=['CRN', 'Days', 'Time', 'Loc', 'Date'])
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
 
     return df
@@ -699,8 +695,8 @@ def to_excel(df):
             'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error',]
     _df = _df[cols]
 
-    xlsx_io = io.BytesIO()
-    writer = pd.ExcelWriter(
+    xlsx_io = BytesIO()
+    writer = ExcelWriter(
         xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
     )
     _df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
@@ -709,7 +705,7 @@ def to_excel(df):
     writer.save()
     xlsx_io.seek(0)
     media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    data = base64.b64encode(xlsx_io.read()).decode('utf-8')
+    data = b64encode(xlsx_io.read()).decode('utf-8')
 
     return data
 
@@ -770,6 +766,218 @@ def final_room_capacity(e, f, room_capacities):
             indexFilter.append(row)
     return indexFilter
 
+def within_one_hour(e):
+    indexFilter = []
+    for row in e.index.tolist():
+        class_start = datetime.strptime(e.loc[row, 'Time'][:5], "%H:%M")
+        plusone = class_start + timedelta(hours=1)
+        minusone = class_start + timedelta(hours=-1)
+
+        final_start = datetime.strptime(e.loc[row, 'Final_Time'][:5], "%H:%M")
+        final_day = e.loc[row, 'Final_Day']
+        if (final_start < minusone or final_start > plusone) and (final_day != "S"):
+            indexFilter.append(row)
+    return indexFilter
+
+def instructor_overlap(enrl):
+    indexFilter = []
+    instructors = enrl['Instructor'].unique()
+    for instructor in instructors:
+        # filter by instructor
+        _df = enrl[enrl['Instructor'] == instructor]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check for instructor overlap of same time blocks (this does not calculate all overlaps)
+            # but do not count if there are multiple sections at the same time
+            if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
+                for row in df.index.tolist():
+                    indexFilter.append(row)
+    return indexFilter
+
+def instructor_nonconformal_overlap(enrl):
+    indexFilter = []
+    instructors = enrl['Instructor'].unique()
+    for instructor in instructors:
+        # filter by instructor
+        _df = enrl[enrl['Instructor'] == instructor]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check nonconformal overlaps; this uses SUMPRODUCT
+            times = df['Final_Time'].unique().tolist()
+            n = len(times)
+            if n > 1:
+                start_times = [datetime.strptime(time[:5], "%H:%M") for time in times]
+                end_times = [datetime.strptime(time[-5:], "%H:%M") for time in times]
+                for k in range(n):
+                    s = ([x > start_times[k] for x in end_times])
+                    e = ([x < end_times[k] for x in start_times])
+                    if sum([x*y for x,y in zip(s,e)]) > 1:
+                        for row in df.index.tolist():
+                            if df.loc[row, 'Final_Time'] == times[k]:
+                                indexFilter.append(row)
+    return indexFilter
+
+def instructor_back_to_back(enrl):
+    indexFilter = []
+    instructors = enrl['Instructor'].unique()
+    for instructor in instructors:
+        # filter by instructor
+        _df = enrl[enrl['Instructor'] == instructor]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check nonconformal overlaps; this uses SUMPRODUCT
+            times = df['Final_Time'].unique().tolist()
+            n = len(times)
+            if n > 1:
+                # check for instructor back-to-back (different rooms) within 15 minutes
+                start_times = [datetime.strptime(time[:5], "%H:%M") for time in times]
+                end_times = [datetime.strptime(time[-5:], "%H:%M")+timedelta(minutes=15) for time in times]
+                for k in range(n):
+                    s = ([x > start_times[k] for x in end_times])
+                    e = ([x < end_times[k] for x in start_times])
+                    if sum([x*y for x,y in zip(s,e)]) > 1:
+                        for row in df.index.tolist():
+                            if df.loc[row, 'Final_Time'] == times[k]:
+                                indexFilter.append(row)
+    return indexFilter
+
+def enrl_vs_instructor(df, f,  room_capacities):
+    indexFilter_1 = []
+    indexFilter_2 = []
+    for row in df.index.tolist():
+        CRN = df.loc[row, 'CRN']
+        enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & \
+                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
+                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
+
+        if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])):
+            indexFilter_1.append(row)
+        else:
+            # if df.loc[row , 'Loc'] == f[f['CRN'] == CRN]['Loc'].iloc[0]:
+            indexFilter_2.append(row)
+
+    return indexFilter_1, indexFilter_2
+
+def room_overlap(enrl):
+    indexFilter = []
+    rooms = enrl['Final_Loc'].unique()
+    for room in rooms:
+        # filter by location
+        _df = enrl[enrl['Final_Loc'] == room]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check for room overlap of same time blocks (this does not calculate all overlaps)
+            if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
+                for row in df.index.tolist():
+                    indexFilter.append(row)
+
+    return indexFilter
+
+def room_nonconformal_overlap(enrl):
+    indexFilter = []
+    rooms = enrl['Final_Loc'].unique()
+    for room in rooms:
+        # filter by location
+        _df = enrl[enrl['Final_Loc'] == room]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check nonconformal overlaps; this uses SUMPRODUCT
+            times = df['Final_Time'].unique().tolist()
+            n = len(times)
+            if n > 1:
+                start_times = [datetime.strptime(time[:5], "%H:%M") for time in times]
+                end_times = [datetime.strptime(time[-5:], "%H:%M") for time in times]
+                for k in range(n):
+                    s = ([x > start_times[k] for x in end_times])
+                    e = ([x < end_times[k] for x in start_times])
+                    if sum([x*y for x,y in zip(s,e)]) > 1:
+                        for row in df.index.tolist():
+                            if df.loc[row, 'Final_Time'] == times[k]:
+                                indexFilter.append(row)
+
+    return indexFilter
+
+def room_back_to_back(enrl):
+    indexFilter = []
+    rooms = enrl['Final_Loc'].unique()
+    for room in rooms:
+        # filter by location
+        _df = enrl[enrl['Final_Loc'] == room]
+        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
+        for day in days:
+            # filter by day
+            df = _df[_df['Final_Day'] == day]
+
+            # check nonconformal overlaps; this uses SUMPRODUCT
+            times = df['Final_Time'].unique().tolist()
+            n = len(times)
+            if n > 1:
+                start_times = [datetime.strptime(time[:5], "%H:%M") for time in times]
+                end_times = [datetime.strptime(time[-5:], "%H:%M") for time in times]
+                # check for back-to-back in same room
+                for k in range(n):
+                    s = ([x == start_times[k] for x in end_times[:-1]])
+                    e = ([x == end_times[k] for x in start_times[1:]])
+                    if sum(s+e) > 0:
+                        for row in df.index.tolist():
+                            if df.loc[row, 'Final_Time'] == times[k]:
+                                indexFilter.append(row)
+
+    return indexFilter
+
+def enrl_vs_capacity(df, room_capacities):
+    indexFilter = []
+    # add up all the enrollments and compare against room capacity
+    for row in df.index.tolist():
+        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & \
+                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
+                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
+        if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
+            indexFilter.append(row)
+
+    return indexFilter
+
+def accord_with_finals_grid(df_enrl, df_finals, df_grid):
+    indexFilter = []
+    for row in df_enrl.index.tolist():
+        CRN = df_enrl.loc[row, 'CRN']
+
+        # convert everything to string to compare to datatable
+        credit = str(int(df_enrl.loc[row, 'Credit']))
+        start_time = df_enrl.loc[row, 'Time'][:5]
+        days = df_enrl.loc[row, 'Days']
+        meetings = str(len(days) - days.count(" ")) # do not count spaces
+
+        df = df_grid[(df_grid['Credit']==credit) & (df_grid['Class_Start']==start_time) & (df_grid['Meetings']==meetings) & (df_grid['Class_Days']==days)]
+        try:
+            final_day = df_finals[df_finals['CRN']==CRN]['Days'].iloc[0]
+            final_time = df_finals[df_finals['CRN']==CRN]['Time'].iloc[0]
+            grid_day = df['Final_Day'].iloc[0]
+            grid_time = df['Final_Time'].iloc[0]
+            if (grid_day != final_day) or (grid_time != final_time):
+                if (df_enrl.loc[row, 'Number'] in ['1109', '1110', '1111']) and (final_day == "S"):
+                    pass
+                else:
+                    indexFilter.append(row)
+        except IndexError:
+            pass # could not find day/time in finals grid
+
+    return indexFilter
 
 # Create app layout
 
@@ -1058,7 +1266,7 @@ def display_tab(btn_enroll, btn_finals, btn_update):
     # which button was clicked
     if DEBUG:
         print("function: update_tab_display")
-    ctx = dash.callback_context
+    ctx = callback_context
     if not ctx.triggered:
         button_id = 'No clicks yet'
     else:
@@ -1082,7 +1290,7 @@ def display_tab(btn_enroll, btn_finals, btn_update):
 def update_tab_display(tab):
     if DEBUG:
         print("function: update_tab_display")
-    ctx = dash.callback_context
+    ctx = callback_context
     if 'table-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
         for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms', 'tab-grid']:
@@ -1118,7 +1326,7 @@ def load_enrollment_data(contents, name, n_clicks):
             )
             )
 
-        df_rooms = pd.DataFrame({'Room': rooms, 'Cap': capacities})
+        df_rooms = DataFrame({'Room': rooms, 'Cap': capacities})
 
         df_enrollment.drop(['Max'], axis=1, inplace=True)
 
@@ -1214,7 +1422,7 @@ def load_finals_data(contents, filename, n_clicks, data_enrollment):
     if contents is not None and n_clicks > 0:
 
         # retrieve enrollment table
-        df_enrollment = pd.DataFrame(data_enrollment)
+        df_enrollment = DataFrame(data_enrollment)
 
         # obtain list of CRNs from enrollment report
         CRNs = df_enrollment['CRN'].unique()
@@ -1328,7 +1536,7 @@ def export_all(n_clicks, data):
     if n_clicks > 0:
 
         # retrieve the datatable
-        _df = pd.DataFrame(data)
+        _df = DataFrame(data)
 
         # create columns for export
         col_dept = []
@@ -1355,10 +1563,10 @@ def export_all(n_clicks, data):
             'ContactName': _df['Instructor'],
             'Error': _df['Error']
         }
-        df = pd.DataFrame(d)
+        df = DataFrame(d)
 
-        xlsx_io = io.BytesIO()
-        writer = pd.ExcelWriter(
+        xlsx_io = BytesIO()
+        writer = ExcelWriter(
             xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
         )
         df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
@@ -1367,7 +1575,7 @@ def export_all(n_clicks, data):
         writer.save()
         xlsx_io.seek(0)
         media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        data = base64.b64encode(xlsx_io.read()).decode('utf-8')
+        data = b64encode(xlsx_io.read()).decode('utf-8')
 
         return {'base64': True, 'content': data, 'filename': 'Final Exam Schedule.xlsx', }
 
@@ -1381,16 +1589,16 @@ def export_all(n_clicks, data):
 def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
 
     # retrieve enrollment table
-    df_enrollment = pd.DataFrame(data_enrollment)
+    df_enrollment = DataFrame(data_enrollment)
 
     # retrieve finals table
-    df_finals = pd.DataFrame(data_finals)
+    df_finals = DataFrame(data_finals)
 
     # recalculate the day of the final based on the date of the final
     for row in df_finals.index.tolist():
         Date = df_finals.loc[row, 'Date']
         # find the day of week and code it to MTWRFSU
-        day_str = datetime.datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
+        day_str = datetime.strptime(Date, '%m/%d/%Y').strftime('%A')
         if day_str == "Monday":
             Days = "M"
         elif day_str == "Tuesday":
@@ -1408,7 +1616,7 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         df_finals.loc[row, 'Days'] = Days
 
     # retrieve rooms table
-    df_rooms = pd.DataFrame(data_rooms)
+    df_rooms = DataFrame(data_rooms)
 
     # create dictionary of capacities
     room_capacities = {
@@ -1454,21 +1662,6 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     if _indexFilter:
         df_enrollment.loc[_indexFilter, 'Error'] += '1'
 
-    # check to see if final is on one of the class days
-    _indexFilter = correct_final_day(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals)
-    if _indexFilter:
-        df_enrollment.loc[_indexFilter, 'Error'] += '2'
-
-    # check to see if final room is in room table
-    _indexFilter = room_exist(df_enrollment[~df_enrollment['Error'].str.contains('0|1')], df_finals, df_rooms)
-    if _indexFilter:
-        df_enrollment.loc[_indexFilter, 'Error'] += 'B'
-
-    # check final room capacity
-    _indexFilter = final_room_capacity(df_enrollment[~df_enrollment['Error'].str.contains('0|1|B')], df_finals, room_capacities)
-    if _indexFilter:
-        df_enrollment.loc[_indexFilter, 'Error'] += 'A'
-
     # fill in finals data
     _indexFilter = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
     for row in _indexFilter:
@@ -1485,176 +1678,85 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
         df_enrollment.loc[row, 'Final_Loc'] = room
 
 
-    # check that start time is within one hour of regular class start time
-    _indexFilter = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
-    for row in _indexFilter:
-        class_start = datetime.datetime.strptime(df_enrollment.loc[row, 'Time'][:5], "%H:%M")
-        plusone = class_start + datetime.timedelta(hours=1)
-        minusone = class_start + datetime.timedelta(hours=-1)
-        try:
-            final_start = datetime.datetime.strptime(df_enrollment.loc[row, 'Final_Time'][:5], "%H:%M")
-            final_day = df_enrollment.loc[row, 'Final_Day']
-            if (final_start < minusone or final_start > plusone) and (final_day != "S"):
-                # ERROR 9: Final start time not within one hour of regular start time
-                if '9' not in df_enrollment.loc[row, 'Error']:
-                    df_enrollment.loc[row, 'Error']+='9'
+    # filter out non-existent or multiple finals
+    df = df_enrollment[~df_enrollment['Error'].str.contains('0|1')]
 
-        except: # no final time provided
-            pass
+    # check to see if final is on one of the class days
+    _indexFilter = correct_final_day(df, df_finals)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '2'
 
-    # check for instructor overlap
-    _indexFilter = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
-    instructors = df_enrollment.loc[_indexFilter, 'Instructor'].unique()
-    for instructor in instructors:
-        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
-        for day in days:
-            # filter by location and day
-            df = df_enrollment[(df_enrollment['Instructor'] == instructor) & (df_enrollment['Final_Day'] == day)]
+    # check for instructor overlap of full time block
+    _indexFilter = instructor_overlap(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '3'
 
-            # check for instructor overlap of same time blocks (this does not calculate all overlaps)
-            if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
-                for row in df.index.tolist():
-                    # ERROR 3: Overlap of time block
-                    if '3' not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error']+='3'
+    # check for instructor overlap of nonconformal time block
+    _indexFilter = instructor_nonconformal_overlap(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '4'
 
-            # check nonconformal overlaps; this uses SUMPRODUCT
-            times = df['Final_Time'].unique().tolist()
-            n = len(times)
-            if n > 1:
-                start_times = [datetime.datetime.strptime(time[:5], "%H:%M") for time in times]
-                end_times = [datetime.datetime.strptime(time[-5:], "%H:%M") for time in times]
-                for k in range(n):
-                    s = ([x > start_times[k] for x in end_times])
-                    e = ([x < end_times[k] for x in start_times])
-                    if sum([x*y for x,y in zip(s,e)]) > 1:
-                        for row in df.index.tolist():
-                            if df.loc[row, 'Final_Time'] == times[k]:
-                                # ERROR 4: Overlap between time blocks
-                                if '4' not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error']+='4'
-
-                # check for instructor back-to-back (different rooms) within 15 minutes
-                end_times = [datetime.datetime.strptime(time[-5:], "%H:%M")+datetime.timedelta(minutes=15) for time in times]
-                for k in range(n):
-                    s = ([x > start_times[k] for x in end_times])
-                    e = ([x < end_times[k] for x in start_times])
-                    if sum([x*y for x,y in zip(s,e)]) > 1:
-                        for row in df.index.tolist():
-                            if df.loc[row, 'Final_Time'] == times[k]:
-                                # ERROR 5: Instructor back-to-back within 15 minutes
-                                if '5' not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error']+='5'
+    # check for instructor back-to-back
+    _indexFilter = instructor_back_to_back(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '5'
 
     # check for room overlap
-    _indexFilter = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
-    rooms = df_enrollment.loc[_indexFilter, 'Final_Loc'].unique()
-    for room in rooms:
-        days = ['M', 'T', 'W', 'R', 'F', 'S', 'U']
-        for day in days:
-            # filter by location and day
-            df = df_enrollment[(df_enrollment['Final_Loc'] == room) & (df_enrollment['Final_Day'] == day)]
+    _indexFilter = room_overlap(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '6'
 
-            # check for room overlap of same time blocks (this does not calculate all overlaps)
-            if df.shape[0] > 1 and (df['Time'].nunique() != df['Final_Time'].nunique()):
-                for row in df.index.tolist():
-                    # ERROR 6: Overlap of time block
-                    if '6' not in df_enrollment.loc[row, 'Error']:
-                        df_enrollment.loc[row, 'Error']+='6'
+    # check for room overlap of nonconformal time block
+    _indexFilter = room_nonconformal_overlap(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '7'
 
-            # check nonconformal overlaps; this uses SUMPRODUCT
-            times = df['Final_Time'].unique().tolist()
-            n = len(times)
-            if n > 1:
-                start_times = [datetime.datetime.strptime(time[:5], "%H:%M") for time in times]
-                end_times = [datetime.datetime.strptime(time[-5:], "%H:%M") for time in times]
-                for k in range(n):
-                    s = ([x > start_times[k] for x in end_times])
-                    e = ([x < end_times[k] for x in start_times])
-                    if sum([x*y for x,y in zip(s,e)]) > 1:
-                        for row in df.index.tolist():
-                            if df.loc[row, 'Final_Time'] == times[k]:
-                                # ERROR 7: Overlap between time blocks
-                                if '7' not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error']+='7'
+    # check for room back-to-back
+    _indexFilter = room_back_to_back(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '8'
 
-                # check for back-to-back in same room
-                for k in range(n):
-                    s = ([x == start_times[k] for x in end_times[:-1]])
-                    e = ([x == end_times[k] for x in start_times[1:]])
-                    if sum(s+e) > 0:
-                        for row in df.index.tolist():
-                            if df.loc[row, 'Final_Time'] == times[k]:
-                                # ERROR 8: Back-to-back in same room
-                                if '8' not in df_enrollment.loc[row, 'Error']:
-                                    df_enrollment.loc[row, 'Error']+='8'
+    # check that start time is within one hour of regular class start time
+    _indexFilter = within_one_hour(df)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += '9'
 
-    # check enrollment by instructor, if room large enough, remove error
-    rows = df_enrollment[df_enrollment['Error'].str.contains('3') & \
-                         ~df_enrollment['Error'].str.contains('B')].index.tolist()
-    # now add up all the enrollments and compare against room capacity
-    df = df_enrollment.loc[rows]
-    for row in rows:
-        CRN = df_enrollment.loc[row, 'CRN']
-        enrl = df[(df['Instructor'] == df.loc[row, 'Instructor']) & \
-                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
-                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
-        # try: # only can be done if the room exists in the room_capacity dictionary
-        if (enrl < int(room_capacities[df.loc[row, 'Final_Loc']])): # and (df[(df['Instructor'] == df.loc[row, 'Instructor']) & (df['Time'] == df.loc[row, 'Time'])].shape[0] == 1):
-            df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('3','')
-        else:
-            if df.loc[row , 'Loc'] == df_finals[df_finals['CRN'] == CRN]['Loc'].iloc[0]:
-                # ERROR A: Room capacity too low
-                if 'A' not in df_enrollment.loc[row, 'Error']:
-                    df_enrollment.loc[row, 'Error']+='A'
+    # check to see if final room is in room table
+    _indexFilter = room_exist(df, df_finals, df_rooms)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += 'A'
 
-        # except KeyError:      ########  DO I NEED THIS IF I FILTER OUT FOR ERROR CODE 'B' ?????????????
-            # # ERROR B: Room does not exist in Rooms Table
-            # if 'B' not in df_enrollment.loc[row, 'Error']:
-                # df_enrollment.loc[row, 'Error']+='B'
-
-    # check enrollment by room, if room large enough, remove error
-    rows = df_enrollment[df_enrollment['Error'].str.contains('6') & \
-                        ~df_enrollment['Error'].str.contains('B')].index.tolist()
-    # now add up all the enrollments and compare against room capacity
-    df = df_enrollment.loc[rows]
-    for row in rows:
-        enrl = df[(df['Final_Loc'] == df.loc[row, 'Final_Loc']) & \
-                  (df['Final_Time'] == df.loc[row, 'Final_Time']) & \
-                  (df['Final_Day'] == df.loc[row, 'Final_Day'])]['Enrolled'].sum()
-        # try: # only can be done if the room exists in the room_capacity dictionary
-        if enrl < int(room_capacities[df.loc[row, 'Final_Loc']]):
-            df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('6','')
-        # except KeyError:      ########  DO I NEED THIS IF I FILTER OUT FOR ERROR CODE 'B' ?????????????
-            # # ERROR B: Room does not exist in Rooms Table
-            # if 'B' not in df_enrollment.loc[row, 'Error']:
-                # df_enrollment.loc[row, 'Error']+='B'
+    # check final room capacity
+    _indexFilter = final_room_capacity(df_enrollment[~df_enrollment['Error'].str.contains('0|1|A')], df_finals, room_capacities)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += 'B'
 
     # check if day and time correspond to Finals Grid
-    rows = df_enrollment[~df_enrollment['Error'].str.contains('0|1')].index.tolist()
-    for row in rows:
-        CRN = df_enrollment.loc[row, 'CRN']
+    _indexFilter = accord_with_finals_grid(df, df_finals, df_grid)
+    if _indexFilter:
+        df_enrollment.loc[_indexFilter, 'Error'] += 'C'
 
-        # convert everything to string to compare to datatable
-        credit = str(int(df_enrollment.loc[row, 'Credit']))
-        start_time = df_enrollment.loc[row, 'Time'][:5]
-        meetings = str(len(days) - days.count(" ")) # do not count spaces
-        days = df_enrollment.loc[row, 'Days']
+    # check enrollment by instructor, if room large enough, remove error
+    _indexFilter_1, _indexFilter_2 = enrl_vs_instructor(
+        df_enrollment[df_enrollment['Error'].str.contains('3') & \
+                      ~df_enrollment['Error'].str.contains('A')],
+        df_finals,
+        room_capacities
+    )
+    for row in _indexFilter_1:
+        df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('3','')
+    if _indexFilter_2:
+        df_enrollment.loc[_indexFilter_2, 'Error'] += 'B'
 
-        df = df_grid[(df_grid['Credit']==credit) & (df_grid['Class_Start']==start_time) & (df_grid['Meetings']==meetings) & (df_grid['Class_Days']==days)]
-        try:
-            final_day = df_finals[df_finals['CRN']==CRN]['Days'].iloc[0]
-            final_time = df_finals[df_finals['CRN']==CRN]['Time'].iloc[0]
-            grid_day = df['Final_Day'].iloc[0]
-            grid_time = df['Final_Time'].iloc[0]
-            if (grid_day != final_day) or (grid_time != final_time):
-                if (df_enrollment.loc[row, 'Number'] in ['1109', '1110', '1111']) and (final_day == "S"):
-                    pass
-                else:
-                    # ERROR C : Final day/time does not agree with Finals Grid
-                    df_enrollment.loc[row, 'Error']+='C'
-        except IndexError:
-            pass # could not find day/time in finals grid
+    # check enrollment by room, if room large enough, remove error
+    _indexFilter = enrl_vs_capacity(
+        df_enrollment[
+            df_enrollment['Error'].str.contains('6') & \
+            ~df_enrollment['Error'].str.contains('A')],
+        room_capacities
+    )
+    for row in _indexFilter:
+        df_enrollment.loc[row, 'Error'] = df_enrollment.loc[row, 'Error'].replace('6','')
 
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
                        'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error']]
@@ -1718,8 +1820,8 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             html.Li('7 : Overlap between time blocks in same room'),
             html.Li('8 : Back-to-back in same room'),
             html.Li('9 : Final start time not within one hour of regular start time'),
-            html.Li('A : Room capacity may be too low (check in Banner)'),
-            html.Li('B : Room does not exist in Rooms Table'),
+            html.Li('A : Room does not exist in Rooms Table'),
+            html.Li('B : Room capacity may be too low (check in Banner)'),
             html.Li('C : Final day/time does not agree with Finals Grid'),
         ],
             style={'listStyleType': 'none', 'lineHeight': 1.25},
