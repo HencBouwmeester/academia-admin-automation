@@ -202,7 +202,7 @@ def tidy_txt(file_contents):
 
     # rename the columns
     # make allowances for newer version of pandas
-    if pd.__version__ == '1.4.1':
+    if pd.__version__ >= '1.4.1':
         k = 1
     else:
         k = 2
@@ -803,8 +803,8 @@ def update_fig(data, column_option, figure_option):
 # Main
 if __name__ == '__main__':
     if mathserver:
-        app.run_server(debug=True)
+        app.run_server(debug=DEBUG)
     else:
         # app.run_server(debug=False, host='10.0.2.15', port='8052')
-        app.run_server(debug=False, port='8052')
+        app.run_server(debug=DEBUG, port='8052')
 

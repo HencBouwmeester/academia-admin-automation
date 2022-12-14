@@ -252,7 +252,7 @@ def tidy_txt(file_contents):
 
     # rename the columns
     # make allowances for newer version of pandas
-    if pd.__version__ == '1.4.1':
+    if pd.__version__ >= '1.4.1':
         k = 1
     else:
         k = 2
@@ -1605,5 +1605,5 @@ if __name__ == "__main__":
     if mathserver:
         app.run_server(debug=True)
     else:
-        app.run_server(debug=True, host='10.0.2.15', port='8050')
-        # app.run_server(debug=False, port='8050')
+        # app.run_server(debug=True, host='10.0.2.15', port='8050')
+        app.run_server(debug=False, port='8050')

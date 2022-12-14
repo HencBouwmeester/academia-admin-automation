@@ -205,7 +205,7 @@ def tidy_txt(file_contents):
 
     # rename the columns
     # make allowances for newer version of pandas
-    if pd.__version__ == '1.4.1':
+    if pd.__version__ >= '1.4.1':
         k = 1
     else:
         k = 2
@@ -431,46 +431,47 @@ def parse_contents(contents, filename):#, date):
     return df
 
 def create_datatable(df):
-        return [
-            dash_table.DataTable(
-                id='datatable-interactivity',
-                columns=[{'name': n, 'id': i} for n,i in zip([
-                    'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
-                    'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor'
-                ],[ *df.columns ])],
-                style_header={
-                    'backgroundColor': 'rgb(230, 230, 230)',
-                    'fontWeight': 'bold',
-                },
-                style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
-                style_cell_conditional=[
-                    {
-                        'if': {'column_id': i},
-                        'textAlign': 'left',
-                        'minWidth': w, 'width': w, 'maxWidth': w,
-                        'whiteSpace': 'normal'
-                    }
-                    for i,w in zip([ *df.columns ],
-                                   ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                    '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
-                ],
-                fixed_rows={'headers': True, 'data': 0},
-                page_size=500,
-                data=df.to_dict('records'),
-                editable=True,
-                virtualization=True,
-                filter_action='native',
-                sort_action='native',
-                sort_mode='multi',
-                row_selectable='multi',
-                row_deletable=True,
-                selected_rows=[],
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                },
-            )
-        ]
+    print(df)
+    return [
+        dash_table.DataTable(
+            id='datatable-interactivity',
+            columns=[{'name': n, 'id': i} for n,i in zip([
+                'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
+                'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor'
+            ],[ *df.columns ])],
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold',
+            },
+            style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
+            style_cell_conditional=[
+                {
+                    'if': {'column_id': i},
+                    'textAlign': 'left',
+                    'minWidth': w, 'width': w, 'maxWidth': w,
+                    'whiteSpace': 'normal'
+                }
+                for i,w in zip([ *df.columns ],
+                               ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
+                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
+            ],
+            fixed_rows={'headers': True, 'data': 0},
+            page_size=500,
+            data=df.to_dict('records'),
+            editable=True,
+            virtualization=True,
+            filter_action='native',
+            sort_action='native',
+            sort_mode='multi',
+            row_selectable='multi',
+            row_deletable=True,
+            selected_rows=[],
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+            },
+        )
+    ]
 
 def update_grid(toggle, data, filtered_data, slctd_row_indices):
     if DEBUG:
@@ -889,6 +890,7 @@ html.Div([
                 dcc.Dropdown(
                     id='filter-query-dropdown',
                     options=[
+                        {'label': 'Custom...', 'value': 'custom'},
                         {'label': 'Active Math Classes', 'value': '{S} contains A'},
                         {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
                         # {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
@@ -901,7 +903,6 @@ html.Div([
                         {'label': 'Statistics Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3210 || {Number} = 3220 || {Number} = 3230 || {Number} = 3240 || {Number} = 3270 || {Number} = 3510 || {Number} = 4210 || {Number} = 4230 || {Number} = 4250 || {Number} = 4290)'},
                         {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 3470 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
-                        {'label': 'Custom...', 'value': 'custom'},
                     ],
                     placeholder='Select a query',
                     value=''),
@@ -1271,5 +1272,5 @@ if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=DEBUG)
     else:
-        app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
-        # app.run_server(debug=DEBUG, port='8051')
+        # app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
+        app.run_server(debug=DEBUG, port='8051')

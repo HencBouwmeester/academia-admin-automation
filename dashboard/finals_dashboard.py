@@ -392,6 +392,9 @@ def tidy_txt(file_contents):
     # read into a dataframe based on specified column spacing
     _df = read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
+    ##############  HENC   ###############
+    print(_df)
+
     # read the report Term and Year from file
     term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
 
@@ -1787,4 +1790,5 @@ if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=DEBUG)
     else:
-        app.run_server(debug=True, host='10.0.2.15', port='8053')
+        app.run_server(debug=True, port='8053')
+        # app.run_server(debug=True, host='10.0.2.15', port='8053')
