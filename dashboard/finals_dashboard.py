@@ -400,7 +400,7 @@ def tidy_txt(file_contents):
 
     # rename the columns
     # make allowances for newer version of pandas
-    if __version__ == '1.4.1':
+    if __version__ >= '1.4.1':
         k = 1
     else:
         k = 2

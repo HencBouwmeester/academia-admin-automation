@@ -364,7 +364,6 @@ def tidy_xlsx(file_contents):
     _df['Class'] = _df['Subject'] + ' ' + _df['Number']
     _df = updateTitles(_df)
 
-    print(_df)
     # there might be CRNs that are unknown (blank), so fill sequentially starting
     # from 99999 and go down
     i = 1
@@ -431,7 +430,6 @@ def parse_contents(contents, filename):#, date):
     return df
 
 def create_datatable(df):
-    print(df)
     return [
         dash_table.DataTable(
             id='datatable-interactivity',
@@ -675,8 +673,6 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                 )
         lst_shapes=list(ply_shapes.values())
         lst_annotations=list(ply_annotations.values())
-
-        print(nLoc)
 
         # setup the axes and tick marks
         if nLoc:
