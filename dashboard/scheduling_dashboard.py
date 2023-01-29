@@ -13,8 +13,11 @@ import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
 
-DEBUG = False
+DEBUG = True
 mathserver = False
+
+if DEBUG:
+    print('Dash Version: {:s}'.format(dash.__version__))
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -951,8 +954,8 @@ html.Div([
             ]),
 ])
             ]),
+        html.Div([ html.Hr(),]),
         html.Div([
-                html.Hr(),
                 html.Div([
                     html.Button('Update Grid', id='update-grid-button', n_clicks=0,
                                 style={'marginLeft': '5px'},className='button'),
@@ -966,47 +969,99 @@ html.Div([
                                 style={'marginLeft': '5px'}, className='button'),
                     html.Button('Delete Row(s)', id='delete-rows-button', n_clicks=0,
                                 style={'marginLeft': '5px'}, className='button'),
-                ]),
-        ],
-            style={'width': '100%'}
-        ),
-        html.Div([
-            html.Div([
-                html.Button('Reset Colors', id='reset-colors-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-                html.Button('Change Color', id='change-color-button', n_clicks=0,
-                            style={'marginLeft': '5px'},className='button'),
-            ],
+                    html.Button('Reset Colors', id='reset-colors-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    html.Button('Change Color', id='change-color-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                ],
                 style={
                     'display': 'inline-block',
                 }
-            ),
-            html.Div([
-                dcc.RadioItems(id='color-select',
-                               options=[
-                                   {'label': 'Blue', 'value': '#b3cde3'},
-                                   {'label': 'Red', 'value': '#fbb4ae'},
-                                   {'label': 'Green', 'value': '#ccebc5'},
-                                   {'label': 'Purple', 'value': '#decbe4'},
-                                   {'label': 'Orange', 'value': '#fed9a6'},
-                                   {'label': 'Yellow', 'value': '#ffffcc'},
-                                   {'label': 'Tan', 'value': '#e5d8bd'},
-                                   {'label': 'Pink', 'value': '#fddaec'},
-                                   {'label': 'Gray','value': '#f2f2f2'},
-                               ],
-                               value='#b3cde3',
-                              ),
-            ],
+                ),
+                html.Div([
+                    dcc.Dropdown(id='color-select',
+                                 options=[
+                                     # {'label': html.Span(['Blue'], style={'background': '#b3cde3'}), 'value': '#b3cde3'}, # only dash 2.5 or above
+                                     {'label': 'Blue', 'value': '#b3cde3'},
+                                     {'label': 'Red', 'value': '#fbb4ae'},
+                                     {'label': 'Green', 'value': '#ccebc5'},
+                                     {'label': 'Purple', 'value': '#decbe4'},
+                                     {'label': 'Orange', 'value': '#fed9a6'},
+                                     {'label': 'Yellow', 'value': '#ffffcc'},
+                                     {'label': 'Tan', 'value': '#e5d8bd'},
+                                     {'label': 'Pink', 'value': '#fddaec'},
+                                     {'label': 'Gray','value': '#f2f2f2'},
+                                 ],
+                                 value='#b3cde3',
+                                 clearable=False,
+                                ),
+                ],
                 style={
                     'display': 'inline-block',
+                    'width': '10%',
                 }
-            ),
+                ),
         ],
             style={
                 'width': '100%',
                 'display': 'flex',
             }
+            # style={'width': '100%'}
         ),
+        html.Div([ html.Br(),]),
+        # html.Div([
+            # html.Div([
+                # html.Button('Reset Colors', id='reset-colors-button', n_clicks=0,
+                            # style={'marginLeft': '5px'},className='button'),
+                # html.Button('Change Color', id='change-color-button', n_clicks=0,
+                            # style={'marginLeft': '5px'},className='button'),
+            # ],
+                # style={
+                    # 'display': 'inline-block',
+                # }
+            # ),
+            # html.Div([
+                # # dcc.RadioItems(id='color-select',
+                               # # options=[
+                                   # # {'label': 'Blue', 'value': '#b3cde3'},
+                                   # # {'label': 'Red', 'value': '#fbb4ae'},
+                                   # # {'label': 'Green', 'value': '#ccebc5'},
+                                   # # {'label': 'Purple', 'value': '#decbe4'},
+                                   # # {'label': 'Orange', 'value': '#fed9a6'},
+                                   # # {'label': 'Yellow', 'value': '#ffffcc'},
+                                   # # {'label': 'Tan', 'value': '#e5d8bd'},
+                                   # # {'label': 'Pink', 'value': '#fddaec'},
+                                   # # {'label': 'Gray','value': '#f2f2f2'},
+                               # # ],
+                               # # value='#b3cde3',
+                              # # ),
+                # dcc.Dropdown(id='color-select',
+                             # options=[
+                                 # {'label': 'Blue', 'value': '#b3cde3'},
+                                 # {'label': 'Red', 'value': '#fbb4ae'},
+                                 # {'label': 'Green', 'value': '#ccebc5'},
+                                 # {'label': 'Purple', 'value': '#decbe4'},
+                                 # {'label': 'Orange', 'value': '#fed9a6'},
+                                 # {'label': 'Yellow', 'value': '#ffffcc'},
+                                 # {'label': 'Tan', 'value': '#e5d8bd'},
+                                 # {'label': 'Pink', 'value': '#fddaec'},
+                                 # {'label': 'Gray','value': '#f2f2f2'},
+                             # ],
+                             # value='#b3cde3',
+                             # clearable=False,
+                            # ),
+            # ],
+                # style={
+                    # 'display': 'inline-block',
+                    # 'width': '10%',
+                # }
+            # ),
+        # ],
+            # style={
+                # 'width': '100%',
+                # 'display': 'flex',
+            # }
+        # ),
         html.Div(
             id='datatable-interactivity-container',
             children=[
@@ -1057,7 +1112,7 @@ def show_contents(contents):
      State('color-select', 'value')
     ]
 )
-def initial_data_loading(
+def data_loading(
     update_n_clicks,
     select_n_clicks,
     deselect_n_clicks,
@@ -1077,6 +1132,7 @@ def initial_data_loading(
     input_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if DEBUG:
+        print('function: data_loading')
         print('Trigger: {:s}'.format(input_id))
 
     df = pd.DataFrame(rows)
@@ -1142,23 +1198,27 @@ def update_tab_display(tab):
      State('datatable-interactivity', 'data')]
 )
 def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows):
+
+    ctx = dash.callback_context
+    input_id = (ctx.triggered[0]['prop_id'].split('.')[0])
+
     if DEBUG:
         print("function: alter_row")
-    ctx = dash.callback_context
-    if ctx.triggered:
-        trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
-    if trigger == 'add-row-button':
-        if add_n_clicks > 0:
-            rows.append(
-                {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
-                 'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
-                 'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ',',
-                 'colorRec': '#b3cde3'}
-            )
-        return rows, rows
-    else:
+        print('Trigger: {:s}'.format(input_id))
+
+    if input_id == 'add-row-button':
+        rows.append(
+            {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
+             'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
+             'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ',',
+             'colorRec': '#b3cde3'}
+        )
+
+    # don't allow deleting of everything at once
+    if input_id == 'delete-rows-button' and len(selected_rows) != len(rows):
         for row in selected_rows[::-1]:
             rows.pop(row)
+
     return rows, rows
 
 
