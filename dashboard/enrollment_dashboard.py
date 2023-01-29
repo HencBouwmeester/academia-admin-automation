@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 # Include pretty graph formatting
@@ -310,8 +310,7 @@ def tidy_txt(file_contents):
         row_dict["Instructor"] = ","
         row_dict["Credit"] = 0
         row_dict["PTCR"] = 1
-        # _df = _df.append(row_dict, ignore_index=True)  # DEPRECATED
-        pd.concat((_df, pd.Series(row_dict)), ignore_index=True)
+        _df = pd.concat([_df, pd.DataFrame(row_dict, index=[0])], ignore_index=True)
 
     # add columns for Access Table
     _df.insert(len(_df.columns), "Class", " ")

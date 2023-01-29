@@ -6,7 +6,6 @@ from dash import html, dcc, dash_table
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
-# import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State, ClientsideFunction
@@ -91,6 +90,7 @@ def updateTitles(df):
         ['MTH 3440', 'Partial Differential Equations',],
         ['MTH 3470', 'Intro Discrete Math & Modeling',],
         ['MTH 3510', 'SAS Programming',],
+        ['MTH 3640', 'History of Mathematics',],
         ['MTH 3650', 'Foundations of Geometry',],
         ['MTH 4110', 'Abstract Algebra II',],
         ['MTH 4150', 'Elementary Number Theory',],
@@ -239,8 +239,7 @@ def tidy_txt(file_contents):
         row_dict = _df.loc[row].to_dict()
         row_dict['Instructor'] = ','
         row_dict['Credit'] = 0
-        # _df = _df.append(row_dict, ignore_index=True)  # DEPRECATED
-        pd.concat((_df, pd.Series(row_dict)), ignore_index=True)
+        _df = pd.concat([_df, pd.DataFrame(row_dict, index=[0])], ignore_index=True)
 
     # update all titles to show full name
     _df.insert(len(_df.columns), 'Class', ' ')
@@ -429,14 +428,30 @@ def parse_contents(contents, filename):#, date):
 
     return df
 
-def create_datatable(df):
+def create_datatable(df, filter_query):
+    if filter_query is None:
+        filter_query = ''
+
     return [
         dash_table.DataTable(
             id='datatable-interactivity',
-            columns=[{'name': n, 'id': i} for n,i in zip([
-                'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
-                'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor'
-            ],[ *df.columns ])],
+            columns = [
+                {'name': 'Subject', 'id': 'Subject'},
+                {'name': 'Number', 'id': 'Number'},
+                {'name': 'CRN', 'id': 'CRN'},
+                {'name': 'Section', 'id': 'Section'},
+                {'name': 'S', 'id': 'S'},
+                {'name': 'Campus', 'id': 'Campus'},
+                {'name': 'Title', 'id': 'Title'},
+                {'name': 'Credit', 'id': 'Credit'},
+                {'name': 'Max', 'id': 'Max'},
+                {'name': 'Days', 'id': 'Days'},
+                {'name': 'Time', 'id': 'Time'},
+                {'name': 'Loc', 'id': 'Loc'},
+                {'name': 'Begin/End', 'id': 'Begin/End'},
+                {'name': 'Instructor', 'id': 'Instructor'},
+                {'name': '', 'id': 'colorRec'},
+            ],
             style_header={
                 'backgroundColor': 'rgb(230, 230, 230)',
                 'fontWeight': 'bold',
@@ -451,8 +466,9 @@ def create_datatable(df):
                 }
                 for i,w in zip([ *df.columns ],
                                ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '9%', '11%'])
+                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '8%', '10%', '2%'])
             ],
+            style_data_conditional=[{'if': {'filter_query': '{colorRec} = ' + color, 'column_id': 'colorRec' }, 'color': color, 'backgroundColor': color, } for color in df['colorRec']],
             fixed_rows={'headers': True, 'data': 0},
             page_size=500,
             data=df.to_dict('records'),
@@ -461,9 +477,7 @@ def create_datatable(df):
             filter_action='native',
             sort_action='native',
             sort_mode='multi',
-            row_selectable='multi',
-            row_deletable=True,
-            selected_rows=[],
+            filter_query = filter_query,
             style_data={
                 'whiteSpace': 'normal',
                 'height': 'auto',
@@ -498,16 +512,6 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
         }
 
         return [ blankFigure for k in range(6)]
-
-    # set the color pallete
-    colorLight = ['#fbb4ae', '#b3cde3', '#ccebc5', '#decbe4', '#fed9a6',
-                  '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2']
-
-    colors = [colorLight[4] if k in slctd_row_indices else colorLight[1]
-              for k in range(len(_df))]
-    if not 'colorRec' in _df.columns:
-        _df.insert(len(_df.columns), 'colorRec', '')
-    _df['colorRec'] = colors
 
     # replace all NaN or None in Loc with TBA
     for row in _df.index.tolist():
@@ -660,7 +664,7 @@ def update_grid(toggle, data, filtered_data, slctd_row_indices):
                     xref='x', yref='y',
                     y0 = k, y1 = k+1,
                     x0 = 0, x1 = 170,
-                    fillcolor=colorLight[8],
+                    fillcolor='#f2f2f2',
                     layer='below', line_width=0,
                 )
             else:
@@ -888,16 +892,15 @@ html.Div([
                     options=[
                         {'label': 'Custom...', 'value': 'custom'},
                         {'label': 'Active Math Classes', 'value': '{S} contains A'},
-                        {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                        # {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
                         {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1111 || {Number} > 1111) && ({Number} < 1115 || {Number} > 1115) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
                         {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
                         {'label': 'Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
                         {'label': 'Applied Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3130 || {Number} = 3400 || {Number} = 3420 || {Number} = 3430 || {Number} = 3440 || {Number} = 4480 || {Number} = 4490)'},
+                        {'label': 'MathEd Group', 'value': '({S} contains A && {Subject} contains M && ({Number} = 1610 || {Number} = 2620 || {Number} = 3470 || {Number} = 3640 || {Number} = 3650)) || ({S} contains A && {Subject} contains MTL)'},
                         {'label': 'Statistics Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3210 || {Number} = 3220 || {Number} = 3230 || {Number} = 3240 || {Number} = 3270 || {Number} = 3510 || {Number} = 4210 || {Number} = 4230 || {Number} = 4250 || {Number} = 4290)'},
-                        {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 3470 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
+                        {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                     ],
                     placeholder='Select a query',
@@ -953,10 +956,6 @@ html.Div([
                 html.Div([
                     html.Button('Update Grid', id='update-grid-button', n_clicks=0,
                                 style={'marginLeft': '5px'},className='button'),
-                    html.Button('Select All', id='select-all-button', n_clicks=0,
-                                style={'marginLeft': '5px'},className='button'),
-                    html.Button('Deselect All', id='deselect-all-button', n_clicks=0,
-                                style={'marginLeft': '5px'},className='button'),
                     html.Button('Export All', id='export-all-button', n_clicks=0,
                                 style={'marginLeft': '5px'},className='button'),
                     dcc.Download(id='datatable-download'),
@@ -971,20 +970,58 @@ html.Div([
         ],
             style={'width': '100%'}
         ),
-        dcc.Loading(id='loading-icon-upload',
-                    children=[
-                        html.Div([],
-                                 style={
-                                     'width': '100%',
-                                     'display': 'block',
-                                     'marginLeft': 'auto',
-                                     'marginRight': 'auto'},
-                                 id='datatable-interactivity-container',
-                                )],
-                    type='circle',
-                    fullscreen=True,
-                    color='#064779'),
-    ],
+        html.Div([
+            html.Div([
+                html.Button('Reset Colors', id='reset-colors-button', n_clicks=0,
+                            style={'marginLeft': '5px'},className='button'),
+                html.Button('Change Color', id='change-color-button', n_clicks=0,
+                            style={'marginLeft': '5px'},className='button'),
+            ],
+                style={
+                    'display': 'inline-block',
+                }
+            ),
+            html.Div([
+                dcc.RadioItems(id='color-select',
+                               options=[
+                                   {'label': 'Blue', 'value': '#b3cde3'},
+                                   {'label': 'Red', 'value': '#fbb4ae'},
+                                   {'label': 'Green', 'value': '#ccebc5'},
+                                   {'label': 'Purple', 'value': '#decbe4'},
+                                   {'label': 'Orange', 'value': '#fed9a6'},
+                                   {'label': 'Yellow', 'value': '#ffffcc'},
+                                   {'label': 'Tan', 'value': '#e5d8bd'},
+                                   {'label': 'Pink', 'value': '#fddaec'},
+                                   {'label': 'Gray','value': '#f2f2f2'},
+                               ],
+                               value='#b3cde3',
+                              ),
+            ],
+                style={
+                    'display': 'inline-block',
+                }
+            ),
+        ],
+            style={
+                'width': '100%',
+                'display': 'flex',
+            }
+        ),
+        html.Div(
+            id='datatable-interactivity-container',
+            children=[
+                dash_table.DataTable(
+                    id='datatable-interactivity',
+                    data = [{}],
+                )
+            ],
+            style={
+                'width': '100%',
+                'display': 'block',
+                'marginLeft': 'auto',
+                'marginRight': 'auto'},
+        ),
+        ],
         id='output-data-upload',
         style={'display': 'none'}
     )],
@@ -1003,118 +1040,74 @@ def show_contents(contents):
         return {'display': 'block'}
 
 @app.callback(
-    [Output('loading-icon-upload', 'children'),
-     Output('weekdays-tabs-content', 'children'),
-     Output('upload-data-button', 'n_clicks'),
-     Output('loading-icon-upload', 'fullscreen')],
-    [Input('upload-data', 'contents'),
+    [Output('weekdays-tabs-content', 'children'),
+     Output('datatable-interactivity-container', 'children')],
+    [Input('update-grid-button', 'n_clicks'),
+     Input('reset-colors-button', 'n_clicks'),
+     Input('change-color-button', 'n_clicks'),
      State('weekdays-tabs', 'value'),
      State('upload-data', 'filename'),
-     State('upload-data-button', 'n_clicks'),
-     State('loading-icon-upload', 'fullscreen')],
+     Input('upload-data', 'contents'),
+     Input("datatable-interactivity", "data_timestamp"),
+     State("datatable-interactivity", "filter_query"),
+     State("datatable-interactivity", "data"),
+     State('datatable-interactivity', 'derived_virtual_data'),
+     State('datatable-interactivity', 'derived_virtual_indices'),
+     State('datatable-interactivity', 'derived_virtual_selected_rows'),
+     State('color-select', 'value')
+    ]
 )
-def initial_data_loading(contents, tab, name, n_clicks, fullscreen):
+def initial_data_loading(
+    update_n_clicks,
+    select_n_clicks,
+    deselect_n_clicks,
+    tab,
+    name,
+    contents,
+    timestamp,
+    filter_query,
+    rows,
+    filtered_rows,
+    vtl_indices,
+    slctd_row_indices,
+    slctd_color
+):
+
+    ctx = dash.callback_context
+    input_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
     if DEBUG:
-        print("function: initial_data_loading")
-    if contents is not None and n_clicks > 0:
+        print('Trigger: {:s}'.format(input_id))
+
+    df = pd.DataFrame(rows)
+
+    _index = slctd_row_indices
+
+    if len(rows) != len(filtered_rows):
+        _index = vtl_indices
+
+    if contents is not None and input_id == 'upload-data':
         df = parse_contents(contents, name)
-        data_children = create_datatable(df)
+        df['colorRec'] = '#b3cde3'
+
+    if input_id == 'reset-colors-button':
+        df['colorRec'] = '#b3cde3'
+
+    if input_id == "change-color-button":
+        df.loc[_index, 'colorRec'] = slctd_color
+
+    data_children = create_datatable(df, filter_query)
+
+    if input_id == 'update-grid-button':
+        df = pd.DataFrame(filtered_rows)
         figs = update_grid(True, df.to_dict(), df.to_dict(), [])
         tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
-        n_clicks = 0
-        fullscreen = False
     else:
-        data_children = []
-        tabs_children = [ generate_tab_fig(day, tab, None) for day in days]
+        figs = update_grid(True, df.to_dict(), df.to_dict(), [])
+        tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
 
-    loading_children = [
-        html.Div(data_children,
-                 style={
-                     'width': '100%',
-                     'display': 'block',
-                     'marginLeft': 'auto',
-                     'marginRight': 'auto',
-                 },
-                 id='datatable-interactivity-container',
-                )]
 
-    return loading_children, tabs_children, n_clicks, fullscreen
-
-@app.callback(
-    [Output('loading-icon-mon', 'children'),
-     Output('loading-icon-tue', 'children'),
-     Output('loading-icon-wed', 'children'),
-     Output('loading-icon-thu', 'children'),
-     Output('loading-icon-fri', 'children'),
-     Output('loading-icon-sat', 'children'),
-     Output('toggle-rooms', 'color'),
-     Output('toggle-rooms', 'style'),
-     Output('all-rooms-label', 'style')],
-    [Input('update-grid-button', 'n_clicks'),
-     Input('toggle-rooms', 'on'),
-     State('weekdays-tabs', 'value'),
-     State('datatable-interactivity', 'data'),
-     State('datatable-interactivity', 'derived_virtual_data'),
-     State('datatable-interactivity', 'derived_virtual_selected_rows')],
-)
-def render_content(n_clicks, toggle, tab, data, filtered_data, slctd_row_indices):
-    if DEBUG:
-        print("function: render_contents")
-    if n_clicks > 0:
-        figs = update_grid(toggle, data, filtered_data, slctd_row_indices)
-
-        modeBarButtonsToRemove = ['zoom2d',
-                                  'pan2d',
-                                  'select2d',
-                                  'lasso2d',
-                                  'zoomIn2d',
-                                  'zoomOut2d',
-                                  'autoScale2d',
-                                  'resetScale2d',
-                                  'hoverClosestCartesian',
-                                  'hoverCompareCartesian',
-                                  'zoom3d',
-                                  'pan3d',
-                                  'resetCameraDefault3d',
-                                  'resetCameraLastSave3d',
-                                  'hoverClosest3d',
-                                  'orbitRotation',
-                                  'tableRotation',
-                                  'zoomInGeo',
-                                  'zoomOutGeo',
-                                  'resetGeo',
-                                  'hoverClosestGeo',
-                                  # 'toImage',
-                                  'sendDataToCloud',
-                                  'hoverClosestGl2d',
-                                  'hoverClosestPie',
-                                  'toggleHover',
-                                  'resetViews',
-                                  'toggleSpikelines',
-                                  'resetViewMapbox']
-
-        children = []
-        for day,fig in zip(days, figs):
-            day_abbrv = day.lower()[:3]
-            child = dcc.Graph(
-                figure=fig,
-                config={
-                    'displayModeBar': True,
-                    'displaylogo': False,
-                    'modeBarButtonsToRemove': modeBarButtonsToRemove,
-                    'showAxisDragHandles': True,
-                    'toImageButtonOptions': {'filename': day_abbrv},
-                },
-                id='schedule_'+day_abbrv,
-            )
-            children.append(child)
-
-        bool_switch_style = {'display': 'inline-block', 'marginTop': '5px'}
-        all_rooms_label_style = {'display': 'inline-block',
-                                 'white-space': 'nowrap',
-                                 'marginLeft': '5px',
-                                 'marginTop': '5px'}
-        return *children, '#064779', bool_switch_style, all_rooms_label_style
+    return tabs_children, data_children
 
 
 @app.callback(
@@ -1141,48 +1134,14 @@ def update_tab_display(tab):
 
 
 @app.callback(
-    Output('datatable-interactivity', 'selected_rows'),
-    [Input('select-all-button', 'n_clicks'),
-     Input('deselect-all-button', 'n_clicks')],
-    State('datatable-interactivity', 'derived_virtual_indices'),
-)
-def select_deselect(selbtn, deselbtn, selected_rows):
-    if DEBUG:
-        print("function: select_deselect")
-    ctx = dash.callback_context
-    if ctx.triggered:
-        trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
-    if trigger == 'select-all-button':
-        if selected_rows is None:
-            return []
-        else:
-            return selected_rows
-    else:
-        return []
-
-@app.callback(
-    [Output('deselect-all-button', 'disabled'),
-     Output('delete-rows-button', 'disabled')],
-    Input('datatable-interactivity', 'selected_rows')
-)
-def deselect_delete_enable(rows):
-    if DEBUG:
-        print("function: deselect_delete_enable")
-    if len(rows):
-        return False, False
-    return True, True
-
-@app.callback(
     [Output('datatable-interactivity', 'data'),
-     Output('datatable-interactivity', 'derived_virtual_data'),
-     Output('deselect-all-button', 'n_clicks')],
+     Output('datatable-interactivity', 'derived_virtual_data')],
     [Input('add-row-button', 'n_clicks'),
      Input('delete-rows-button', 'n_clicks'),
-     State('datatable-interactivity', 'selected_rows'),
-     State('datatable-interactivity', 'data'),
-     State('deselect-all-button', 'n_clicks')],
+     State('datatable-interactivity', 'derived_virtual_indices'),
+     State('datatable-interactivity', 'data')]
 )
-def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_clicks):
+def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows):
     if DEBUG:
         print("function: alter_row")
     ctx = dash.callback_context
@@ -1193,14 +1152,15 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows, deselect_n_cli
             rows.append(
                 {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
                  'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
-                 'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ','}
+                 'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ',',
+                 'colorRec': '#b3cde3'}
             )
-        return rows, rows, deselect_n_clicks
+        return rows, rows
     else:
-        if delete_n_clicks > 0:
-            for row in selected_rows[::-1]:
-                rows.pop(row)
-        return rows, rows, 1
+        for row in selected_rows[::-1]:
+            rows.pop(row)
+    return rows, rows
+
 
 @app.callback(
     [Output('filter-query-input-container', 'style'),
@@ -1222,6 +1182,7 @@ def query_input_output(val, query):
                         'width': '100%'}
     return input_style, output_style , html.P('filter_query = "{}"'.format(query)),
 
+
 @app.callback(
     [Output('datatable-interactivity', 'filter_query')],
     [Input('apply_query_button', 'n_clicks'),
@@ -1239,6 +1200,7 @@ def apply_query(n_clicks, dropdown_value, input_value):
                 return ['']
             return [dropdown_value]
 
+
 @app.callback(
     Output('datatable-download', 'data'),
     [Input('export-all-button', 'n_clicks'),
@@ -1251,6 +1213,7 @@ def export_all(n_clicks, data):
     if n_clicks > 0:
         return {'base64': True, 'content': to_excel(_df), 'filename': 'Schedule.xlsx', }
 
+
 @app.callback(
     Output('datatable-filtered-download', 'data'),
     [Input('export-filtered-button', 'n_clicks'),
@@ -1262,6 +1225,7 @@ def export_filtered(n_clicks, data):
     _df = pd.DataFrame(data)
     if n_clicks > 0:
         return {'base64': True, 'content': to_excel(_df), 'filename': 'Schedule.xlsx', }
+
 
 # Main
 if __name__ == '__main__':
