@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = True
+DEBUG = False
 mathserver = False
 
 # Include pretty graph formatting
@@ -44,6 +44,13 @@ if mathserver:
     })
 
 df = pd.DataFrame()
+
+def median(nums):
+    nums = sorted(nums)
+    middle1 = (len(nums) - 1) // 2
+    middle2 = len(nums) // 2
+    return (nums[middle1] + nums[middle2]) / 2
+
 
 # blank figure when no data is present
 blankFigure={
@@ -315,6 +322,7 @@ def tidy_txt(file_contents):
     # add columns for Access Table
     _df.insert(len(_df.columns), "Class", " ")
     _df["Class"] = _df["Subj"] + " " + _df["Nmbr"]
+    _df['DaysTimeLoc'] = _df['Days'] +  _df['Time'] + _df['Loc']
     _df = updateTitles(_df)
 
     # remove all rows with irrelevant data
@@ -337,6 +345,12 @@ def tidy_txt(file_contents):
     ].apply(pd.to_numeric, errors="coerce")
 
     _df = _df.sort_values(by=["Subject", "Number", "Section"])
+
+    # include in calculations
+    _df['Calc'] = 'Y'
+    for row in _df.index.to_list():
+        if _df.loc[row, 'S'] == 'C':
+            _df.loc[row, 'Calc'] = 'N'
 
     return _df, term_code, data_date
 
@@ -442,6 +456,7 @@ def tidy_xlsx(file_contents):
 
     _df.insert(len(_df.columns), "Class", " ")
     _df["Class"] = _df["Subject"] + " " + _df["Number"]
+    _df['DaysTimeLoc'] = _df['Days'] +  _df['Time'] + _df['Loc']
 
     # add columns for Access Table
     _df.insert(len(_df.columns), "PTCR", 0)
@@ -466,6 +481,12 @@ def tidy_xlsx(file_contents):
     for row in _df[_df["CRN"].isna()].index.tolist():
         _df.loc[row, "CRN"] = str(100000 - i)
         i += 1
+
+    # include in calculations
+    _df['Calc'] = 'Y'
+    for row in _df.index.to_list():
+        if _df.loc[row, 'S'] == 'C':
+            _df.loc[row, 'Calc'] = 'N'
 
     return _df, term_code, data_date
 
@@ -520,7 +541,7 @@ def to_excel(df, report_term):
     # only grab needed columns and correct ordering
     cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
             "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
-            "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio"]
+            "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio", "Calc"]
     _df = _df[cols]
 
     xlsx_io = io.BytesIO()
@@ -559,6 +580,7 @@ def to_excel(df, report_term):
     worksheet.set_column("R:R", 3.5)
     worksheet.set_column("S:S", 10.5)
     worksheet.set_column("T:T", 14)
+    worksheet.set_column("U:U", 8)
 
     # Common cell formatting
     # Light red fill with dark red text
@@ -675,11 +697,28 @@ def create_datatable(df):
             id="datatable",
             data=df.to_dict("records"),
             # export_format="csv",
-            columns=[{'name': n, 'id': i} for n,i in zip([
-                "Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "Title",
-                "Credit", "Max", "Enrl", "WCap", "WLst", "Days", "Time",
-                "Loc", "Rcap", "%Ful", "Begin/End", "Instructor"
-            ],[*df.columns[:6],*df.columns[7:-3]])],
+            columns = [
+                {'name': 'Subj', 'id': 'Subject'},
+                {'name': 'Nmbr', 'id': 'Number'},
+                {'name': 'CRN', 'id': 'CRN'},
+                {'name': 'Sec', 'id': 'Section'},
+                {'name': 'S', 'id': 'S'},
+                {'name': 'Cam', 'id': 'Campus'},
+                {'name': 'Title', 'id': 'Title'},
+                {'name': 'Credit', 'id': 'Credit'},
+                {'name': 'Max', 'id': 'Max'},
+                {'name': 'Enrl', 'id': 'Enrolled'},
+                {'name': 'WCap', 'id': 'WCap'},
+                {'name': 'WLst', 'id': 'WList'},
+                {'name': 'Days', 'id': 'Days'},
+                {'name': 'Time', 'id': 'Time'},
+                {'name': 'Loc', 'id': 'Loc'},
+                {'name': 'RCap', 'id': 'RCap'},
+                {'name': '%Ful', 'id': 'Full'},
+                {'name': 'Begin/End', 'id': 'Begin/End'},
+                {'name': 'Instructor', 'id': 'Instructor'},
+                {'name': 'Calc', 'id': 'Calc', 'editable': True},
+            ],
             style_header={
                 "backgroundColor": "rgb(230, 230, 230)",
                 "fontWeight": "bold",
@@ -692,12 +731,13 @@ def create_datatable(df):
                     'minWidth': w, 'width': w, 'maxWidth': w,
                     'whiteSpace': 'normal'
                 }
-                for i,w in zip([*df.columns[:6],*df.columns[7:-3]],
-                               ['3.5%', '4%', '4%', '3%', '2%', '3%',
+                for i,w in zip([*df.columns[:6],*df.columns[7:-14], *df.columns[[-4]]],
+                               ['3.5%', '4%', '4%', '3%', '3%', '3%',
                                 '18%', '4%', '3%', '4%', '4%', '4%', '4%',
-                                '7.5%', '6%', '4.5%', '4.5%', '7.5%', '9.5%'])
+                                '7.5%', '5%', '3.5%', '3.5%', '6.5%', '9.5%', '3%'])
             ],
             sort_action="native",
+            editable=False,
             filter_action="native",
             fixed_rows={"headers": True, "data": 0},
             page_size=5000,
@@ -748,6 +788,357 @@ def create_datatable(df):
             ],
         )
     ]
+
+def create_calc_row_layout(df):
+
+    df_ld = df[df['Number'] < '3000']
+    df_ud = df[df['Number'] >= '3000']
+
+    # only use active courses
+    _df = df[df['S'] == 'A']
+
+    # _df_labs = _df[(_df['Class'] == 'MTH 1082') | (_df['Class'] == 'MTH 1101') | (_df['Class'] == 'MTH 1116') | (_df['Class'] == 'MTH 1312')]
+    _df_labs = _df[_df['Calc'] == 'L']
+    lab_sections = _df_labs["CRN"].nunique()
+    lab_sections_txt = "{:,.0f}".format(lab_sections)
+    lab_courses = _df_labs["Class"].nunique()
+    lab_courses_txt = "{:,.0f}".format(lab_courses)
+    lab_waitlist_txt = '{:,.0f}'.format(_df_labs['WList'].sum())
+    lab_enrollment_txt = '{:,.0f}'.format(_df_labs['Enrolled'].sum())
+    avg_lab_enrl = _df_labs["Enrolled"].mean()
+    if np.isnan(avg_lab_enrl):
+        avg_lab_enrl = 0
+    avg_lab_enrl_txt = "{:,.2f}".format(avg_lab_enrl)
+    med_lab_enrl = _df_labs["Enrolled"].median()
+    if np.isnan(med_lab_enrl):
+        med_lab_enrl = 0
+    med_lab_enrl_txt = '{:,.1f}'.format(med_lab_enrl)
+
+    # only courses that we want included in calculations
+    _df = df[df['Calc'] == 'Y']
+
+    _df_M = _df[(_df["Campus"]=="M")]
+    _df_I = _df[(_df["Campus"]=="I")]
+    total_sections = _df["CRN"].nunique() - lab_sections
+    if total_sections > 0:
+        total_sections_txt = "{:,.0f}".format(total_sections)
+        total_courses = _df["Class"].nunique() - lab_courses
+        total_courses_txt = "{:,.0f}".format(total_courses)
+        total_waitlist_txt = '{:,.0f}'.format(_df['WList'].sum())
+        total_enrollment_txt = '{:,.0f}'.format(_df['Enrolled'].sum())
+        denom = _df_M["DaysTimeLoc"].nunique() + _df_I["CRN"].nunique()
+        avg_enrl = 0
+        if denom:
+            avg_enrl = _df["Enrolled"].sum()/denom
+        avg_enrl_txt = "{:,.2f}".format(avg_enrl)
+
+        enrl = _df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I['Enrolled'].tolist()
+        med_enrl = median(enrl)
+        med_enrl_txt = '{:,.1f}'.format(med_enrl)
+    else:
+        total_sections_txt = "{:,.0f}".format(0)
+        total_courses_txt = "{:,.0f}".format(0)
+        total_waitlist_txt = '{:,.0f}'.format(0)
+        total_enrollment_txt = '{:,.0f}'.format(0)
+        avg_enrl_txt = "{:,.2f}".format(0)
+        med_enrl_txt = '{:,.1f}'.format(0)
+
+    _df_ld = _df[_df['Number'] < '3000']
+    _df_M_ld = _df_ld[(_df_ld["Campus"]=="M")]
+    _df_I_ld = _df_ld[(_df_ld["Campus"]=="I")]
+    ld_sections = _df_ld["CRN"].nunique() - lab_sections
+    if ld_sections > 0:
+        ld_sections_txt = "{:,.0f}".format(ld_sections)
+        ld_courses = _df_ld["Class"].nunique() - lab_courses
+        ld_courses_txt = "{:,.0f}".format(ld_courses)
+        ld_waitlist_txt = '{:,.0f}'.format(_df_ld['WList'].sum())
+        ld_enrollment_txt = '{:,.0f}'.format(_df_ld['Enrolled'].sum())
+        denom = _df_M_ld["DaysTimeLoc"].nunique() + _df_I_ld["CRN"].nunique()
+        avg_ld_enrl = 0
+        if denom:
+            avg_ld_enrl = _df_ld["Enrolled"].sum() / denom
+        avg_ld_enrl_txt = "{:,.2f}".format(avg_ld_enrl)
+
+        enrl = _df_M_ld[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I_ld['Enrolled'].tolist()
+        med_ld_enrl = median(enrl)
+        med_ld_enrl_txt = '{:,.1f}'.format(med_ld_enrl)
+    else:
+        ld_sections_txt = "{:,.0f}".format(0)
+        ld_courses_txt = "{:,.0f}".format(0)
+        ld_waitlist_txt = '{:,.0f}'.format(0)
+        ld_enrollment_txt = '{:,.0f}'.format(0)
+        avg_ld_enrl_txt = "{:,.2f}".format(0)
+        med_ld_enrl_txt = '{:,.1f}'.format(0)
+
+
+    _df_ud = _df[_df['Number'] >= '3000']
+    _df_M_ud = _df_ud[(_df_ud["Campus"]=="M")]
+    _df_I_ud = _df_ud[(_df_ud["Campus"]=="I")]
+    ud_sections = _df_ud["CRN"].nunique()
+    if ud_sections > 0:
+        ud_sections_txt = "{:,.0f}".format(ud_sections)
+        ud_courses_txt = "{:,.0f}".format(_df_ud["Class"].nunique())
+        ud_waitlist_txt = '{:,.0f}'.format(_df_ud['WList'].sum())
+        ud_enrollment_txt = '{:,.0f}'.format(_df_ud['Enrolled'].sum())
+        denom = _df_M_ud["DaysTimeLoc"].nunique() + _df_I_ud["CRN"].nunique()
+        avg_ud_enrl = 0
+        if denom:
+            avg_ud_enrl = _df_ud["Enrolled"].sum() / denom
+        avg_ud_enrl_txt = "{:,.2f}".format(avg_ud_enrl)
+
+        enrl = _df_M_ud[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I_ud['Enrolled'].tolist()
+        med_ud_enrl = median(enrl)
+        med_ud_enrl_txt = '{:,.1f}'.format(med_ud_enrl)
+    else:
+        ud_sections_txt = "{:,.0f}".format(0)
+        ud_courses_txt = "{:,.0f}".format(0)
+        ud_waitlist_txt = '{:,.0f}'.format(0)
+        ud_enrollment_txt = '{:,.0f}'.format(0)
+        avg_ud_enrl_txt = "{:,.2f}".format(0)
+        med_ud_enrl_txt = '{:,.1f}'.format(0)
+
+
+    children=[
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.H6("Total Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td([total_sections_txt],
+                                style={'text-align':'right'},
+                                id="calc_total_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td([total_courses_txt],
+                                style={'text-align':'right'},
+                                id="calc_total_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td([total_waitlist_txt],
+                                style={'text-align':'right'},
+                                id="calc_total_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td([total_enrollment_txt],
+                                style={'text-align':'right'},
+                                id="calc_total_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td([avg_enrl_txt],
+                                style={'text-align':'right'},
+                                id="calc_avg_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td([med_enrl_txt],
+                                style={'text-align':'right'},
+                                id="calc_med_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="calc_total_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("LD Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td([ld_sections_txt],
+                                style={'text-align':'right'},
+                                id="ld_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td([ld_courses_txt],
+                                style={'text-align':'right'},
+                                id="ld_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td([ld_waitlist_txt],
+                                style={'text-align':'right'},
+                                id="ld_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td([ld_enrollment_txt],
+                                style={'text-align':'right'},
+                                id="ld_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td([avg_ld_enrl_txt],
+                                style={'text-align':'right'},
+                                id="avg_ld_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td([med_ld_enrl_txt],
+                                style={'text-align':'right'},
+                                id="med_ld_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="ld_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("UD Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td([ud_sections_txt],
+                                style={'text-align':'right'},
+                                id="ud_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td([ud_courses_txt],
+                                style={'text-align':'right'},
+                                id="ud_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td([ud_waitlist_txt],
+                                style={'text-align':'right'},
+                                id="ud_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td([ud_enrollment_txt],
+                                style={'text-align':'right'},
+                                id="ud_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td([avg_ud_enrl_txt],
+                                style={'text-align':'right'},
+                                id="avg_ud_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td([med_ud_enrl_txt],
+                                style={'text-align':'right'},
+                                id="med_ud_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="ud_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("Lab Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td([lab_sections],
+                                style={'text-align':'right'},
+                                id="lab_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td([lab_courses],
+                                style={'text-align':'right'},
+                                id="lab_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td([lab_waitlist_txt],
+                                style={'text-align':'right'},
+                                id="lab_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td([lab_enrollment_txt],
+                                style={'text-align':'right'},
+                                id="lab_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td([avg_lab_enrl_txt],
+                                style={'text-align':'right'},
+                                id="avg_lab_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td([med_lab_enrl_txt],
+                                style={'text-align':'right'},
+                                id="med_lab_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="lab_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("Notes:"),
+                    html.Ul([
+                    html.Li([
+                        "Lab enrollments, marked with an 'L' in the datatable,  are not included in \
+                        Total, Lower, or Upper Division calculations."]),
+                    html.Li([
+                        "Rows marked with an 'N' in the datatable are not \
+                        included in Total, Lower, or Upper Division \
+                        calculations."]),
+                    ]),
+                ],
+                    id="notes_enrollment",
+                    className="mini_container",
+                    style={'width': '30%'},
+                ),
+            ],
+            style={'display': 'flex'},
+            ),
+        ],
+            className="pretty_container twelve columns",
+        ),
+    ]
+
+    return children
+
 
 
 # Create app layout
@@ -867,6 +1258,248 @@ app.layout = html.Div([
         ],
             className="row flex-display",
         ),
+    html.Div([
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.H6("Total Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="calc_total_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="calc_total_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="calc_total_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="calc_total_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td(["0.00"],
+                                style={'text-align':'right'},
+                                id="calc_avg_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td(["0.0"],
+                                style={'text-align':'right'},
+                                id="calc_med_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="calc_total_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("LD Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ld_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ld_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ld_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ld_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td(["0.00"],
+                                style={'text-align':'right'},
+                                id="avg_ld_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td(["0.0"],
+                                style={'text-align':'right'},
+                                id="med_ld_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="ld_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("UD Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ud_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ud_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ud_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="ud_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td(["0.00"],
+                                style={'text-align':'right'},
+                                id="avg_ud_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td(["0.0"],
+                                style={'text-align':'right'},
+                                id="med_ud_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="ud_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("Lab Enrollment"),
+                    html.Table([
+                        html.Tr([
+                            html.Td(["Sections: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="lab_sections_text",
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Courses: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="lab_courses_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Waitlist: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="lab_waitlist_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Total: "]),
+                            html.Td(["0"],
+                                style={'text-align':'right'},
+                                id="lab_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Mean: "]),
+                            html.Td(["0.00"],
+                                style={'text-align':'right'},
+                                id="avg_lab_enrollment_text"
+                            ),
+                        ]),
+                        html.Tr([
+                            html.Td(["Median: "]),
+                            html.Td(["0.0"],
+                                style={'text-align':'right'},
+                                id="med_lab_enrollment_text"
+                            ),
+                        ]),
+                    ],
+                        style={'width':'100%'},
+                    ),
+                ],
+                    id="lab_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div([
+                    html.H6("Notes:"),
+                    html.Ul([
+                    html.Li([
+                        "Lab enrollments are not included in Total, Lower, \
+                        or Upper Division calculations."]),
+                    html.Li([
+                        "Rows marked with an 'N' in the datatable are not \
+                        included in Total, Lower, or Upper Division \
+                        calculations."]),
+                    ]),
+                ],
+                    id="notes_enrollment",
+                    className="mini_container",
+                    style={'width': '30%'},
+                ),
+            ],
+            style={'display': 'flex'},
+            ),
+        ],
+            className="pretty_container twelve columns",
+        ),
+        ],
+            className="row flex-display",
+            id="calc_row",
+        ),
+
         html.Div([
             html.Div([
                 dcc.Graph(
@@ -970,26 +1603,38 @@ app.layout = html.Div([
                     options=[
                         {'label': 'Custom...', 'value': 'custom'},
                         {'label': 'Active Classes', 'value': '{S} contains A'},
-                        {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                        {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
-                        {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                        {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                        {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                        {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                        {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                        {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                        {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                        {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                        {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                        {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                        {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                        {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                        {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                        {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                        {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
+                        {'label': 'Lower Division', 'value': '{Number} < 3000 && {S} contains A'},
+                        {'label': 'Upper Division', 'value': '{Number} >= 3000 && {S} contains A'},
+                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1111 || {Number} > 1111) && ({Number} < 1115 || {Number} > 1115) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
+                        {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        {'label': 'Applied Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3130 || {Number} = 3400 || {Number} = 3420 || {Number} = 3430 || {Number} = 3440 || {Number} = 4480 || {Number} = 4490)'},
+                        {'label': 'MathEd Group', 'value': '({S} contains A && {Subject} contains M && ({Number} = 1610 || {Number} = 2620 || {Number} = 3470 || {Number} = 3640 || {Number} = 3650)) || ({S} contains A && {Subject} contains MTL)'},
+                        {'label': 'Statistics Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3210 || {Number} = 3220 || {Number} = 3230 || {Number} = 3240 || {Number} = 3270 || {Number} = 3510 || {Number} = 4210 || {Number} = 4230 || {Number} = 4250 || {Number} = 4290)'},
+                        {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
+                        # {'label': 'Custom...', 'value': 'custom'},
+                        # {'label': 'Active Classes', 'value': '{S} contains A'},
+                        # {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
+                        # {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
+                        # {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
+                        # {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
+                        # {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
+                        # {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        # {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
+                        # {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
+                        # {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
+                        # {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
+                        # {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
+                        # {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
+                        # {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
+                        # {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
+                        # {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
+                        # {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
+                        # {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
+                        # {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
+                        # {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
+                        # {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                     ],
                     placeholder='Select a query',
                     value=''),
@@ -1086,6 +1731,30 @@ html.Div([dcc.Input(id='term-code', placeholder='', style={'display': 'none'})])
 def initial_data_loading(contents, n_clicks, filename, date):
     if contents is not None and n_clicks > 0:
         df, report_term, term_code, data_date = parse_contents(contents, filename, date)
+
+        # these are courses that should not be included in the calculations
+        lab_courses = ('MTH 1082','MTH 1101', 'MTH 1116', 'MTH 1312')
+
+        excluded_courses = ( 'MTL 3850', 'MTL 3858', 'MTL 4690')
+
+        for row in df.index.to_list():
+            # canceled courses
+            if df.loc[row, 'S'] == 'C':
+                   df.loc[row, 'Calc'] = 'N'
+            # zero credit courses
+            if df.loc[row, 'Credit'] == 0:
+                   df.loc[row, 'Calc'] = 'N'
+            # lab courses
+            for course in lab_courses:
+                if df.loc[row, 'Class'] == course:
+                       df.loc[row, 'Calc'] = 'L'
+                       break
+            # excluded courses
+            for course in excluded_courses:
+                if df.loc[row, 'Class'] == course:
+                       df.loc[row, 'Calc'] = 'N'
+                       break
+
         data_children = create_datatable(df)
         stats_graph_title = "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper()
         title_report_semester = "SWRCGSR Enrollment for " + report_term
@@ -1200,6 +1869,7 @@ def apply_query(n_clicks, n_submit, dropdown_value, input_value):
                 return ['']
             return [dropdown_value]
 
+
 @app.callback(
     Output('max_v_enrl_by_crn_graph', 'figure'),
     Input('datatable', 'derived_viewport_data'),
@@ -1235,6 +1905,19 @@ def max_v_enrl_by_crn(data, fig):
         )
     else:
         return fig
+
+
+@app.callback(
+    Output('calc_row', 'children'),
+    Input('datatable', 'derived_viewport_data'),
+    State('calc_row', 'children'),
+)
+def calc_row(data, children):
+    if data:
+        df = pd.DataFrame(data).copy()
+        return create_calc_row_layout(df)
+    else:
+        return children
 
 @app.callback(
     Output('max_v_enrl_by_course_graph', 'figure'),
@@ -1586,6 +2269,7 @@ def update_stats(data):
     if data:
         df = pd.DataFrame(data).copy()
         df = df[df["Credit"] != 0]
+
         return [
             "{:,.0f}".format(df["CRN"].nunique()),
             "{:,.0f}".format(df["Course"].nunique()),
@@ -1602,7 +2286,7 @@ def update_stats(data):
 # Main
 if __name__ == "__main__":
     if mathserver:
-        app.run_server(debug=True)
+        app.run_server(debug=DEBUG)
     else:
         # app.run_server(debug=True, host='10.0.2.15', port='8050')
-        app.run_server(debug=False, port='8050')
+        app.run_server(debug=DEBUG, port='8050')
