@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 # Include pretty graph formatting
@@ -46,10 +46,14 @@ if mathserver:
 df = pd.DataFrame()
 
 def median(nums):
-    nums = sorted(nums)
-    middle1 = (len(nums) - 1) // 2
-    middle2 = len(nums) // 2
-    return (nums[middle1] + nums[middle2]) / 2
+    if len(nums):
+        if len(nums) == 1:
+            return nums[0]
+        nums = sorted(nums)
+        middle1 = (len(nums) - 1) // 2
+        middle2 = len(nums) // 2
+        return (nums[middle1] + nums[middle2]) / 2
+    return 0
 
 
 # blank figure when no data is present
@@ -797,7 +801,6 @@ def create_calc_row_layout(df):
     # only use active courses
     _df = df[df['S'] == 'A']
 
-    # _df_labs = _df[(_df['Class'] == 'MTH 1082') | (_df['Class'] == 'MTH 1101') | (_df['Class'] == 'MTH 1116') | (_df['Class'] == 'MTH 1312')]
     _df_labs = _df[_df['Calc'] == 'L']
     lab_sections = _df_labs["CRN"].nunique()
     lab_sections_txt = "{:,.0f}".format(lab_sections)
@@ -826,13 +829,15 @@ def create_calc_row_layout(df):
         total_courses_txt = "{:,.0f}".format(total_courses)
         total_waitlist_txt = '{:,.0f}'.format(_df['WList'].sum())
         total_enrollment_txt = '{:,.0f}'.format(_df['Enrolled'].sum())
-        denom = _df_M["DaysTimeLoc"].nunique() + _df_I["CRN"].nunique()
-        avg_enrl = 0
-        if denom:
-            avg_enrl = _df["Enrolled"].sum()/denom
-        avg_enrl_txt = "{:,.2f}".format(avg_enrl)
 
-        enrl = _df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I['Enrolled'].tolist()
+        # calculate enrollments for each day/time/loc block
+        enrl = _df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+        # add in the online sections
+        enrl += _df_I['Enrolled'].tolist()
+        # add in the F2F without day/time/loc (such as independent studies)
+        enrl += _df_M[_df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+        avg_enrl_txt = "{:,.2f}".format(np.mean(enrl))
         med_enrl = median(enrl)
         med_enrl_txt = '{:,.1f}'.format(med_enrl)
     else:
@@ -853,13 +858,15 @@ def create_calc_row_layout(df):
         ld_courses_txt = "{:,.0f}".format(ld_courses)
         ld_waitlist_txt = '{:,.0f}'.format(_df_ld['WList'].sum())
         ld_enrollment_txt = '{:,.0f}'.format(_df_ld['Enrolled'].sum())
-        denom = _df_M_ld["DaysTimeLoc"].nunique() + _df_I_ld["CRN"].nunique()
-        avg_ld_enrl = 0
-        if denom:
-            avg_ld_enrl = _df_ld["Enrolled"].sum() / denom
-        avg_ld_enrl_txt = "{:,.2f}".format(avg_ld_enrl)
 
-        enrl = _df_M_ld[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I_ld['Enrolled'].tolist()
+        # calculate enrollments for each day/time/loc block
+        enrl = _df_M_ld[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+        # add in the online sections
+        enrl += _df_I_ld['Enrolled'].tolist()
+        # add in the F2F without day/time/loc (such as independent studies)
+        enrl += _df_M_ld[_df_M_ld['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+        avg_ld_enrl_txt = "{:,.2f}".format(np.mean(enrl))
         med_ld_enrl = median(enrl)
         med_ld_enrl_txt = '{:,.1f}'.format(med_ld_enrl)
     else:
@@ -880,13 +887,15 @@ def create_calc_row_layout(df):
         ud_courses_txt = "{:,.0f}".format(_df_ud["Class"].nunique())
         ud_waitlist_txt = '{:,.0f}'.format(_df_ud['WList'].sum())
         ud_enrollment_txt = '{:,.0f}'.format(_df_ud['Enrolled'].sum())
-        denom = _df_M_ud["DaysTimeLoc"].nunique() + _df_I_ud["CRN"].nunique()
-        avg_ud_enrl = 0
-        if denom:
-            avg_ud_enrl = _df_ud["Enrolled"].sum() / denom
-        avg_ud_enrl_txt = "{:,.2f}".format(avg_ud_enrl)
 
-        enrl = _df_M_ud[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist() + _df_I_ud['Enrolled'].tolist()
+        # calculate enrollments for each day/time/loc block
+        enrl = _df_M_ud[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+        # add in the online sections
+        enrl += _df_I_ud['Enrolled'].tolist()
+        # add in the F2F without day/time/loc (such as independent studies)
+        enrl += _df_M_ud[_df_M_ud['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+        avg_ud_enrl_txt = "{:,.2f}".format(np.mean(enrl))
         med_ud_enrl = median(enrl)
         med_ud_enrl_txt = '{:,.1f}'.format(med_ud_enrl)
     else:
@@ -1861,7 +1870,10 @@ def query_input_output(val, query):
 def apply_query(n_clicks, n_submit, dropdown_value, input_value):
     if DEBUG:
         print("function: apply_query")
-    if n_clicks > 0 or n_submit > 0:
+        print(type(n_clicks))
+        print(type(n_submit))
+    # if n_clicks > 0 or n_submit > 0:
+    if n_clicks or n_submit:
         if dropdown_value == 'custom':
             return [input_value]
         else:
@@ -1879,6 +1891,77 @@ def max_v_enrl_by_crn(data, fig):
     if data:
         df = pd.DataFrame(data).copy()
         df = df[df["Credit"] != 0]
+
+        # freq_dist = pd.DataFrame({'Enrolled': df['Enrolled'], 'Value': df['Enrolled']}).groupby('Enrolled').count()
+
+        # fig = make_subplots(rows=1, cols=2,
+                            # shared_yaxes=True,
+                            # column_widths=[.1,.9],
+                            # horizontal_spacing=0.0,
+                           # )
+
+        # fig.add_trace(
+            # go.Bar(
+                # name='Max',
+                # x = df['CRN'],
+                # y=df["Max"],
+                # customdata=df[['Max', 'Course', 'CRN', 'Instructor', 'Ratio', 'WList']],
+                # hovertemplate='<br>'.join([
+                    # "value: %{customdata[0]}",
+                    # "Course: %{customdata[1]}",
+                    # "CRN: %{customdata[2]}",
+                    # "Instructor: %{customdata[3]}",
+                    # "Ratio: %{customdata[4]}",
+                    # "WList: %{customdata[5]}",])+'<extra></extra>',
+            # ),
+            # row=1,col=2,
+        # )
+        # fig.add_trace(
+            # go.Bar(
+                # name='Enrolled',
+                # x=df['CRN'],
+                # y=df["Enrolled"],
+                # customdata=df[['Enrolled', 'Course', 'CRN', 'Instructor', 'Ratio', 'WList']],
+                # hovertemplate='<br>'.join([
+                    # "value: %{customdata[0]}",
+                    # "Course: %{customdata[1]}",
+                    # "CRN: %{customdata[2]}",
+                    # "Instructor: %{customdata[3]}",
+                    # "Ratio: %{customdata[4]}",
+                    # "WList: %{customdata[5]}",])+'<extra></extra>',
+            # ),
+            # row=1,col=2,
+        # )
+        # fig.add_trace(
+            # go.Scatter(
+                # # x=freq_dist['Value'].to_list(),
+                # x=[-1*_x for _x in freq_dist['Value'].to_list()],
+                # y=freq_dist.index.to_list(),
+                # customdata=pd.DataFrame({'x': freq_dist['Value'].to_list(), 'y': freq_dist.index.to_list()}),
+                # hovertemplate='<br>'.join([
+                    # 'Enrl: %{customdata[1]}',
+                    # 'Freq: %{customdata[0]}'])+'<extra></extra>',
+                # line=dict(color='#2a3f5d', width=1),
+            # ),
+            # row=1,col=1,
+        # )
+        # # fig.update_xaxes(categoryorder="max descending", showticklabels=True)
+        # fig.update_layout(
+            # showlegend=False,
+            # title="Enrollment per Section",
+            # xaxis={'showgrid': False, 'zeroline': False, 'showticklabels': False},
+            # # xaxis={'autorange': 'reversed', 'showgrid': False, 'zeroline': False, 'showticklabels': False},
+            # yaxis={'title': 'Enrolled', 'showgrid': False, 'zeroline': False, 'showticklabels': False},
+            # # xaxis_type="category",
+            # xaxis2={'title': 'CRN', 'categoryorder': 'max descending', 'type': 'category'},
+            # yaxis2={'showticklabels': True },
+            # # xaxis_title="CRN",
+            # # yaxis_title="Enrolled",
+            # barmode="overlay",
+            # margin=dict(l=10,r=80,b=15,t=100),
+        # )
+
+        # return fig
         return (
             px.bar(
                 df,
@@ -1974,15 +2057,25 @@ def graph_f2f(data, toggle, fig):
         # remove the zero credit hour sections
         df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
 
+        # capture all ASYNC meaning ({'Campus'} == 'I' && {'Time'} == 'TBA') || ({'Campus'} == 'M' && {'Time'} == 'TBA' && ({'Loc'} == 'ASYN' || {'Loc'} == 'ONLI' || {'Loc'} == 'MOST'))
+        i_df = df[df['Campus'] == 'I']
+        mask = i_df[i_df['Time'].str.contains('TBA')].index.to_list()
+        i_df = df[df['Campus'] == 'M']
+        i_df =i_df[i_df['Time'].str.contains('TBA')]
+        mask += i_df[i_df['Loc'].str.contains('ASYN') | i_df['Loc'].str.contains('ONLI') | i_df['Loc'].str.contains('MOST')].index.to_list()
+        a = df.loc[mask]
+
+        # capture all SYNC meaning ({'Campus'} == 'I' && {'Time'} != 'TBA') || ({'Campus'} == 'M' && {'Loc'} == 'SYNC')
+        i_df = df[df['Campus'] == 'I']
+        mask = i_df[~i_df['Time'].str.contains('TBA')].index.to_list()
+        i_df = df[df['Campus'] == 'M']
+        mask += i_df[i_df['Loc'].str.contains('SYNC')].index.to_list()
+        s = df.loc[mask]
+
         if toggle in ["Max", "Enrolled"]:
-            _df = df[["Loc", toggle]]
-            _df = _df.groupby("Loc", as_index=False).sum()
-            t = _df[toggle].sum()
-            # o = _df[_df["Loc"].str.startswith(["ASYN", "SYNC", "ONLI", "MOST"], na=False)][toggle].sum()
-            o = _df[_df["Loc"].str.startswith("ASYN", na=False)][toggle].sum() + _df[_df["Loc"].str.startswith("SYNC", na=False)][toggle].sum()+ _df[_df["Loc"].str.startswith("ONLI", na=False)][toggle].sum()+ _df[_df["Loc"].str.startswith("MOST", na=False)][toggle].sum()
-            # o = _df[_df["Loc"].isin(["ASYN  T", "SYNC  T", "ONLI  T", "MOST  T"])][toggle].sum()
-            # s = _df[_df["Loc"].isin(["SYNC  T"])][toggle].sum()
-            s = _df[_df["Loc"].str.startswith("SYNC", na=False)][toggle].sum()
+            a = a[toggle].sum()
+            s = s[toggle].sum()
+            t = df[toggle].sum()
 
             fig = make_subplots(rows=2,
                                 cols=1,
@@ -1990,11 +2083,11 @@ def graph_f2f(data, toggle, fig):
                                 vertical_spacing=0.15,
                                )
             fig.add_trace(go.Pie(labels=["Async", "Sync"],
-                                 values=[o-s, s],
+                                 values=[a, s],
                                  name="Async vs Sync"),
                           1, 1)
             fig.add_trace(go.Pie(labels=["F2F", "Online"],
-                                 values=[t-o, o],
+                                 values=[t-(a+s), a+s],
                                  name="F2F vs Online"),
                           2, 1)
             fig.update_traces(hole=.7, hoverinfo="label+value+percent")
@@ -2023,10 +2116,9 @@ def graph_f2f(data, toggle, fig):
             )
 
         if toggle in ["Section"]:
-            _df = df[["Campus"]]
-            t = _df["Campus"].count()
-            o = _df[_df["Campus"].isin(["I"])]["Campus"].count()
-            s = _df[_df["Campus"].isin(["M"])]["Campus"].count()
+            a = a[toggle].count()
+            s = s[toggle].count()
+            t = df[toggle].count()
 
             fig = make_subplots(rows=2,
                                 cols=1,
@@ -2034,7 +2126,7 @@ def graph_f2f(data, toggle, fig):
                                 vertical_spacing=0.15,
                                )
             fig.add_trace(go.Pie(labels=["F2F", "Online"],
-                                 values=[t-o, o],
+                                 values=[t-(a+s), a+s],
                                  name="F2F vs Online"),
                           2, 1)
             fig.update_traces(hole=.7, hoverinfo="label+value+percent")
