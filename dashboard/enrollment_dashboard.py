@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = True
+DEBUG = False
 mathserver = False
 
 # Include pretty graph formatting
@@ -54,6 +54,28 @@ def median(nums):
         middle2 = len(nums) // 2
         return (nums[middle1] + nums[middle2]) / 2
     return 0
+
+
+def multi_mode(lst):
+
+    if len(lst) == 0:
+        return [0]
+
+    frequencies = {}
+
+    for num in lst:
+        frequencies[num] = frequencies.get(num,0) + 1
+
+    mode = max([value for value in frequencies.values()])
+
+    modes = []
+
+    for key in frequencies.keys():
+        if frequencies[key] == mode:
+            modes.append(key)
+
+    modes = sorted(modes)
+    return modes[:5]
 
 
 # blank figure when no data is present
@@ -793,331 +815,228 @@ def create_datatable(df):
         )
     ]
 
+def freq_dist_graph(data, m):
+
+    if len(data):
+
+        freq_dist = pd.DataFrame({'Enrolled': data, 'Value': data}).groupby('Enrolled').count()
+
+        X=freq_dist.index.to_list()
+        Y=freq_dist['Value'].to_list()
+
+    else:
+        X = []
+        Y = []
+
+    fig = make_subplots(rows=1, cols=1,)
+    fig.add_trace(
+        go.Bar(
+            x=X,
+            y=Y,
+            customdata=pd.DataFrame({'x': X, 'y': Y}),
+            hovertemplate='<br>'.join([
+                'Enrl: %{customdata[0]}',
+                'Freq: %{customdata[1]}'])+'<extra></extra>',
+            marker=dict(color=['#2a3f5d',],),
+        ),
+        row=1,col=1,
+    )
+    fig.update_layout(
+        showlegend=False,
+        xaxis_range=[0,m],
+        xaxis={
+            'showgrid': False,
+            'showticklabels': False,
+            'zeroline': False,
+        },
+        yaxis={
+            'showgrid': False,
+            'showticklabels': False,
+            'zerolinecolor': '#2a3f5d',
+            'zerolinewidth': 1,
+        },
+        margin=dict(l=10,r=10,b=10,t=10),
+        height=50,
+        paper_bgcolor='#f9f9f9',
+        plot_bgcolor='#f9f9f9',
+    )
+
+    return fig
+
+def summary_stats(df, category, m):
+
+    sections = 0
+    courses = 0
+    waitlist = 0
+    enrolled = 0
+    avg_enrl = 0
+    med_enrl = 0
+    mod_enrl = [0]
+    fig=freq_dist_graph([], 0)
+
+    if not df.empty:
+
+        # only use active courses
+        df = df[df['S'] == 'A']
+
+        if category == 'Lab':
+            df = df[df['Calc'] == 'L']
+
+            sections = df["CRN"].nunique()
+            courses = df["Class"].nunique()
+            waitlist = df['WList'].sum()
+            enrolled = df['Enrolled'].sum()
+            avg_enrl = df["Enrolled"].mean()
+            if np.isnan(avg_enrl):
+                avg_enrl = 0
+            med_enrl = df["Enrolled"].median()
+            if np.isnan(med_enrl):
+                med_enrl = 0
+            mod_enrl = multi_mode(df['Enrolled'].to_list())
+            fig=freq_dist_graph(df['Enrolled'].to_list(), m)
+
+
+        else:
+            df_labs = df[df['Calc']=='L']
+            lab_sections = df_labs["CRN"].nunique()
+            lab_courses = df_labs["Class"].nunique()
+
+            # only courses that we want included in calculations
+            df = df[df['Calc'] == 'Y']
+
+            # face-to-face courses
+            df_M = df[(df["Campus"]=="M")]
+
+            # online courses
+            df_I = df[(df["Campus"]=="I")]
+
+            sections = df["CRN"].nunique() - lab_sections
+            if sections > 0:
+                courses = df["Class"].nunique() - lab_courses
+                waitlist = df['WList'].sum()
+                enrolled = df['Enrolled'].sum()
+
+                # calculate enrollments for each day/time/loc block
+                enrl = df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+                # add in the online sections
+                enrl += df_I['Enrolled'].tolist()
+                # add in the F2F without day/time/loc (such as independent studies)
+                enrl += df_M[df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+                avg_enrl = np.mean(enrl)
+                med_enrl = median(enrl)
+                mod_enrl = multi_mode(enrl)
+                fig=freq_dist_graph(enrl, m)
+            else:
+                sections = 0
+
+
+    children=[
+        html.H6(category + " Enrollment"),
+        html.Table([
+            html.Tr([
+                html.Td(["Sections: "]),
+                html.Td([
+                    "{:,.0f}".format(sections)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Courses: "]),
+                html.Td([
+                    "{:,.0f}".format(courses)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Waitlist: "]),
+                html.Td([
+                    '{:,.0f}'.format(waitlist)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Total: "]),
+                html.Td([
+                    '{:,.0f}'.format(enrolled)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Mean: "]),
+                html.Td([
+                    "{:,.2f}".format(avg_enrl)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Median: "]),
+                html.Td([
+                    '{:,.1f}'.format(med_enrl)
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Mode: "]),
+                html.Td([
+                    ', '.join(['{:,.0f}'.format(_x) for _x in mod_enrl]),
+                ],
+                    style={'text-align':'right'},
+                ),
+            ]),
+        ],
+            style={'width':'100%'},
+        ),
+        html.Div([
+            dcc.Graph(
+                figure=fig,
+                config={
+                    'displaylogo': False,
+                    'displayModeBar': False,
+                    'showAxisDragHandles': False,
+                },
+            )
+        ],
+            style={'width': '95%'},
+        ),
+    ]
+    return children
+
 def create_calc_row_layout(df):
 
-    df_ld = df[df['Number'] < '3000']
-    df_ud = df[df['Number'] >= '3000']
-
-    # only use active courses
-    _df = df[df['S'] == 'A']
-
-    _df_labs = _df[_df['Calc'] == 'L']
-    lab_sections = _df_labs["CRN"].nunique()
-    lab_sections_txt = "{:,.0f}".format(lab_sections)
-    lab_courses = _df_labs["Class"].nunique()
-    lab_courses_txt = "{:,.0f}".format(lab_courses)
-    lab_waitlist_txt = '{:,.0f}'.format(_df_labs['WList'].sum())
-    lab_enrollment_txt = '{:,.0f}'.format(_df_labs['Enrolled'].sum())
-    avg_lab_enrl = _df_labs["Enrolled"].mean()
-    if np.isnan(avg_lab_enrl):
-        avg_lab_enrl = 0
-    avg_lab_enrl_txt = "{:,.2f}".format(avg_lab_enrl)
-    med_lab_enrl = _df_labs["Enrolled"].median()
-    if np.isnan(med_lab_enrl):
-        med_lab_enrl = 0
-    med_lab_enrl_txt = '{:,.1f}'.format(med_lab_enrl)
-
-    # only courses that we want included in calculations
-    _df = df[df['Calc'] == 'Y']
-
-    _df_M = _df[(_df["Campus"]=="M")]
-    _df_I = _df[(_df["Campus"]=="I")]
-    total_sections = _df["CRN"].nunique() - lab_sections
-    if total_sections > 0:
-        total_sections_txt = "{:,.0f}".format(total_sections)
-        total_courses = _df["Class"].nunique() - lab_courses
-        total_courses_txt = "{:,.0f}".format(total_courses)
-        total_waitlist_txt = '{:,.0f}'.format(_df['WList'].sum())
-        total_enrollment_txt = '{:,.0f}'.format(_df['Enrolled'].sum())
-
-        # calculate enrollments for each day/time/loc block
-        enrl = _df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
-        # add in the online sections
-        enrl += _df_I['Enrolled'].tolist()
-        # add in the F2F without day/time/loc (such as independent studies)
-        enrl += _df_M[_df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
-
-        avg_enrl_txt = "{:,.2f}".format(np.mean(enrl))
-        med_enrl = median(enrl)
-        med_enrl_txt = '{:,.1f}'.format(med_enrl)
-    else:
-        total_sections_txt = "{:,.0f}".format(0)
-        total_courses_txt = "{:,.0f}".format(0)
-        total_waitlist_txt = '{:,.0f}'.format(0)
-        total_enrollment_txt = '{:,.0f}'.format(0)
-        avg_enrl_txt = "{:,.2f}".format(0)
-        med_enrl_txt = '{:,.1f}'.format(0)
-
-    _df_ld = _df[_df['Number'] < '3000']
-    _df_M_ld = _df_ld[(_df_ld["Campus"]=="M")]
-    _df_I_ld = _df_ld[(_df_ld["Campus"]=="I")]
-    ld_sections = _df_ld["CRN"].nunique() - lab_sections
-    if ld_sections > 0:
-        ld_sections_txt = "{:,.0f}".format(ld_sections)
-        ld_courses = _df_ld["Class"].nunique() - lab_courses
-        ld_courses_txt = "{:,.0f}".format(ld_courses)
-        ld_waitlist_txt = '{:,.0f}'.format(_df_ld['WList'].sum())
-        ld_enrollment_txt = '{:,.0f}'.format(_df_ld['Enrolled'].sum())
-
-        # calculate enrollments for each day/time/loc block
-        enrl = _df_M_ld[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
-        # add in the online sections
-        enrl += _df_I_ld['Enrolled'].tolist()
-        # add in the F2F without day/time/loc (such as independent studies)
-        enrl += _df_M_ld[_df_M_ld['DaysTimeLoc'].isna()]['Enrolled'].to_list()
-
-        avg_ld_enrl_txt = "{:,.2f}".format(np.mean(enrl))
-        med_ld_enrl = median(enrl)
-        med_ld_enrl_txt = '{:,.1f}'.format(med_ld_enrl)
-    else:
-        ld_sections_txt = "{:,.0f}".format(0)
-        ld_courses_txt = "{:,.0f}".format(0)
-        ld_waitlist_txt = '{:,.0f}'.format(0)
-        ld_enrollment_txt = '{:,.0f}'.format(0)
-        avg_ld_enrl_txt = "{:,.2f}".format(0)
-        med_ld_enrl_txt = '{:,.1f}'.format(0)
-
-
-    _df_ud = _df[_df['Number'] >= '3000']
-    _df_M_ud = _df_ud[(_df_ud["Campus"]=="M")]
-    _df_I_ud = _df_ud[(_df_ud["Campus"]=="I")]
-    ud_sections = _df_ud["CRN"].nunique()
-    if ud_sections > 0:
-        ud_sections_txt = "{:,.0f}".format(ud_sections)
-        ud_courses_txt = "{:,.0f}".format(_df_ud["Class"].nunique())
-        ud_waitlist_txt = '{:,.0f}'.format(_df_ud['WList'].sum())
-        ud_enrollment_txt = '{:,.0f}'.format(_df_ud['Enrolled'].sum())
-
-        # calculate enrollments for each day/time/loc block
-        enrl = _df_M_ud[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
-        # add in the online sections
-        enrl += _df_I_ud['Enrolled'].tolist()
-        # add in the F2F without day/time/loc (such as independent studies)
-        enrl += _df_M_ud[_df_M_ud['DaysTimeLoc'].isna()]['Enrolled'].to_list()
-
-        avg_ud_enrl_txt = "{:,.2f}".format(np.mean(enrl))
-        med_ud_enrl = median(enrl)
-        med_ud_enrl_txt = '{:,.1f}'.format(med_ud_enrl)
-    else:
-        ud_sections_txt = "{:,.0f}".format(0)
-        ud_courses_txt = "{:,.0f}".format(0)
-        ud_waitlist_txt = '{:,.0f}'.format(0)
-        ud_enrollment_txt = '{:,.0f}'.format(0)
-        avg_ud_enrl_txt = "{:,.2f}".format(0)
-        med_ud_enrl_txt = '{:,.1f}'.format(0)
-
+    max_enrl = 0
+    if not df.empty:
+        max_enrl = df['Enrolled'].max()
 
     children=[
         html.Div([
             html.Div([
-                html.Div([
-                    html.H6("Total Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td([total_sections_txt],
-                                style={'text-align':'right'},
-                                id="calc_total_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td([total_courses_txt],
-                                style={'text-align':'right'},
-                                id="calc_total_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td([total_waitlist_txt],
-                                style={'text-align':'right'},
-                                id="calc_total_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td([total_enrollment_txt],
-                                style={'text-align':'right'},
-                                id="calc_total_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td([avg_enrl_txt],
-                                style={'text-align':'right'},
-                                id="calc_avg_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td([med_enrl_txt],
-                                style={'text-align':'right'},
-                                id="calc_med_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(df, 'Total', max_enrl),
                     id="calc_total_enrollment",
                     className="mini_container",
                     style={'width': '17.5%'},
                 ),
-                html.Div([
-                    html.H6("LD Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td([ld_sections_txt],
-                                style={'text-align':'right'},
-                                id="ld_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td([ld_courses_txt],
-                                style={'text-align':'right'},
-                                id="ld_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td([ld_waitlist_txt],
-                                style={'text-align':'right'},
-                                id="ld_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td([ld_enrollment_txt],
-                                style={'text-align':'right'},
-                                id="ld_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td([avg_ld_enrl_txt],
-                                style={'text-align':'right'},
-                                id="avg_ld_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td([med_ld_enrl_txt],
-                                style={'text-align':'right'},
-                                id="med_ld_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(df[df['Number'] < '3000'], 'LD', max_enrl),
                     id="ld_enrollment",
                     className="mini_container",
                     style={'width': '17.5%'},
                 ),
-                html.Div([
-                    html.H6("UD Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td([ud_sections_txt],
-                                style={'text-align':'right'},
-                                id="ud_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td([ud_courses_txt],
-                                style={'text-align':'right'},
-                                id="ud_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td([ud_waitlist_txt],
-                                style={'text-align':'right'},
-                                id="ud_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td([ud_enrollment_txt],
-                                style={'text-align':'right'},
-                                id="ud_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td([avg_ud_enrl_txt],
-                                style={'text-align':'right'},
-                                id="avg_ud_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td([med_ud_enrl_txt],
-                                style={'text-align':'right'},
-                                id="med_ud_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(df[df['Number'] >= '3000'], 'UD', max_enrl),
                     id="ud_enrollment",
                     className="mini_container",
                     style={'width': '17.5%'},
                 ),
-                html.Div([
-                    html.H6("Lab Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td([lab_sections],
-                                style={'text-align':'right'},
-                                id="lab_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td([lab_courses],
-                                style={'text-align':'right'},
-                                id="lab_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td([lab_waitlist_txt],
-                                style={'text-align':'right'},
-                                id="lab_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td([lab_enrollment_txt],
-                                style={'text-align':'right'},
-                                id="lab_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td([avg_lab_enrl_txt],
-                                style={'text-align':'right'},
-                                id="avg_lab_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td([med_lab_enrl_txt],
-                                style={'text-align':'right'},
-                                id="med_lab_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(df, 'Lab', max_enrl),
                     id="lab_enrollment",
                     className="mini_container",
                     style={'width': '17.5%'},
@@ -1126,8 +1045,9 @@ def create_calc_row_layout(df):
                     html.H6("Notes:"),
                     html.Ul([
                     html.Li([
-                        "Lab enrollments, marked with an 'L' in the datatable,  are not included in \
-                        Total, Lower, or Upper Division calculations."]),
+                        "Lab enrollments, marked with an 'L' in the datatable,  \
+                        are not included in Total, Lower, or Upper Division \
+                        calculations."]),
                     html.Li([
                         "Rows marked with an 'N' in the datatable are not \
                         included in Total, Lower, or Upper Division \
@@ -1139,7 +1059,7 @@ def create_calc_row_layout(df):
                     style={'width': '30%'},
                 ),
             ],
-            style={'display': 'flex'},
+                style={'display': 'flex'},
             ),
         ],
             className="pretty_container twelve columns",
@@ -1149,7 +1069,6 @@ def create_calc_row_layout(df):
     return children
 
 
-
 # Create app layout
 app.layout = html.Div([
     html.Div([
@@ -1157,12 +1076,12 @@ app.layout = html.Div([
                  src=app.get_asset_url('msudenver-logo.png')),
         html.Div([
                 html.H3(
-                    "SWRCGSR Enrollment",
+                    "Enrollment Report",
                     id="title-report-semester",
                     style={"marginBottom": "0px"},
                 ),
                 html.H5(
-                    "Statistics and Graphs",
+                    "",
                     id='stats-graph-title',
                     style={"marginTop": "0px"}
                 ),
@@ -1270,217 +1189,25 @@ app.layout = html.Div([
     html.Div([
         html.Div([
             html.Div([
-                html.Div([
-                    html.H6("Total Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="calc_total_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="calc_total_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="calc_total_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="calc_total_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td(["0.00"],
-                                style={'text-align':'right'},
-                                id="calc_avg_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td(["0.0"],
-                                style={'text-align':'right'},
-                                id="calc_med_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
                     id="calc_total_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
+                    className="mini_container two columns",
                 ),
-                html.Div([
-                    html.H6("LD Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ld_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ld_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ld_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ld_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td(["0.00"],
-                                style={'text-align':'right'},
-                                id="avg_ld_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td(["0.0"],
-                                style={'text-align':'right'},
-                                id="med_ld_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
                     id="ld_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
+                    className="mini_container two columns",
                 ),
-                html.Div([
-                    html.H6("UD Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ud_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ud_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ud_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="ud_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td(["0.00"],
-                                style={'text-align':'right'},
-                                id="avg_ud_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td(["0.0"],
-                                style={'text-align':'right'},
-                                id="med_ud_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
                     id="ud_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
+                    className="mini_container two columns",
                 ),
-                html.Div([
-                    html.H6("Lab Enrollment"),
-                    html.Table([
-                        html.Tr([
-                            html.Td(["Sections: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="lab_sections_text",
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Courses: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="lab_courses_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Waitlist: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="lab_waitlist_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Total: "]),
-                            html.Td(["0"],
-                                style={'text-align':'right'},
-                                id="lab_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Mean: "]),
-                            html.Td(["0.00"],
-                                style={'text-align':'right'},
-                                id="avg_lab_enrollment_text"
-                            ),
-                        ]),
-                        html.Tr([
-                            html.Td(["Median: "]),
-                            html.Td(["0.0"],
-                                style={'text-align':'right'},
-                                id="med_lab_enrollment_text"
-                            ),
-                        ]),
-                    ],
-                        style={'width':'100%'},
-                    ),
-                ],
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
                     id="lab_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
+                    className="mini_container two columns",
                 ),
                 html.Div([
                     html.H6("Notes:"),
@@ -1495,8 +1222,7 @@ app.layout = html.Div([
                     ]),
                 ],
                     id="notes_enrollment",
-                    className="mini_container",
-                    style={'width': '30%'},
+                    className="mini_container four columns",
                 ),
             ],
             style={'display': 'flex'},
@@ -1765,15 +1491,15 @@ def initial_data_loading(contents, n_clicks, filename, date):
                        break
 
         data_children = create_datatable(df)
-        stats_graph_title = "Statistics and Graphs: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper()
-        title_report_semester = "SWRCGSR Enrollment for " + report_term
+        title_report_semester = "Enrollment Report for " + report_term
+        stats_graph_title = "Date of report: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper()
         fullscreen = False
         n_clicks = 1
     else:
         data_children = []
         report_term = ''
         term_code = ''
-        stats_graph_title = "Statistics and Graphs"
+        stats_graph_title = ""
         fullscreen = True
         n_clicks = 0
 
@@ -1870,8 +1596,6 @@ def query_input_output(val, query):
 def apply_query(n_clicks, n_submit, dropdown_value, input_value):
     if DEBUG:
         print("function: apply_query")
-        print(type(n_clicks))
-        print(type(n_submit))
     # if n_clicks > 0 or n_submit > 0:
     if n_clicks or n_submit:
         if dropdown_value == 'custom':
@@ -1892,76 +1616,6 @@ def max_v_enrl_by_crn(data, fig):
         df = pd.DataFrame(data).copy()
         df = df[df["Credit"] != 0]
 
-        # freq_dist = pd.DataFrame({'Enrolled': df['Enrolled'], 'Value': df['Enrolled']}).groupby('Enrolled').count()
-
-        # fig = make_subplots(rows=1, cols=2,
-                            # shared_yaxes=True,
-                            # column_widths=[.1,.9],
-                            # horizontal_spacing=0.0,
-                           # )
-
-        # fig.add_trace(
-            # go.Bar(
-                # name='Max',
-                # x = df['CRN'],
-                # y=df["Max"],
-                # customdata=df[['Max', 'Course', 'CRN', 'Instructor', 'Ratio', 'WList']],
-                # hovertemplate='<br>'.join([
-                    # "value: %{customdata[0]}",
-                    # "Course: %{customdata[1]}",
-                    # "CRN: %{customdata[2]}",
-                    # "Instructor: %{customdata[3]}",
-                    # "Ratio: %{customdata[4]}",
-                    # "WList: %{customdata[5]}",])+'<extra></extra>',
-            # ),
-            # row=1,col=2,
-        # )
-        # fig.add_trace(
-            # go.Bar(
-                # name='Enrolled',
-                # x=df['CRN'],
-                # y=df["Enrolled"],
-                # customdata=df[['Enrolled', 'Course', 'CRN', 'Instructor', 'Ratio', 'WList']],
-                # hovertemplate='<br>'.join([
-                    # "value: %{customdata[0]}",
-                    # "Course: %{customdata[1]}",
-                    # "CRN: %{customdata[2]}",
-                    # "Instructor: %{customdata[3]}",
-                    # "Ratio: %{customdata[4]}",
-                    # "WList: %{customdata[5]}",])+'<extra></extra>',
-            # ),
-            # row=1,col=2,
-        # )
-        # fig.add_trace(
-            # go.Scatter(
-                # # x=freq_dist['Value'].to_list(),
-                # x=[-1*_x for _x in freq_dist['Value'].to_list()],
-                # y=freq_dist.index.to_list(),
-                # customdata=pd.DataFrame({'x': freq_dist['Value'].to_list(), 'y': freq_dist.index.to_list()}),
-                # hovertemplate='<br>'.join([
-                    # 'Enrl: %{customdata[1]}',
-                    # 'Freq: %{customdata[0]}'])+'<extra></extra>',
-                # line=dict(color='#2a3f5d', width=1),
-            # ),
-            # row=1,col=1,
-        # )
-        # # fig.update_xaxes(categoryorder="max descending", showticklabels=True)
-        # fig.update_layout(
-            # showlegend=False,
-            # title="Enrollment per Section",
-            # xaxis={'showgrid': False, 'zeroline': False, 'showticklabels': False},
-            # # xaxis={'autorange': 'reversed', 'showgrid': False, 'zeroline': False, 'showticklabels': False},
-            # yaxis={'title': 'Enrolled', 'showgrid': False, 'zeroline': False, 'showticklabels': False},
-            # # xaxis_type="category",
-            # xaxis2={'title': 'CRN', 'categoryorder': 'max descending', 'type': 'category'},
-            # yaxis2={'showticklabels': True },
-            # # xaxis_title="CRN",
-            # # yaxis_title="Enrolled",
-            # barmode="overlay",
-            # margin=dict(l=10,r=80,b=15,t=100),
-        # )
-
-        # return fig
         return (
             px.bar(
                 df,
@@ -1997,7 +1651,7 @@ def max_v_enrl_by_crn(data, fig):
 )
 def calc_row(data, children):
     if data:
-        df = pd.DataFrame(data).copy()
+        df = pd.DataFrame(data)
         return create_calc_row_layout(df)
     else:
         return children
