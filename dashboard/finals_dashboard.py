@@ -1714,6 +1714,21 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
     if _indexFilter:
         df_enrollment.loc[_indexFilter, 'Error'] += 'C'
 
+
+    # need to check if the only error code is 6 but there may be enough capacity
+    # in the room so remove the error
+    _indexFilter = df_enrollment[df_enrollment['Error'] == '6'].index.tolist()
+    df_tmp = df_enrollment[df_enrollment['Error'] == '6']
+    rms = df_enrollment[df_enrollment['Error'] == '6']['Final_Loc'].unique()
+    # rms = df_tmp['Final_Loc'].unique()
+    for r in rms:
+        cap_enrl = df_tmp[df_tmp['Final_Loc'] == r]['Enrolled'].sum()
+        cap_rm = int(df_rooms[df_rooms['Room'] == r]['Cap'])
+        if cap_enrl <= cap_rm:
+            for row in _indexFilter:
+                df_enrollment.loc[row, 'Error'] = ''
+
+
     df = df_enrollment[['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
                        'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error']]
 

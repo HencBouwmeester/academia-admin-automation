@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 # Include pretty graph formatting
@@ -75,7 +75,7 @@ def multi_mode(lst):
             modes.append(key)
 
     modes = sorted(modes)
-    return modes[:5]
+    return modes[:3]
 
 
 # blank figure when no data is present
@@ -321,6 +321,11 @@ def tidy_txt(file_contents):
     # reset index and remove old index column
     _df = _df.reset_index()
     _df = _df.drop([_df.columns[0]], axis=1)
+
+    # change PTCR for 1081s, 1311s, 1111s, and 1115s to 0
+    for nmbr in ["1081", "1111", "1115", "1311"]:
+        for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains(nmbr) & _df["S"].str.contains("A")].index.tolist():
+            _df.loc[row, "PTCR"] = 0
 
     # change all online final flags to N since they do not need a room
     for row in _df[_df["Cam"].str.startswith("I", na=False)].index.tolist():
@@ -843,7 +848,7 @@ def freq_dist_graph(data, m):
     )
     fig.update_layout(
         showlegend=False,
-        xaxis_range=[0,m],
+        xaxis_range=[0, m],
         xaxis={
             'showgrid': False,
             'showticklabels': False,
@@ -855,7 +860,7 @@ def freq_dist_graph(data, m):
             'zerolinecolor': '#2a3f5d',
             'zerolinewidth': 1,
         },
-        margin=dict(l=10,r=10,b=10,t=10),
+        margin=dict(l=10, r=10, b=10, t=10),
         height=50,
         paper_bgcolor='#f9f9f9',
         plot_bgcolor='#f9f9f9',
@@ -1014,50 +1019,67 @@ def create_calc_row_layout(df):
     if not df.empty:
         max_enrl = df['Enrolled'].max()
 
+    mask_1000 = df[df['Number'].str.startswith('1')].index.to_list()
+    mask_2000 = df[df['Number'].str.startswith('2')].index.to_list()
+    mask_3000 = df[df['Number'].str.startswith('3')].index.to_list()
+    mask_4000 = df[df['Number'].str.startswith('4')].index.to_list()
+
     children=[
         html.Div([
             html.Div([
-                html.Div(
-                    summary_stats(df, 'Total', max_enrl),
-                    id="calc_total_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
-                ),
-                html.Div(
-                    summary_stats(df[df['Number'] < '3000'], 'LD', max_enrl),
-                    id="ld_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
-                ),
-                html.Div(
-                    summary_stats(df[df['Number'] >= '3000'], 'UD', max_enrl),
-                    id="ud_enrollment",
-                    className="mini_container",
-                    style={'width': '17.5%'},
-                ),
                 html.Div(
                     summary_stats(df, 'Lab', max_enrl),
                     id="lab_enrollment",
                     className="mini_container",
                     style={'width': '17.5%'},
                 ),
-                html.Div([
-                    html.H6("Notes:"),
-                    html.Ul([
-                    html.Li([
-                        "Lab enrollments, marked with an 'L' in the datatable,  \
-                        are not included in Total, Lower, or Upper Division \
-                        calculations."]),
-                    html.Li([
-                        "Rows marked with an 'N' in the datatable are not \
-                        included in Total, Lower, or Upper Division \
-                        calculations."]),
-                    ]),
-                ],
-                    id="notes_enrollment",
+                html.Div(
+                    summary_stats(df.loc[mask_1000], '1000', max_enrl),
+                    id="1000_enrollment",
                     className="mini_container",
-                    style={'width': '30%'},
+                    style={'width': '17.5%'},
                 ),
+                html.Div(
+                    summary_stats(df.loc[mask_2000], '2000', max_enrl),
+                    id="2000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_3000], '3000', max_enrl),
+                    id="3000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_4000], '4000', max_enrl),
+                    id="4000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df, 'Total', max_enrl),
+                    id="calc_total_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                # html.Div([
+                    # html.H6("Notes:"),
+                    # html.Ul([
+                    # html.Li([
+                        # "Lab enrollments, marked with an 'L' in the datatable,  \
+                        # are not included in Total, Lower, or Upper Division \
+                        # calculations."]),
+                    # html.Li([
+                        # "Rows marked with an 'N' in the datatable are not \
+                        # included in Total, Lower, or Upper Division \
+                        # calculations."]),
+                    # ]),
+                # ],
+                    # id="notes_enrollment",
+                    # className="mini_container",
+                    # style={'width': '30%'},
+                # ),
             ],
                 style={'display': 'flex'},
             ),
@@ -1191,39 +1213,49 @@ app.layout = html.Div([
             html.Div([
                 html.Div(
                     summary_stats(pd.DataFrame(), '', 0),
-                    id="calc_total_enrollment",
-                    className="mini_container two columns",
-                ),
-                html.Div(
-                    summary_stats(pd.DataFrame(), '', 0),
-                    id="ld_enrollment",
-                    className="mini_container two columns",
-                ),
-                html.Div(
-                    summary_stats(pd.DataFrame(), '', 0),
-                    id="ud_enrollment",
-                    className="mini_container two columns",
-                ),
-                html.Div(
-                    summary_stats(pd.DataFrame(), '', 0),
                     id="lab_enrollment",
                     className="mini_container two columns",
                 ),
-                html.Div([
-                    html.H6("Notes:"),
-                    html.Ul([
-                    html.Li([
-                        "Lab enrollments are not included in Total, Lower, \
-                        or Upper Division calculations."]),
-                    html.Li([
-                        "Rows marked with an 'N' in the datatable are not \
-                        included in Total, Lower, or Upper Division \
-                        calculations."]),
-                    ]),
-                ],
-                    id="notes_enrollment",
-                    className="mini_container four columns",
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
+                    id="1000_enrollment",
+                    className="mini_container two columns",
                 ),
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
+                    id="2000_enrollment",
+                    className="mini_container two columns",
+                ),
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
+                    id="3000_enrollment",
+                    className="mini_container two columns",
+                ),
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
+                    id="4000_enrollment",
+                    className="mini_container two columns",
+                ),
+                html.Div(
+                    summary_stats(pd.DataFrame(), '', 0),
+                    id="calc_total_enrollment",
+                    className="mini_container two columns",
+                ),
+                # html.Div([
+                    # html.H6("Notes:"),
+                    # html.Ul([
+                    # html.Li([
+                        # "Lab enrollments are not included in Total, Lower, \
+                        # or Upper Division calculations."]),
+                    # html.Li([
+                        # "Rows marked with an 'N' in the datatable are not \
+                        # included in Total, Lower, or Upper Division \
+                        # calculations."]),
+                    # ]),
+                # ],
+                    # id="notes_enrollment",
+                    # className="mini_container four columns",
+                # ),
             ],
             style={'display': 'flex'},
             ),
