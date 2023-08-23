@@ -14,8 +14,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = True
+DEBUG = False
 mathserver = False
+
+if DEBUG:
+    print('Dash Version: {:s}'.format(dash.__version__))
 
 # Include pretty graph formatting
 pio.templates.default = 'plotly_white'
@@ -45,6 +48,7 @@ if mathserver:
 
 df = pd.DataFrame()
 
+# Helper Functions
 def median(nums):
     if len(nums):
         if len(nums) == 1:
@@ -78,26 +82,6 @@ def multi_mode(lst):
     return modes[:3]
 
 
-# blank figure when no data is present
-blankFigure={
-    'data': [],
-    'layout': go.Layout(
-        xaxis={
-            'showticklabels': False,
-            'ticks': '',
-            'showgrid': False,
-            'zeroline': False
-        },
-        yaxis={
-            'showticklabels': False,
-            'ticks': '',
-            'showgrid': False,
-            'zeroline': False
-        }
-    )
-}
-
-# Helper Functions
 def data_bars(column_data, column_apply):
     n_bins = 100
     bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]
@@ -129,6 +113,26 @@ def data_bars(column_data, column_apply):
         })
 
     return styles
+
+
+# blank figure when no data is present
+blankFigure={
+    'data': [],
+    'layout': go.Layout(
+        xaxis={
+            'showticklabels': False,
+            'ticks': '',
+            'showgrid': False,
+            'zeroline': False
+        },
+        yaxis={
+            'showticklabels': False,
+            'ticks': '',
+            'showgrid': False,
+            'zeroline': False
+        }
+    )
+}
 
 def updateTitles(df):
     course_titles = [
@@ -212,6 +216,8 @@ def updateTitles(df):
     return df
 
 def convertAMPMtime(timeslot):
+    if DEBUG:
+        print("function: convertAMPMtime")
     """Convert time format from 12hr to 24hr and account for TBA times.
 
     Args:
@@ -235,6 +241,8 @@ def convertAMPMtime(timeslot):
     return timeslot
 
 def tidy_txt(file_contents):
+    if DEBUG:
+        print("function: tidy_txt")
     """Take in SWRCGSR output and format into pandas-compatible format.
 
     Args:
@@ -386,6 +394,8 @@ def tidy_txt(file_contents):
     return _df, term_code, data_date
 
 def tidy_csv(file_contents):
+    if DEBUG:
+        print("function: tidy_csv")
     """ Converts the CSV format to the TXT format from Banner
 
     Args:
@@ -416,6 +426,8 @@ def tidy_csv(file_contents):
     return tidy_txt(io.StringIO("\n".join(_list)))
 
 def tidy_xlsx(file_contents):
+    if DEBUG:
+        print("function: tidy_xlsx")
     """ Converts an Excel Spreadsheet
 
     Make sure that you copy and paste all data as values before trying to import.
@@ -577,7 +589,7 @@ def to_excel(df, report_term):
 
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
-        xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
+        xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
     )
     _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
@@ -662,13 +674,15 @@ def to_excel(df, report_term):
     )
 
     # Save it
-    writer.save()
+    writer.close()
     xlsx_io.seek(0)
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
     return data
 
 def parse_contents(contents, filename, date):
+    if DEBUG:
+        print("function: parse_contents")
     """Assess filetype of uploaded file and pass to appropriate processing functions,
     then return html of enrollment statistics.
 
@@ -842,7 +856,7 @@ def freq_dist_graph(data, m):
             hovertemplate='<br>'.join([
                 'Enrl: %{customdata[0]}',
                 'Freq: %{customdata[1]}'])+'<extra></extra>',
-            marker=dict(color=['#2a3f5d',],),
+            marker=dict(color=['#2a3f5d',],),  ##### BUG
         ),
         row=1,col=1,
     )
@@ -1090,6 +1104,35 @@ def create_calc_row_layout(df):
 
     return children
 
+def labs_combined(df):
+    # Combine Max, Enrollments, and WaitLists for Co-Requisite Labs with their parents
+
+    # only use the active courses
+    df = df[df["S"]=="A"]
+
+    parent_lab = {"1080": "1081", "1110": "1111", "1112": "1115", "1310": "1311"}
+    # filter for parent sections
+    for parent in parent_lab.keys():
+        mask_parents = (df['Number'] == parent)
+
+        #filter for lab sections
+        mask_labs = (df['Number'] == parent_lab[parent])
+        for row_p in df[mask_parents].index.tolist():
+            for row_l in df[mask_labs].index.tolist():
+                if (df.loc[row_p, 'Days'] == df.loc[row_l, 'Days']) and (df.loc[row_p, 'Time'] == df.loc[row_l, 'Time']) and (df.loc[row_p, 'Loc'] == df.loc[row_l, 'Loc']):
+                    df.loc[row_p, 'Max'] += df.loc[row_l, 'Max']
+                    df.loc[row_p, 'Enrolled'] += df.loc[row_l, 'Enrolled']
+                    df.loc[row_p, 'WList'] += df.loc[row_l, 'WList']
+
+                    # recalculate the CHP and Ratio
+                    df.loc[row_p, 'CHP'] = df.loc[row_p, 'Credit'] * df.loc[row_p, 'Enrolled']
+                    df.loc[row_p, 'Ratio'] = 100 * df.loc[row_p, 'Enrolled'] / df.loc[row_p, 'Max']
+
+    # remove the lab sections from the data
+    for lab in parent_lab.values():
+        df.drop(df[df['Number'] == lab].index, inplace=True)
+
+    return df
 
 # Create app layout
 app.layout = html.Div([
@@ -1454,6 +1497,9 @@ app.layout = html.Div([
                     html.Button('Export to Access', id='export-access-button', n_clicks=0,
                                 style={'marginLeft': '5px'},className='button'),
                     dcc.Download(id='datatable-access-download'),
+                    html.Button("Export Dean's Rpt", id='export-dean-button', n_clicks=0,
+                                style={'marginLeft': '5px'},className='button'),
+                    dcc.Download(id='datatable-dean-download'),
                 ]),
         ],
             style={'width': '100%'}
@@ -1516,6 +1562,10 @@ def initial_data_loading(contents, n_clicks, filename, date):
                 if df.loc[row, 'Class'] == course:
                        df.loc[row, 'Calc'] = 'L'
                        break
+            # omnibus or independent study courses
+            if any(c.isalpha() for c in df.loc[row, 'Number']):
+                df.loc[row, 'Calc'] = 'N'
+
             # excluded courses
             for course in excluded_courses:
                 if df.loc[row, 'Class'] == course:
@@ -1552,11 +1602,12 @@ def initial_data_loading(contents, n_clicks, filename, date):
     Output('datatable-download', 'data'),
     [Input('export-all-button', 'n_clicks'),
      Input('export-access-button', 'n_clicks'),
+     Input('export-dean-button', 'n_clicks'),
      State('datatable', 'data'),
      State('report-term', 'value'),
      State('term-code', 'value')],
 )
-def export_all(all_n_clicks, access_n_clicks, data, report_term, term_code):
+def export_all(all_n_clicks, access_n_clicks, dean_n_clicks, data, report_term, term_code):
     if DEBUG:
         print("function: export_all")
     ctx = dash.callback_context
@@ -1570,6 +1621,11 @@ def export_all(all_n_clicks, access_n_clicks, data, report_term, term_code):
     elif 'export-access-button' == trigger and access_n_clicks > 0:
         return {'base64': True,
                 'content': to_access(_df, report_term),
+                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+    elif 'export-dean-button' == trigger and dean_n_clicks > 0:
+        _df = labs_combined(_df)
+        return {'base64': True,
+                'content': to_excel(_df, report_term),
                 'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
 
 @app.callback(

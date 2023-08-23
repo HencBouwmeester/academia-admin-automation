@@ -438,6 +438,7 @@ def create_datatable(df, filter_query):
     return [
         dash_table.DataTable(
             id='datatable-interactivity',
+            data=df.to_dict('records'),
             columns = [
                 {'name': 'Subject', 'id': 'Subject'},
                 {'name': 'Number', 'id': 'Number'},
@@ -473,10 +474,9 @@ def create_datatable(df, filter_query):
             ],
             style_data_conditional=[{'if': {'filter_query': '{colorRec} = ' + color, 'column_id': 'colorRec' }, 'color': color, 'backgroundColor': color, } for color in df['colorRec']],
             fixed_rows={'headers': True, 'data': 0},
-            page_size=500,
-            data=df.to_dict('records'),
+            # page_size=500,
             editable=True,
-            virtualization=True,
+            # virtualization=True,
             filter_action='native',
             sort_action='native',
             sort_mode='multi',
