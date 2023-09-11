@@ -7,6 +7,12 @@ import requests
 WIDTH = 400
 HEIGHT = 400
 
+# Config:
+images_dir = './qrcodes'
+result_grid_filename = './grid.png'
+result_figsize_resolution = 40 # 1 = 100px
+
+"""
 names = {
     "Aubree Freeman": "afreem21",
     "Ben Dyhr": "bdyhr",
@@ -38,11 +44,6 @@ names = {
     # "Yanxi Li": "yli7",
 }
 
-# Config:
-images_dir = './qrcodes'
-result_grid_filename = './grid.png'
-result_figsize_resolution = 40 # 1 = 100px
-
 for name in names:
     DATA = "https://webapp.msudenver.edu/directory/profile.php?uName="+names[name]
 
@@ -54,6 +55,7 @@ for name in names:
     with open(filename, "wb") as qr:
         qr.write(image.content)
 
+"""
 
 images_list = os.listdir(images_dir)
 images_count = len(images_list)
@@ -64,7 +66,7 @@ print('Images count: ', images_count)
 grid_size = math.ceil(math.sqrt(images_count))
 
 # Create plt plot:
-fig, axes = plt.subplots(grid_size, grid_size, figsize=(result_figsize_resolution, result_figsize_resolution+10))
+fig, axes = plt.subplots(grid_size, grid_size, figsize=(result_figsize_resolution, result_figsize_resolution+25))
 
 current_file_number = 0
 for image_filename in images_list:
@@ -74,9 +76,13 @@ for image_filename in images_list:
     print(images_dir + '/' + images_list[current_file_number])
     plt_image = plt.imread(images_dir + '/' + images_list[current_file_number])
     axes[x_position, y_position].imshow(plt_image)
-    axes[x_position, y_position].axis('off')
+    axes[x_position, y_position].spines[['left', 'bottom', 'right', 'top']].set_visible(False)
+    # plt.gca().axison = False
+    axes[x_position, y_position].tick_params(axis='x', colors='white')
+    axes[x_position, y_position].tick_params(axis='y', colors='white')
     name = image_filename.split('_')[0]
-    axes[x_position, y_position].set_title(name, fontsize = 40)
+    axes[x_position, y_position].set_title(name+"@msudenver.edu", fontsize = 24)
+    axes[x_position, y_position].set_xlabel("Scan for\nOffice Hours", fontsize = 40)
     print((current_file_number + 1), '/', images_count, ': ', image_filename)
 
     current_file_number += 1

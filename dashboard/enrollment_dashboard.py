@@ -758,7 +758,7 @@ def create_datatable(df):
                 {'name': 'Days', 'id': 'Days'},
                 {'name': 'Time', 'id': 'Time'},
                 {'name': 'Loc', 'id': 'Loc'},
-                {'name': 'RCap', 'id': 'RCap'},
+                {'name': 'RCap', 'id': 'Rcap'},
                 {'name': '%Ful', 'id': 'Full'},
                 {'name': 'Begin/End', 'id': 'Begin/End'},
                 {'name': 'Instructor', 'id': 'Instructor'},
@@ -856,7 +856,7 @@ def freq_dist_graph(data, m):
             hovertemplate='<br>'.join([
                 'Enrl: %{customdata[0]}',
                 'Freq: %{customdata[1]}'])+'<extra></extra>',
-            marker=dict(color=['#2a3f5d',],),  ##### BUG
+            marker_color='#00447c',
         ),
         row=1,col=1,
     )
@@ -871,7 +871,7 @@ def freq_dist_graph(data, m):
         yaxis={
             'showgrid': False,
             'showticklabels': False,
-            'zerolinecolor': '#2a3f5d',
+            'zerolinecolor': '#00447c',
             'zerolinewidth': 1,
         },
         margin=dict(l=10, r=10, b=10, t=10),
@@ -1310,6 +1310,24 @@ app.layout = html.Div([
             id="calc_row",
         ),
 
+                html.Div([
+                    html.H6("Notes:"),
+                    html.Ul([
+                    html.Li([
+                        "Lab enrollments, marked with an 'L' in the datatable, \
+                        are not included in Total, Lower, \
+                        or Upper Division calculations."]),
+                    html.Li([
+                        "Rows marked with an 'N' in the datatable are not \
+                        included in any of the calculations."]),
+                    html.Li([
+                        "5000 level courses are only included in the Total \
+                        calculations."]),
+                    ]),
+                ],
+                    id="notes_enrollment",
+                    # className="mini_container four columns",
+                ),
         html.Div([
             html.Div([
                 dcc.Graph(
@@ -1416,35 +1434,13 @@ app.layout = html.Div([
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                         {'label': 'Lower Division', 'value': '{Number} < 3000 && {S} contains A'},
                         {'label': 'Upper Division', 'value': '{Number} >= 3000 && {S} contains A'},
-                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1111 || {Number} > 1111) && ({Number} < 1115 || {Number} > 1115) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
+                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} != "1101") && ({Number} != "1111") && ({Number} < 1115 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
                         {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Applied Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3130 || {Number} = 3400 || {Number} = 3420 || {Number} = 3430 || {Number} = 3440 || {Number} = 4480 || {Number} = 4490)'},
                         {'label': 'MathEd Group', 'value': '({S} contains A && {Subject} contains M && ({Number} = 1610 || {Number} = 2620 || {Number} = 3470 || {Number} = 3640 || {Number} = 3650)) || ({S} contains A && {Subject} contains MTL)'},
                         {'label': 'Statistics Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3210 || {Number} = 3220 || {Number} = 3230 || {Number} = 3240 || {Number} = 3270 || {Number} = 3510 || {Number} = 4210 || {Number} = 4230 || {Number} = 4250 || {Number} = 4290)'},
                         {'label': 'Theoretical Group', 'value': '{Subject} contains M && {S} contains A && ({Number} = 3100 || {Number} = 3110 || {Number} = 3170 || {Number} = 3140 || {Number} = 4110 || {Number} = 4150 || {Number} = 4410 || {Number} = 4420 || {Number} = 4450)'},
-                        # {'label': 'Custom...', 'value': 'custom'},
-                        # {'label': 'Active Classes', 'value': '{S} contains A'},
-                        # {'label': 'Only Math Classes', 'value': '{Subject} contains M'},
-                        # {'label': 'Active Math Classes', 'value': '{Subject} contains M && {S} contains A'},
-                        # {'label': 'Active MTL Classes', 'value': '({Subject} contains MTL || {Number} contains 1610 || {Number} contains 2620) && {S} contains A'},
-                        # {'label': 'Active Math without MTL', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {S} contains A'},
-                        # {'label': 'Active Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312)'},
-                        # {'label': 'Active Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        # {'label': 'Active Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
-                        # {'label': 'Active Unassigned Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1082 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1312 || {Number} > 1312) && {Instructor} Is Blank'},
-                        # {'label': 'Active Unassigned Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312) && {Instructor} Is Blank'},
-                        # {'label': 'Active Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
-                        # {'label': 'Active Math Upper Division', 'value': '{Subject} contains M && {Number} >= 3000 && {S} contains A'},
-                        # {'label': 'Active Math Lower Division (except MTL)', 'value': '{Subject} > M && {Subject} < MTL && ({Number} <1610 || {Number} >1610) && ({Number} <2620 || {Number} >2620) && {Number} <3000 && {S} contains A'},
-                        # {'label': 'Active Math Upper Division (except MTL)', 'value': '({Subject} > M && {Subject} < MTL) && {Number} >=3000 && {S} contains A'},
-                        # {'label': 'Active Asynchronous', 'value': '{Loc} contains O && {S} contains A'},
-                        # {'label': 'Active Face-To-Face', 'value': '{Campus} contains M && {S} contains A'},
-                        # {'label': 'Active Synchronous', 'value': '{Loc} contains SY && {S} contains A'},
-                        # {'label': 'Active Math Asynchronous', 'value': '{Subject} contains M && {Loc} contains O && {S} contains A'},
-                        # {'label': 'Active Math Face-To-Face', 'value': '{Subject} contains M && {Campus} contains M && {S} contains A'},
-                        # {'label': 'Active Math Synchronous', 'value': '{Subject} contains M && {Loc} contains SY && {S} contains A'},
-                        # {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                     ],
                     placeholder='Select a query',
                     value=''),
@@ -1709,6 +1705,7 @@ def max_v_enrl_by_crn(data, fig):
                 df,
                 x="CRN",
                 y=["Max", "Enrolled"],
+                color_discrete_map = {"Max": '#00447c', "Enrolled": '#d11242'},
                 title="Enrollment per Section",
                 hover_name="CRN",
                 hover_data={
@@ -1772,6 +1769,7 @@ def max_v_enrl_by_course(data, fig):
             px.bar(
                 _df,
                 y=["Max", "Enrolled"],
+                color_discrete_map = {"Max": '#00447c', "Enrolled": '#d11242'},
                 title="Enrollment per Course",
                 hover_data={"Ratio": True, "WList": True},
             )
@@ -1782,6 +1780,7 @@ def max_v_enrl_by_course(data, fig):
                 barmode="overlay",
             )
         )
+        return fig
     else:
         return fig
 
@@ -1826,10 +1825,12 @@ def graph_f2f(data, toggle, fig):
                                )
             fig.add_trace(go.Pie(labels=["Async", "Sync"],
                                  values=[a, s],
+                                 marker_colors=['#00447c', '#d11242'],
                                  name="Async vs Sync"),
                           1, 1)
             fig.add_trace(go.Pie(labels=["F2F", "Online"],
                                  values=[t-(a+s), a+s],
+                                 marker_colors=['#00447c', '#d11242'],
                                  name="F2F vs Online"),
                           2, 1)
             fig.update_traces(hole=.7, hoverinfo="label+value+percent")
@@ -1869,6 +1870,7 @@ def graph_f2f(data, toggle, fig):
                                )
             fig.add_trace(go.Pie(labels=["F2F", "Online"],
                                  values=[t-(a+s), a+s],
+                                 marker_colors=['#00447c', '#d11242'],
                                  name="F2F vs Online"),
                           2, 1)
             fig.update_traces(hole=.7, hoverinfo="label+value+percent")
@@ -1915,7 +1917,7 @@ def graph_enrollment_by_instructor(data, fig):
                 y="Enrolled",
                 color="Ratio",
                 title="Enrollment by Instructor",
-                color_continuous_scale=px.colors.sequential.RdBu,
+                color_continuous_scale=['#d11242', '#717073', '#00447c'],
                 hover_name="CRN",
                 hover_data={
                     "Course": True,
@@ -1946,7 +1948,7 @@ def chp_by_course(data, fig):
                 y="CHP",
                 title="Credit Hour Production by Course",
                 color="Ratio",
-                color_continuous_scale=px.colors.sequential.RdBu,
+                color_continuous_scale=['#d11242', '#717073', '#00447c'],
             )
             .update_xaxes(categoryorder="category descending")
             .update_layout(showlegend=False)

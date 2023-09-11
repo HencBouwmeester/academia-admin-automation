@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 if DEBUG:
@@ -269,7 +269,8 @@ def tidy_txt(file_contents):
     ].apply(pd.to_numeric, errors='coerce')
 
     _df = _df.sort_values(by=['Subject', 'Number', 'Section'])
-    _df.drop(['T', 'Enrolled', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
+    _df.drop(['T', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
+    # _df.drop(['T', 'Enrolled', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
 
     return _df
 
@@ -337,6 +338,8 @@ def tidy_xlsx(file_contents):
                        )
 
     # create missing columns, if necessary
+    if not 'Enrl' in _df.columns:
+        _df.insert(len(_df.columns), 'Enrl', 0)
     if not 'S' in _df.columns:
         _df.insert(len(_df.columns), 'S', 'A')
     if not 'Begin/End' in _df.columns:
@@ -359,8 +362,10 @@ def tidy_xlsx(file_contents):
         inplace=True,
     )
 
+    # _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
+              # 'Credit', 'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
     _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
-              'Credit', 'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
+              'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
 
     _df.insert(len(_df.columns), 'Class', ' ')
     _df['Class'] = _df['Subject'] + ' ' + _df['Number']
@@ -432,6 +437,7 @@ def parse_contents(contents, filename):#, date):
     return df
 
 def create_datatable(df, filter_query):
+    print(df.columns)
     if filter_query is None:
         filter_query = ''
 
@@ -449,6 +455,7 @@ def create_datatable(df, filter_query):
                 {'name': 'Title', 'id': 'Title'},
                 {'name': 'Credit', 'id': 'Credit'},
                 {'name': 'Max', 'id': 'Max'},
+                {'name': 'Enrl', 'id': 'Enrolled'},
                 {'name': 'Days', 'id': 'Days'},
                 {'name': 'Time', 'id': 'Time'},
                 {'name': 'Loc', 'id': 'Loc'},
@@ -470,7 +477,7 @@ def create_datatable(df, filter_query):
                 }
                 for i,w in zip([ *df.columns ],
                                ['5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                '5.5%', '4.5%', '5.5%', '9%', '7.5%', '8%', '10%', '2%'])
+                                '3.5%', '3.5%', '3.0%', '5.5%', '9%', '7.5%', '8%', '10%', '2%'])
             ],
             style_data_conditional=[{'if': {'filter_query': '{colorRec} = ' + color, 'column_id': 'colorRec' }, 'color': color, 'backgroundColor': color, } for color in df['colorRec']],
             fixed_rows={'headers': True, 'data': 0},
@@ -895,7 +902,7 @@ html.Div([
                     options=[
                         {'label': 'Custom...', 'value': 'custom'},
                         {'label': 'Active Math Classes', 'value': '{S} contains A'},
-                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} < 1101 || {Number} > 1101) && ({Number} < 1111 || {Number} > 1111) && ({Number} < 1115 || {Number} > 1115) && ({Number} < 1116 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
+                        {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} != "1101") && ({Number} != "1111") && ({Number} < 1115 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
                         {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Lower Division', 'value': '{Subject} contains M && {Number} < 3000 && {S} contains A'},
@@ -1209,7 +1216,7 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows):
     if input_id == 'add-row-button':
         rows.append(
             {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
-             'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Days': '',
+             'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Enrl': '', 'Days': '',
              'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ',',
              'colorRec': '#b3cde3'}
         )
