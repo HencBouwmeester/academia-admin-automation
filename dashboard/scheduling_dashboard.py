@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
 
-DEBUG = True
+DEBUG = False
 mathserver = False
 
 if DEBUG:
@@ -431,13 +431,11 @@ def parse_contents(contents, filename):#, date):
         elif 'xlsx' in filename:
             df = tidy_xlsx(io.BytesIO(decoded))
     except Exception as e:
-        print(e)
         return html.Div(['There was an error processing this file.'])
 
     return df
 
 def create_datatable(df, filter_query):
-    print(df.columns)
     if filter_query is None:
         filter_query = ''
 
@@ -760,12 +758,13 @@ def to_excel(df):
 
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
-        xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
+        xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}}
     )
     _df.to_excel(writer, sheet_name='Schedule', index=False)
 
     # Save it
-    writer.save()
+    writer.close()
+    # writer.save()
     xlsx_io.seek(0)
     media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     data = base64.b64encode(xlsx_io.read()).decode('utf-8')

@@ -572,7 +572,7 @@ def to_access(df, report_term):
     _df.to_excel(writer, sheet_name="Schedule", index=False)
 
     # Save it
-    writer.save()
+    writer.close()
     xlsx_io.seek(0)
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
