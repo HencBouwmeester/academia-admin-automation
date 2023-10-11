@@ -62,7 +62,8 @@ def find_day(row):
         else:
             Days = "U"
     except:
-        print(row)#['Date'])
+        # print(row)#['Date'])
+        pass
 
     return Days
 
@@ -393,7 +394,7 @@ def tidy_txt(file_contents):
     _df = read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     ##############  HENC   ###############
-    print(_df)
+    # print(_df)
 
     # read the report Term and Year from file
     term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
@@ -648,6 +649,7 @@ def parse_finals_csv(contents, CRNs):
 
         # only pick up classes for CRN listed in enrollment report
         try:
+            Class = fields[1].split(' ')[0]
             CRN = fields[1].split(' ')[1]
             if CRN in CRNs:
                 Loc = fields[3]
@@ -679,11 +681,11 @@ def parse_finals_csv(contents, CRNs):
                 else:
                     Days = "U"
 
-                rows.append([CRN, Days, Time, Loc, Date])
+                rows.append([CRN, Class, Days, Time, Loc, Date])
         except IndexError:
             pass
 
-    df = DataFrame(rows, columns=['CRN', 'Days', 'Time', 'Loc', 'Date'])
+    df = DataFrame(rows, columns=['CRN', 'Class', 'Days', 'Time', 'Loc', 'Date'])
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
 
     return df
@@ -756,7 +758,7 @@ def room_exist(e, f, r):
         CRN = e.loc[row, 'CRN']
 
         d = f[f['CRN'] == CRN]
-        if d.iloc[0, 3] not in r['Room'].tolist():
+        if d.iloc[0, 4] not in r['Room'].tolist():
             indexFilter.append(row)
     return indexFilter
 
@@ -1418,7 +1420,7 @@ def load_finals_data(contents, filename, n_clicks, data_enrollment):
             dash_table.DataTable(
                 id='datatable-finals',
                 columns=[{'name': n, 'id': i} for n,i in zip([
-                    'CRN', 'Day', 'Time', 'Loc', 'Date'
+                    'CRN', 'Class', 'Day', 'Time', 'Loc', 'Date'
                 ],[ *df_finals.columns ])],
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
@@ -1432,7 +1434,7 @@ def load_finals_data(contents, filename, n_clicks, data_enrollment):
                         'minWidth': w, 'width': w, 'maxWidth': w,
                         'whiteSpace': 'normal'
                     }
-                    for i,w in zip([ *df_finals.columns ], ['20%',  '20%',  '20%',  '20%',  '20%'])
+                    for i,w in zip([ *df_finals.columns ], ['15%', '15%'  '10%',  '20%',  '20%',  '20%'])
                 ],
                 fixed_rows={'headers': True, 'data': 0},
                 page_size=500,

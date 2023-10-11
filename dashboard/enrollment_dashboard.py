@@ -46,7 +46,6 @@ if mathserver:
        'requests_pathname_prefix':'/dash/',
     })
 
-df = pd.DataFrame()
 
 # Helper Functions
 def median(nums):
@@ -218,13 +217,6 @@ def updateTitles(df):
 def convertAMPMtime(timeslot):
     if DEBUG:
         print("function: convertAMPMtime")
-    """Convert time format from 12hr to 24hr and account for TBA times.
-
-    Args:
-        timeslot: dataframe cell contents.
-
-    Returns:
-        reformmated dataframe cell contents."""
 
     try:
         starthour = int(timeslot[0:2])
@@ -844,14 +836,15 @@ def freq_dist_graph(data, m):
         Y=freq_dist['Value'].to_list()
 
     else:
-        X = []
-        Y = []
+        X = [0, m]
+        Y = [0, 0]
 
     fig = make_subplots(rows=1, cols=1,)
     fig.add_trace(
         go.Bar(
             x=X,
             y=Y,
+            width=1,
             customdata=pd.DataFrame({'x': X, 'y': Y}),
             hovertemplate='<br>'.join([
                 'Enrl: %{customdata[0]}',
@@ -862,7 +855,7 @@ def freq_dist_graph(data, m):
     )
     fig.update_layout(
         showlegend=False,
-        xaxis_range=[0, m],
+        xaxis_range=[-0.5, m+0.5],
         xaxis={
             'showgrid': False,
             'showticklabels': False,
@@ -929,7 +922,9 @@ def summary_stats(df, category, m):
             # online courses
             df_I = df[(df["Campus"]=="I")]
 
-            sections = df["CRN"].nunique() - lab_sections
+            # print(df_labs["CRN"])
+            # print(df["CRN"])
+            sections = df["CRN"].nunique()# - lab_sections
             if sections > 0:
                 courses = df["Class"].nunique() - lab_courses
                 waitlist = df['WList'].sum()
@@ -1027,11 +1022,13 @@ def summary_stats(df, category, m):
     ]
     return children
 
-def create_calc_row_layout(df):
+def create_calc_row_layout(df, df_all):
 
     max_enrl = 0
     if not df.empty:
-        max_enrl = df['Enrolled'].max()
+        # max_enrl = df['Enrolled'].max()
+        _df = labs_combined(df_all)
+        max_enrl = _df['Enrolled'].max()
 
     mask_1000 = df[df['Number'].str.startswith('1')].index.to_list()
     mask_2000 = df[df['Number'].str.startswith('2')].index.to_list()
@@ -1501,20 +1498,16 @@ app.layout = html.Div([
             style={'width': '100%'}
         ),
         html.Div([
-            dcc.Loading(id='loading-icon-upload',
-                        children=[
-                            html.Div([],
-                                     style={
-                                         'width': '100%',
-                                         'display': 'block',
-                                         'marginLeft': 'auto',
-                                         'marginRight': 'auto'
-                                     },
-                                     id='datatable-container',
-                                    )],
-                        type='circle',
-                        fullscreen=True,
-                        color='#064779'),
+            html.Div(
+                [],
+                style={
+                    'width': '100%',
+                    'display': 'block',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                id='datatable-container',
+            ),
         ]),
     ],
         id='output-data-upload',
@@ -1525,10 +1518,9 @@ html.Div([dcc.Input(id='term-code', placeholder='', style={'display': 'none'})])
 )
 
 @app.callback(
-    [Output('loading-icon-upload', 'children'),
+     [Output('datatable-container', 'children'),
      Output('title-report-semester', 'children'),
      Output('stats-graph-title', 'children'),
-     Output('loading-icon-upload', 'fullscreen'),
      Output('upload-data-button', 'n_clicks'),
      Output('report-term', 'value'),
      Output('term-code', 'value')],
@@ -1571,28 +1563,28 @@ def initial_data_loading(contents, n_clicks, filename, date):
         data_children = create_datatable(df)
         title_report_semester = "Enrollment Report for " + report_term
         stats_graph_title = "Date of report: " + datetime.datetime.strftime(data_date, "%d-%b-%Y").upper()
-        fullscreen = False
         n_clicks = 1
     else:
         data_children = []
         report_term = ''
         term_code = ''
         stats_graph_title = ""
-        fullscreen = True
         n_clicks = 0
 
-    loading_children = [
-        html.Div(data_children,
-                 style={
-                     'width': '100%',
-                     'display': 'block',
-                     'marginLeft': 'auto',
-                     'marginRight': 'auto',
-                 },
-                 id='datatable-container',
-                )]
+    datatable_container_children = [
+        html.Div(
+            data_children,
+            style={
+                'width': '100%',
+                'display': 'block',
+                'marginLeft': 'auto',
+                'marginRight': 'auto',
+            },
+            id='datatable-container',
+        )
+    ]
 
-    return loading_children, title_report_semester, stats_graph_title, fullscreen, n_clicks, report_term, term_code
+    return datatable_container_children, title_report_semester, stats_graph_title, n_clicks, report_term, term_code
 
 @app.callback(
     Output('datatable-download', 'data'),
@@ -1732,12 +1724,14 @@ def max_v_enrl_by_crn(data, fig):
 @app.callback(
     Output('calc_row', 'children'),
     Input('datatable', 'derived_viewport_data'),
+    Input('datatable', 'data'),
     State('calc_row', 'children'),
 )
-def calc_row(data, children):
-    if data:
-        df = pd.DataFrame(data)
-        return create_calc_row_layout(df)
+def calc_row(derived_data, data, children):
+    if derived_data:
+        df = pd.DataFrame(derived_data)
+        df_all = pd.DataFrame(data)
+        return create_calc_row_layout(df, df_all)
     else:
         return children
 
@@ -2119,6 +2113,7 @@ def update_stats(data):
         return ["0", "0", "0", "0.00", "0.00", "0.00", "0.00"]
 
 
+
 # Main
 if __name__ == "__main__":
     if mathserver:
@@ -2126,3 +2121,4 @@ if __name__ == "__main__":
     else:
         # app.run_server(debug=True, host='10.0.2.15', port='8050')
         app.run_server(debug=DEBUG, port='8050')
+
