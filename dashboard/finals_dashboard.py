@@ -9,6 +9,7 @@ from base64 import b64decode, b64encode
 from io import StringIO, BytesIO
 from dash.dependencies import Input, Output, State
 from datetime import datetime, timedelta
+import plotly.graph_objects as go
 
 DEBUG = False
 mathserver = False
@@ -41,6 +42,338 @@ if mathserver:
        'requests_pathname_prefix':'/finals/',
     })
 
+days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+def generate_weekday_tab(day):
+    if DEBUG:
+        print("generate_weekday_tab")
+    tab_style = {
+        'height': '30px',
+        'padding': '2px',
+    }
+    selected_tab_style = {
+        'borderTop': '2px solid #064779',
+        'height': '30px',
+        'padding': '2px',
+    }
+
+    return dcc.Tab(label=day,
+                   value='tab-'+day.lower()[:3],
+                   style=tab_style,
+                   selected_style=selected_tab_style,
+                  )
+
+def generate_tab_fig(day, tab, fig):
+    if DEBUG:
+        print("function: generate_tab_fig")
+    # blank figure when no data is present
+    blankFigure={
+        'data': [],
+        'layout': go.Layout(
+            xaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            },
+            yaxis={
+                'showticklabels': False,
+                'ticks': '',
+                'showgrid': False,
+                'zeroline': False
+            }
+        )
+    }
+
+    if fig is None:
+        fig = blankFigure
+
+    modeBarButtonsToRemove = ['zoom2d',
+                              'pan2d',
+                              'select2d',
+                              'lasso2d',
+                              'zoomIn2d',
+                              'zoomOut2d',
+                              'autoScale2d',
+                              'resetScale2d',
+                              'hoverClosestCartesian',
+                              'hoverCompareCartesian',
+                              'zoom3d',
+                              'pan3d',
+                              'resetCameraDefault3d',
+                              'resetCameraLastSave3d',
+                              'hoverClosest3d',
+                              'orbitRotation',
+                              'tableRotation',
+                              'zoomInGeo',
+                              'zoomOutGeo',
+                              'resetGeo',
+                              'hoverClosestGeo',
+                              # 'toImage',
+                              'sendDataToCloud',
+                              'hoverClosestGl2d',
+                              'hoverClosestPie',
+                              'toggleHover',
+                              'resetViews',
+                              'toggleSpikelines',
+                              'resetViewMapbox']
+
+
+    day_abbrv = day.lower()[:3]
+
+    if day_abbrv == tab[-3:]:
+        div_style = {'background': 'white', 'display': 'block', 'width': '100%'}
+    else:
+        div_style = {'background': 'white', 'display': 'none', 'width': '100%'}
+
+    return html.Div([
+        dcc.Loading(id='loading-icon-'+day_abbrv, children=[
+            dcc.Graph(
+                figure=fig,
+                config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': modeBarButtonsToRemove,
+                    'showAxisDragHandles': True,
+                    'toImageButtonOptions': {'filename': day_abbrv},
+                },
+                id='schedule_'+day_abbrv,
+            )], type='circle', color='#064779')],
+        style=div_style,
+        id='schedule_' + day_abbrv + '_div',
+    )
+
+def update_grid(data):#toggle, data, filtered_data, slctd_row_indices):
+    if DEBUG:
+        print("function: update_grid")
+
+    _df = DataFrame(data)
+
+    _df.rename(columns={'Final_Day':'Days', 'Final_Time': 'Time', 'Final_Loc': 'Loc'}, inplace=True)
+
+    if not 'Campus' in _df.columns:
+        _df.insert(len(_df.columns), 'Campus', 'M')
+    if not 'S' in _df.columns:
+        _df.insert(len(_df.columns), 'S', 'A')
+
+    # replace all NaN or None in Loc with TBA
+    for row in _df.index.tolist():
+        if _df.loc[row, 'Loc'] != _df.loc[row, 'Loc'] or _df.loc[row, 'Loc'] == None:
+            _df.loc[row, 'Loc'] = 'TBA'
+
+    # remove classes without rooms
+    _df = _df[_df['Campus'] != 'I']
+    _df = _df[_df['Loc'] != 'TBA']
+    _df = _df[_df['Loc'] != 'OFFC  T']
+
+    # remove canceled classes
+    _df = _df[_df['S'] != 'C']
+
+    # add columns for rectangle dimensions and annotation
+    if not 'xRec' in _df.columns:
+        _df.insert(len(_df.columns), 'xRec', 0)
+    if not 'yRec' in _df.columns:
+        _df.insert(len(_df.columns), 'yRec', 0)
+    if not 'wRec' in _df.columns:
+        _df.insert(len(_df.columns), 'wRec', 1)
+    if not 'hRec' in _df.columns:
+        _df.insert(len(_df.columns), 'hRec', 0)
+    if not 'textRec' in _df.columns:
+        _df.insert(len(_df.columns), 'textRec', '')
+    if not 'alphaRec' in _df.columns:
+        _df.insert(len(_df.columns), 'alphaRec', 1.0)
+
+    if not 'timeLoc' in _df.columns:
+        _df.insert(len(_df.columns), 'timeLoc', 0)
+    _df['timeLoc'] = _df['Time'] + _df['Loc']
+
+
+    # create figures for all tabs
+    figs = []
+    for d in ['M', 'T', 'W', 'R', 'F', 'S']:
+
+        if DEBUG:
+            print("function: update_grid {:s}".format(d))
+
+        # create mask for particular tab
+        mask = _df['Days'].str.contains(d, case=True, na=False)
+
+        # apply the mask and use a copy of the dataframe
+        df = _df[mask].copy()
+        if DEBUG:
+            print("function: update_grid {:s} {:d}".format(d, len(df.index.tolist())))
+
+        rooms = df['Loc'].dropna().unique()
+
+        Loc = dict(zip(sorted(rooms), range(len(rooms))))
+        nLoc = len(list(Loc.keys()))
+
+        # compute dimensions based on class time
+        timeLoc = {}
+        for row in df.index.tolist():
+
+            # calculate x,y position and height of rectangles
+            strTime = df.loc[row, 'Time']
+            s = strTime[:5]
+            e = strTime[-5:]
+            try:
+                yRec = 12*(int(s[:2])-8) + int(s[3:])//5
+            except ValueError:
+                yRec = 0
+            try:
+                hRec = 12*(int(e[:2])-8) + int(e[3:])//5 - yRec
+            except ValueError:
+                hRec = 0
+            try:
+                df.loc[row, 'xRec'] = Loc[df.loc[row, 'Loc']]
+            except:
+                df.loc[row, 'xRec'] = 0
+
+            df.loc[row, 'yRec'] = yRec
+            df.loc[row, 'hRec'] = hRec
+
+            # create annotation for rectangle
+            try:
+                df.loc[row, 'textRec'] = df.loc[row, 'Subject'] + ' ' + df.loc[row, 'Number'] + '-' + df.loc[row, 'Section']
+            except TypeError:
+                df.loc[row, 'textRec'] = ''
+
+            # check if time/location block is already in use
+            if df.loc[row, 'timeLoc'] in timeLoc:
+                timeLoc[df.loc[row, 'timeLoc']].append(row) # already in use, add to list
+            else:
+                timeLoc[df.loc[row, 'timeLoc']] = [row] # not in use, so create list
+
+        # where times are already in use, change size of rectangles to place them
+        # side-by-side in the grid
+        for row in timeLoc.values():
+            if len(row) > 1:
+                for k in range(len(row)):
+                    df.loc[row[k], 'xRec'] += k/len(row)
+                    df.loc[row[k], 'wRec'] -= (len(row)-1)/len(row)
+
+        fig = go.Figure()
+
+        # we create a dictionary of all the shapes and annotations that will be on the grid
+        ply_shapes = {}
+        ply_annotations = {}
+        for row in df.index.tolist():
+            wRec = df.loc[row, 'wRec']
+            hRec = df.loc[row, 'hRec']
+            xRec = df.loc[row, 'xRec']
+            yRec = df.loc[row, 'yRec']
+            textRec = df.loc[row, 'textRec']
+            colorRec = '#b3cde3'
+            alphaRec = df.loc[row, 'alphaRec']
+
+            ply_shapes['shape_' + str(row)] = go.layout.Shape(
+                type='rect',
+                xref='x', yref='y',
+                y0 = xRec, x0 = yRec,
+                y1 = xRec + wRec, x1 = (yRec + hRec),
+                line=dict(
+                    color='LightGray',
+                    width=1,
+                ),
+                fillcolor=colorRec,
+                opacity=alphaRec,
+            )
+            ply_annotations['annotation_' + str(row)] = go.layout.Annotation(
+                xref='x', yref='y',
+                y = xRec + wRec/2,
+                x = (yRec + hRec/2),
+                text = textRec,
+                hoverlabel = {'bgcolor': '#064779'},
+                hovertext = "Course: {}<br>Title: {}<br>CRN: {}<br>Time: {}<br>Instr: {}".format(textRec, df.loc[row, 'Title'], df.loc[row, 'CRN'], df.loc[row, 'Time'], df.loc[row, 'Instructor']),
+                showarrow = False,
+                # we are getting a 0 font size when there are many classes, so take at least
+                # the smallest font size to be 1.
+                font = dict(size=max(1,min(int(.75*hRec),12))),
+            )
+
+        # alternating vertical shading for rooms
+        for k in range(nLoc):
+            if k%2:
+                ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
+                    type='rect',
+                    xref='x', yref='y',
+                    y0 = k, y1 = k+1,
+                    x0 = 0, x1 = 170,
+                    fillcolor='#f2f2f2',
+                    layer='below', line_width=0,
+                )
+            else:
+                ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
+                    xref='x', yref='y',
+                    y0 = k, y1 = k+1,
+                    x0 = 0, x1 = 170,
+                    fillcolor='white',
+                    layer='below', line_width=0,
+                )
+        lst_shapes=list(ply_shapes.values())
+        lst_annotations=list(ply_annotations.values())
+
+        # setup the axes and tick marks
+        if nLoc:
+            fig.update_layout(
+                autosize=False,
+                height=45*nLoc,
+                margin=dict(
+                    l=50,
+                    r=70,
+                    b=10,
+                    t=10,
+                    pad=0
+                ),
+                yaxis = dict(
+                    range=[0,nLoc],
+                    tickvals=[k+.5 for k in range(nLoc)],
+                    ticktext=list(Loc.keys()),
+                    showgrid=False,
+                    linecolor='#CCC',
+                ),
+                xaxis = dict(
+                    range=[0,168.2],
+                    tickvals=[k*12 for k in range(15)],
+                    ticktext=[('0{:d}:00'.format(k))[-5:] for k in range(8,23)],
+                    showgrid=True,
+                    side='top',
+                    gridwidth=1,
+                    gridcolor='#DDD',
+                    linecolor='#CCC',
+                ),
+                showlegend=False,
+                annotations = lst_annotations,
+                shapes=lst_shapes,
+            )
+        else:
+            # nLoc is zero which makes the height zero, so show a blank figure
+            fig.update_layout(
+                height=90,
+                xaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                },
+                yaxis={
+                    'showticklabels': False,
+                    'ticks': '',
+                    'showgrid': False,
+                    'zeroline': False
+                },
+                showlegend=False,
+            )
+
+        # place one point on the grid and hide it so that zoom reset works
+        fig.add_trace(go.Scatter(x=[0.5*nLoc],y=[-85],
+                                 hoverinfo='none',
+                                 marker={'opacity': 0}))
+        figs.append(fig)
+
+    return figs
+
+
 def create_time(row):
     return row['Start Time'][:-3].replace(':','').zfill(4) + '-' + row['End Time'][:-3].replace(':','').zfill(4) + row['End Time'][-2:]
 
@@ -62,7 +395,6 @@ def find_day(row):
         else:
             Days = "U"
     except:
-        # print(row)#['Date'])
         pass
 
     return Days
@@ -699,15 +1031,16 @@ def to_excel(df):
     cols = ['Subject', 'Number', 'CRN', 'Section', 'Title', 'Instructor',
             'Final_Day', 'Final_Time', 'Final_Loc', 'Final_Date', 'Error',]
     _df = _df[cols]
+    _df.rename(columns={'Final_Day':'Days', 'Final_Time': 'Time', 'Final_Loc': 'Loc'}, inplace=True)
 
     xlsx_io = BytesIO()
     writer = ExcelWriter(
-        xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
+        xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}}
     )
     _df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
 
     # Save it
-    writer.save()
+    writer.close()
     xlsx_io.seek(0)
     media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     data = b64encode(xlsx_io.read()).decode('utf-8')
@@ -1029,6 +1362,19 @@ app.layout = html.Div([
                         'padding': '2px',
                     },
                 ),
+                dcc.Tab(
+                    label='Week View',
+                    value='tab-week',
+                    style={
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                    selected_style = {
+                        'borderTop': '2px solid #064779',
+                        'height': '30px',
+                        'padding': '2px',
+                    },
+                ),
             ],
                 id='table-tabs',
                 value='tab-combined',
@@ -1129,8 +1475,42 @@ app.layout = html.Div([
                     'width': '100%',
                 }
             ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            dcc.Tabs([generate_weekday_tab(day) for day in days ],
+                                    id='weekdays-tabs',
+                                    value='tab-mon')
+                        ],
+                        style={
+                            'padding': '10px',
+                            'background': 'white',
+                        }
+                    ),
+                    html.Div(
+                        [
+                            html.Div([
+                                generate_tab_fig(day, 'tab-mon', None) for day in days
+                            ],
+                                id='weekdays-tabs-content',
+                                style={
+                                    'background': 'white'
+                                },
+                            ),
+                        ]
+                    ),
+                ],
+                style = {
+                    'display': 'none',
+                },
+                id='week-view-div'
+            ),
         ],
             id='tab-contents',
+            style = {
+                'width': '100%',
+            },
         ),
     ],
         id='leftContainer',
@@ -1202,11 +1582,26 @@ app.layout = html.Div([
                 className='button'
             ),
             html.Button(
-                'Download',
-                id='download-button',
+                'Export for Access',
+                id='download-to-access-button',
                 n_clicks=0,
                 disabled=True,
                 style={
+                    'padding': '0px',
+                    'textAlign': 'center',
+                    'width': '95%',
+                    'fontSize': '1rem',
+                },
+                className='button'
+            ),
+            dcc.Download(id='datatable-to-access-download'),
+            html.Button(
+                'Export to Excel',
+                id='export-all-button',
+                n_clicks=0,
+                disabled=True,
+                style={
+                    # 'marginLeft': '5px'
                     'padding': '0px',
                     'textAlign': 'center',
                     'width': '95%',
@@ -1263,7 +1658,8 @@ def display_tab(btn_enroll, btn_finals, btn_update):
      Output('datatable-enrollment-div', 'style'),
      Output('datatable-finals-div', 'style'),
      Output('datatable-rooms-div', 'style'),
-     Output('datatable-grid-div', 'style'),],
+     Output('datatable-grid-div', 'style'),
+     Output('week-view-div', 'style'),],
     [Input('table-tabs', 'value')],
 )
 def update_tab_display(tab):
@@ -1272,7 +1668,7 @@ def update_tab_display(tab):
     ctx = callback_context
     if 'table-tabs' in ctx.triggered[0]['prop_id']:
         styles = []
-        for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms', 'tab-grid']:
+        for t in ['tab-combined', 'tab-enrollment', 'tab-finals', 'tab-rooms', 'tab-grid', 'tab-week']:
             if t == tab:
                 styles.append({'display': 'block'})
             else:
@@ -1474,15 +1870,16 @@ def enable_update_button(enrollment_contents, finals_contents):
     return True
 
 @app.callback(
-    Output('download-button', 'disabled'),
+    [Output('download-to-access-button', 'disabled'),
+     Output('export-all-button', 'disabled')],
     Input('update-button', 'n_clicks'),
 )
 def enable_update_button(n_clicks):
     if DEBUG:
         print('function: enable_disable_button')
     if n_clicks > 0:
-        return False
-    return True
+        return False, False
+    return True, True
 
 @app.callback(
     Output('datatable-finals', 'data'),
@@ -1506,7 +1903,19 @@ def add_row(n_clicks, rows, columns):
 
 @app.callback(
     Output('datatable-download', 'data'),
-    [Input('download-button', 'n_clicks'),
+    [Input('export-all-button', 'n_clicks'),
+     State('datatable-combined', 'data')]
+)
+def export_all(n_clicks, data):
+    if DEBUG:
+        print("function: export_all")
+    _df = DataFrame(data)
+    if n_clicks > 0:
+        return {'base64': True, 'content': to_excel(_df), 'filename': 'FinalsSchedule.xlsx', }
+
+@app.callback(
+    Output('datatable-to-access-download', 'data'),
+    [Input('download-to-access-button', 'n_clicks'),
      State('datatable-combined', 'data')]
 )
 def export_all(n_clicks, data):
@@ -1560,13 +1969,15 @@ def export_all(n_clicks, data):
         return {'base64': True, 'content': data, 'filename': 'Final Exam Schedule.xlsx', }
 
 @app.callback(
-    Output('datatable-combined-div', 'children'),
+    [Output('datatable-combined-div', 'children'),
+     Output('weekdays-tabs-content', 'children'),],
     [Input('update-button', 'n_clicks'),
+     State('weekdays-tabs', 'value'),
      State('datatable-enrollment', 'data'),
      State('datatable-finals', 'data'),
      State('datatable-rooms', 'data')]
 )
-def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
+def create_combined_table(n_clicks, tab, data_enrollment, data_finals, data_rooms):
 
     # retrieve enrollment table
     df_enrollment = DataFrame(data_enrollment)
@@ -1800,12 +2211,38 @@ def create_combined_table(n_clicks, data_enrollment, data_finals, data_rooms):
             style={'listStyleType': 'none', 'lineHeight': 1.25},
         ),
     ]
-    return data_children
+
+    figs = update_grid(df.to_dict())
+    tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+
+
+    return data_children, tabs_children
+
+@app.callback(
+    [Output('schedule_mon_div', 'style'),
+     Output('schedule_tue_div', 'style'),
+     Output('schedule_wed_div', 'style'),
+     Output('schedule_thu_div', 'style'),
+     Output('schedule_fri_div', 'style'),
+     Output('schedule_sat_div', 'style')],
+    [Input('weekdays-tabs', 'value')],
+)
+def update_tab_display(tab):
+    if DEBUG:
+        print("function: update_tab_display")
+    ctx = callback_context
+    if 'weekdays-tabs' in ctx.triggered[0]['prop_id']:
+        styles = []
+        for t in ['tab-mon', 'tab-tue', 'tab-wed', 'tab-thu', 'tab-fri', 'tab-sat']:
+            if t == tab:
+                styles.append({'display': 'block'})
+            else:
+                styles.append({'display': 'none'})
+        return styles[:]
 
 # Main
 if __name__ == '__main__':
     if mathserver:
         app.run_server(debug=DEBUG)
     else:
-        app.run_server(debug=True, port='8053')
-        # app.run_server(debug=True, host='10.0.2.15', port='8053')
+        app.run_server(debug=DEBUG, port='8053')

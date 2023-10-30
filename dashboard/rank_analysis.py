@@ -16,6 +16,8 @@ import plotly.graph_objects as go
 import datetime
 import dash_daq as daq
 from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
+
 
 
 DEBUG = False
@@ -29,6 +31,7 @@ app = dash.Dash(
     __name__,
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
+    # external_stylesheets=[dbc.themes.BOOTSTRAP],
 )
 
 server = app.server
@@ -93,14 +96,6 @@ def instructor_rank(df, name, term, print_rank=False):
     if print_rank:
         print(rank_desc)
 
-    # regroup to only Cat I, Cat II, and Adjuncts
-    if rank_index > 2:
-        rank_index = 5
-    elif rank_index > 0:
-        rank_index = 2
-    else:
-        rank_index = 0
-
     return rank_index
 
 
@@ -108,7 +103,120 @@ def instructor_rank(df, name, term, print_rank=False):
 def assignRank(df):
     if DEBUG:
         print("function: assignRank")
-    rank_df = pd.read_csv('instructor_ranks.csv')
+    _a = [
+        ["Boneh, S",          0,       0,       0,       0,       0,       201150],
+        ["Bouwmeester, H",    200830,  0,       0,       201650,  202250,  0],
+        ["Carter, J",         0,       0,       0,       201050,  201750,  202250],
+        ["Davis, D",          0,       0,       0,       200750,  201250,  201850],
+        ["Dyhr, B",           0,       0,       0,       201050,  201650,  202250],
+        ["Ethier, J",         0,       0,       0,       200850,  201450,  202050],
+        ["Evans, B",          0,       0,       0,       200350,  200950,  201650],
+        ["Fry, B",            0,       0,       0,       201650,  202050,  0],
+        ["Gilmore, D",        0,       0,       0,       0,       0,       200050],
+        ["Grevstad, N",       0,       0,       0,       200350,  200950,  201550],
+        ["Harder, C",         0,       0,       0,       201150,  201750,  0],
+        ["Heer, H",           0,       201450,  0,       0,       0,       0],
+        ["Koester, M",        0,       0,       0,       201050,  201650,  202150],
+        ["Li, Y",             0,       0,       0,       202350,  0,       0],
+        ["McKenna, P",        0,       0,       0,       200050,  200650,  201650],
+        ["Mocanasu, M",       0,       0,       0,       200950,  201450,  201950],
+        ["Niemeyer, R",       0,       0,       0,       201950,  202350,  0],
+        ["Poole, S",          0,       0,       0,       201450,  201950,  202350],
+        ["Ribble, E",         0,       0,       0,       201350,  201750,  202150],
+        ["Ruch, D",           0,       0,       0,       199450,  200050,  200650],
+        ["Sundbye, L",        0,       0,       0,       200050,  200650,  201950],
+        ["Schaeffer Fry,",    0,       0,       0,       201350,  201750,  202250],
+        ["Bertram, J",        201150,  201750,  202050,  0,       0,       0],
+        ["Freeman, A",        0,       202150,  0,       0,       0,       0],
+        ["Schauble, J",       200850,  201550,  202150,  0,       0,       0],
+        ["Kuang, Y",          201130,  0,       0,       0,       0,       0],
+        ["Azeem, S",          201150,  0,       0,       0,       0,       0],
+        ["Jabri, A",          202030,  0,       0,       0,       0,       0],
+        ["Janowiak-Mille",    200950,  0,       0,       0,       0,       0],
+        ["Karaoglu, M",       201950,  0,       0,       0,       0,       0],
+        ["Kirk, Z",           200830,  0,       0,       0,       0,       0],
+        ["Nguyen, D",         201730,  0,       0,       0,       0,       0],
+        ["Burke, J",          201850,  0,       0,       0,       0,       0],
+        ["Van Camp, T",       200850,  0,       0,       0,       0,       0],
+        ["Weiss, M",          201650,  0,       0,       0,       0,       0],
+        ["Yang, Q",           0,       200650,  201150,  0,       0,       0],
+        ["Zarrini, H",        200950,  0,       0,       0,       0,       0],
+        ["Linnen, L",         200940,  0,       0,       0,       0,       0],
+        ["Aveyard, R",        200830,  0,       0,       0,       0,       0],
+        ["Yokomizo, G",       200830,  0,       0,       0,       0,       0],
+        ["Slotta, O",         201050,  0,       0,       0,       0,       0],
+        ["Henningsen, G",     200830,  0,       0,       0,       0,       0],
+        ["Jadunath, G",       201030,  0,       0,       0,       0,       0],
+        ["Brones, J",         200830,  0,       0,       0,       0,       0],
+        ["Jovic, S",          201130,  0,       0,       0,       0,       0],
+        ["Foster, E",         0,       200930,  201450,  0,       0,       0],
+        ["Gregory, M",        200830,  0,       0,       0,       0,       0],
+        ["Pfeiffer, T",       201130,  0,       0,       0,       0,       0],
+        ["Flanders, H",       200830,  0,       0,       0,       0,       0],
+        ["Hindie, J",         200830,  0,       0,       0,       0,       0],
+        ["Prevot, K",         0,       0,       0,       200250,  200450,  200850],
+        ["Monash, E",         200830,  0,       0,       0,       0,       0],
+        ["Omar, F",           200830,  0,       0,       0,       0,       0],
+        ["Burgdorff, V",      200830,  0,       0,       0,       0,       0],
+        ["Lemay, N",          200830,  0,       0,       0,       0,       0],
+        ["Bierling, A",       200830,  0,       0,       0,       0,       0],
+        ["Glass, C",          200830,  0,       0,       0,       0,       0],
+        ["Craft, M",          200830,  0,       0,       0,       0,       0],
+        ["Packer, L",         0,       0,       0,       200250,  200450,  200850],
+        ["Aaker, B",          200830,  0,       0,       0,       0,       0],
+        ["Emerson, W",        0,       0,       0,       200250,  200450,  200850],
+        ["Verbsky, A",        200830,  0,       0,       0,       0,       0],
+        ["Victor, J",         200830,  0,       0,       0,       0,       0],
+        ["Loats, J",          0,       0,       0,       200250,  200450,  200850],
+        ["Dollard, C",        0,       0,       0,       200050,  200450,  200850],
+        ["DuMaine, P",        200830,  0,       0,       0,       0,       0],
+        ["Zakotnik-Gutie",    0,       201750,  0,       0,       0,       0],
+        ["Peddicord, J",      200830,  0,       0,       0,       0,       0],
+        ["Hector, D",         200830,  0,       0,       0,       0,       0],
+        ["Wohlen, S",         200830,  0,       0,       0,       0,       0],
+        ["Pillitteri, O",     200830,  0,       0,       0,       0,       0],
+        ["Jensen, K",         200830,  0,       0,       0,       0,       0],
+        ["Zolnikov, K",       200830,  0,       0,       0,       0,       0],
+        ["Nazeri, H",         200830,  0,       0,       0,       0,       0],
+        ["Parenti, V",        200830,  0,       0,       0,       0,       0],
+        ["Williams, K",       200830,  201550,  201950,  0,       0,       0],
+        ["Sefton, R",         200830,  0,       0,       0,       0,       0],
+        ["Swanson, J",        200830,  0,       0,       0,       0,       0],
+        ["Wo, S",             200830,  0,       0,       0,       0,       0],
+        ["Coates, S",         200830,  0,       0,       0,       0,       0],
+        ["Van Dine, D",       200830,  0,       0,       0,       0,       0],
+        ["DeBay, D",          200830,  0,       0,       0,       0,       0],
+        ["Klie, D",           200830,  0,       0,       0,       0,       0],
+        ["Wray, S",           200830,  0,       0,       0,       0,       0],
+        ["Zerwick, A",        200830,  0,       0,       0,       0,       0],
+        ["Anderson, B",       200830,  0,       0,       0,       0,       0],
+        ["Cline, E",          200830,  0,       0,       0,       0,       0],
+        ["Baouchi, A",        200830,  0,       0,       0,       0,       0],
+        ["Mlynar, K",         200830,  0,       0,       0,       0,       0],
+        ["Terry, M",          200830,  201850,  0,       0,       0,       0],
+        ["Konuk, N",          200830,  0,       0,       201850,  0,       0],
+        ["Husseini, G",       200830,  0,       0,       0,       0,       0],
+        ["Watson, W",         200830,  0,       0,       0,       0,       0],
+        ["Butcher, L",        200830,  0,       0,       0,       0,       0],
+        ["Benson, D",         200830,  0,       0,       0,       0,       0],
+        ["Nguyen, M",         200830,  0,       0,       0,       0,       0],
+        ["Hu, J",             200830,  0,       0,       0,       0,       0],
+        ["Ruiz, J",           200830,  0,       0,       0,       0,       0],
+        ["McClellan, T",      200830,  0,       0,       0,       0,       0],
+        ["Padgett, C",        200830,  0,       0,       0,       0,       0],
+        ["Pryor, F",          200830,  0,       0,       0,       0,       0],
+        ["Burr, G",           200830,  0,       0,       0,       0,       0],
+        ["Naylor, R",         200830,  0,       0,       0,       0,       0],
+        ["Darji, K",          200830,  0,       0,       0,       0,       0],
+        ["Reichlin, S",       200830,  0,       0,       0,       0,       0],
+        ["Dinh, H",           200830,  0,       0,       0,       0,       0],
+        ["Khan, M",           200830,  0,       0,       0,       0,       0],
+        ]
+
+    rank_df = pd.DataFrame(_a)
+    rank_df.columns = ['Instructor', 'Adjunct', 'Lecturer', 'Senior Lecturer', \
+                       'Assistant Professor', 'Associate Professor', 'Professor']
+
 
     df.insert(len(df.columns), 'Rank', 0)
     for row in df.index.to_list():
@@ -291,13 +399,14 @@ def tidy_xlsx(file_contents):
     _df = _df[['Term', 'Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
               'Credit', 'Enrolled', 'Days', 'Time', 'Loc', 'Instructor']]
 
+    _df = assignRank(_df)
+
     _df.insert(len(_df.columns), "SUF", "S")
     for row in _df[_df["Term"].str.endswith("40", na=False)].index.tolist():
         _df.loc[row, "SUF"] = "U"
     for row in _df[_df["Term"].str.endswith("50", na=False)].index.tolist():
         _df.loc[row, "SUF"] = "F"
 
-    _df = assignRank(_df)
 
     _df.loc[:, "CHP"] = _df["Credit"] * _df["Enrolled"]
 
@@ -347,7 +456,7 @@ def create_datatable(df):
                 id='datatable',
                 columns=[{'name': n, 'id': i} for n,i in zip([
                     'Term', 'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
-                    'Enrl', 'Days', 'Time', 'Loc', 'Instructor', 'SUF', 'Rank'
+                    'Enrl', 'Days', 'Time', 'Loc', 'Instructor', 'Rank'
                 ],[ *df.columns ])],
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
@@ -363,7 +472,7 @@ def create_datatable(df):
                     }
                     for i,w in zip([ *df.columns ],
                                    ['9%', '5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
-                                    '5.5%', '4.5%', '3.5%', '6%', '5.5%', '11%', '3%', '3%'])
+                                    '5.5%', '4.5%', '3.5%', '6%', '5.5%', '14%', '3%'])
                 ],
                 fixed_rows={'headers': True, 'data': 0},
                 page_size=10000,
@@ -413,9 +522,37 @@ app.layout = html.Div(
                     style={'width': '100%', 'display': 'block'},
                     id='fig_select_dropdown',
                 ),
+                # daq.BooleanSwitch(
+                    # id='granular_boolean_switch',
+                    # label='Granular',
+                    # labelPosition='right',
+                    # on=False,
+                # ),
             ],
             style={'display': 'flex'},
             id='dropdowns',
+        ),
+        html.Div(
+            children = [
+                        dcc.Checklist(
+                            options=[
+                                {'label': 'Granular', 'value': 'granular'},
+                            ],
+                            value=[],
+                            id='granular_checkmark',
+                        ),
+                        dcc.Checklist(
+                            options=[
+                                {'label': 'Spring', 'value': 'S'},
+                                {'label': 'Summer', 'value': 'U'},
+                                {'label': 'Fall', 'value': 'F'},
+                            ],
+                            value=['S', 'U', 'F'],
+                            id='semester_checkmark',
+                        ),
+            ],
+            style={'display': 'flex'},
+            id='checkmarks',
         ),
         html.Div([
             dcc.Graph(
@@ -429,10 +566,6 @@ app.layout = html.Div(
                     id='filter-query-dropdown',
                     options=[
                         {'label': 'Custom...', 'value': 'custom'},
-                        {'label': 'Spring & Fall', 'value': '({SUF}="S" || {SUF}="F")'},
-                        {'label': 'Spring', 'value': '{SUF}="S"'},
-                        {'label': 'Summer', 'value': '{SUF}="U"'},
-                        {'label': 'Fall', 'value': '{SUF}="F"'},
                         {'label': 'Lower Division', 'value': '{Number} < 3000 && {S} contains A'},
                         {'label': 'Upper Division', 'value': '{Number} >= 3000 && {S} contains A'},
                         {'label': 'Active Classes', 'value': '{S} contains A'},
@@ -528,104 +661,105 @@ def initial_data_loading(contents, name, n_clicks):
     [
         Input('datatable', 'derived_viewport_data'),
         Input('fig_select_dropdown', 'value'),
+        Input('granular_checkmark', 'value'),
+        Input('semester_checkmark', 'value'),
     ]
 )
-def update_graph(data, fig_select):
+def update_graph(data, fig_select, granularValue, semesterValue):
 
     df = pd.DataFrame(data)
 
-    df['Rank Desc'] = 'Adjunct'
-    for row in df.index.to_list():
-        if df.loc[row, 'Rank'] == 5:
-            df.loc[row, 'Rank Desc'] = 'Cat I'
-        if df.loc[row, 'Rank'] == 2:
-            df.loc[row, 'Rank Desc'] = 'Cat II'
+    df = df[df['SUF'].isin(semesterValue)]
 
-    orderedTerms = np.sort(df['Term'].unique())
+    orderedTerms = np.sort(df['Term'].unique()).tolist()
 
-    if fig_select == 'CHP per Term':
-        df = df[['Term', 'Rank Desc', 'CHP']]
-        _df = df.groupby(['Term', 'Rank Desc']).agg({'CHP': sum}).reset_index()
+    try:
+        if 'granular' in granularValue:
+            categoryOrders={"Term": orderedTerms, "Rank Desc": ['Adjunct', 'Lecturer', 'Senior Lecturer', 'Assistant Professor', 'Associate Professor', 'Professor']}
+            colorDiscreteSequence=['#7570B3', '#FC8D62', '#D95F02', '#B3E2CD', '#66C2A5', '#1B9E77']
 
-        fig = (
-            px.bar(
-                _df,
-                x="Term",
-                y="CHP",
-                color="Rank Desc",
-                title='CHP per Term',
-                hover_data={"Rank Desc": False, "Term": False},
-                category_orders={"Term": orderedTerms, "Rank Desc": ['Adjunct', 'Cat II', 'Cat I']},
-            )
-            .update_traces(
-                hovertemplate='%{y:d}'
-            )
-        )
+            df['Rank Desc'] = 'Adjunct'
+            for row in df.index.to_list():
+                if df.loc[row, 'Rank'] == 5:
+                    df.loc[row, 'Rank Desc'] = 'Professor'
+                elif df.loc[row, 'Rank'] == 4:
+                    df.loc[row, 'Rank Desc'] = 'Associate Professor'
+                elif df.loc[row, 'Rank'] == 3:
+                    df.loc[row, 'Rank Desc'] = 'Assistant Professor'
+                elif df.loc[row, 'Rank'] == 2:
+                    df.loc[row, 'Rank Desc'] = 'Senior Lecturer'
+                elif df.loc[row, 'Rank'] == 1:
+                    df.loc[row, 'Rank Desc'] = 'Lecturer'
+        else:
+            categoryOrders={"Term": orderedTerms, "Rank Desc": ['Adjuncts', 'Cat II (Lecturers)  ', 'Cat I (Professors)  ']}
+            colorDiscreteSequence=['#7570B3', '#D95F02', '#1B9E77']
+            df['Rank Desc'] = 'Adjuncts'
+            for row in df.index.to_list():
+                if df.loc[row, 'Rank'] > 2:
+                    df.loc[row, 'Rank Desc'] = 'Cat I (Professors)  '
+                elif df.loc[row, 'Rank'] > 0:
+                    df.loc[row, 'Rank Desc'] = 'Cat II (Lecturers)  '
 
-    if fig_select == 'CHP per Term (%)':
-        df = df[['Term', 'Rank Desc', 'CHP']]
-        _df = df.groupby(['Term', 'Rank Desc']).agg({'CHP': sum}).reset_index()
 
-        _df['Percentage'] = 100*_df['CHP'] / _df.groupby('Term')['CHP'].transform(sum)
+        if fig_select == 'CHP per Term':
+            df = df[['Term', 'Rank Desc', 'CHP']]
+            _df = df.groupby(['Term', 'Rank Desc']).agg({'CHP': sum}).reset_index()
 
-        fig = (
-            px.bar(
-                _df,
-                x="Term",
-                y="Percentage",
-                color="Rank Desc",
-                title='CHP per Term (%)',
-                hover_data={"Rank Desc": False, "Term": False, "Percentage": True},
-                category_orders={"Term": orderedTerms, "Rank Desc": ['Adjunct', 'Cat II', 'Cat I']},
-            )
-            .update_traces(
-                hovertemplate='%{y:.1f}%'
-            )
-        )
+            Y="CHP"
+            Title='CHP per Term'
+            hoverData={"Rank Desc": False, "Term": False}
+            hoverTemplate='%{y:d}'
 
-    if fig_select == 'Rank Count per Term':
-        df = df[['Term', 'Rank Desc', 'Instructor']].drop_duplicates()
-        _df = df.groupby(['Term', 'Rank Desc']).agg({'Instructor': 'count'}).reset_index()
+        if fig_select == 'CHP per Term (%)':
+            df = df[['Term', 'Rank Desc', 'CHP']]
+            _df = df.groupby(['Term', 'Rank Desc']).agg({'CHP': sum}).reset_index()
 
-        fig = (
-            px.bar(
-                _df,
-                x="Term",
-                y="Instructor",
-                color="Rank Desc",
-                title='Rank Count per Term',
-                hover_data={"Rank Desc": False, "Term": False},
-                category_orders={"Term": orderedTerms, "Rank Desc": ['Adjunct', 'Cat II', 'Cat I']},
-            )
-            .update_traces(
-                hovertemplate='%{y:d}'
-            )
-        )
+            _df['Percentage'] = 100*_df['CHP'] / _df.groupby('Term')['CHP'].transform(sum)
 
-    if fig_select == 'Rank Count per Term (%)':
-        df = df[['Term', 'Rank Desc', 'Instructor']].drop_duplicates()
-        _df = df.groupby(['Term', 'Rank Desc']).agg({'Instructor': 'count'}).reset_index()
+            Y="Percentage"
+            Title='CHP per Term (%)'
+            hoverData={"Rank Desc": False, "Term": False, "Percentage": True}
+            hoverTemplate='%{y:.1f}%'
 
-        _df['Percentage'] = 100*_df['Instructor'] / _df.groupby('Term')['Instructor'].transform(sum)
+        if fig_select == 'Rank Count per Term':
+            df = df[['Term', 'Rank Desc', 'Instructor']].drop_duplicates()
+            _df = df.groupby(['Term', 'Rank Desc']).agg({'Instructor': 'count'}).reset_index()
+
+            Y="Instructor"
+            Title='Rank Count per Term'
+            hoverData={"Rank Desc": False, "Term": False}
+            hoverTemplate='%{y:d}'
+
+        if fig_select == 'Rank Count per Term (%)':
+            df = df[['Term', 'Rank Desc', 'Instructor']].drop_duplicates()
+            _df = df.groupby(['Term', 'Rank Desc']).agg({'Instructor': 'count'}).reset_index()
+
+            _df['Percentage'] = 100*_df['Instructor'] / _df.groupby('Term')['Instructor'].transform(sum)
+
+            Y="Percentage"
+            Title='Rank Count per Term (%)'
+            hoverData={"Rank Desc": False, "Term": False}
+            hoverTemplate='%{y:.1f}%'
 
         fig = (
             px.bar(
                 _df,
                 x="Term",
-                y="Percentage",
+                y=Y,
                 color="Rank Desc",
-                title='Rank Count per Term (%)',
-                hover_data={"Rank Desc": False, "Term": False},
-                category_orders={"Term": orderedTerms, "Rank Desc": ['Adjunct', 'Cat II', 'Cat I']},
+                title=Title,
+                hover_data=hoverData,
+                category_orders=categoryOrders,
+                color_discrete_sequence=colorDiscreteSequence,
             )
             .update_traces(
-                hovertemplate='%{y:.1f}%'
+                hovertemplate=hoverTemplate,
             )
         )
 
 
-    # except KeyError:
-        # raise PreventUpdate
+    except KeyError:
+        raise PreventUpdate
 
     return [dcc.Graph( figure = fig,)]
 
@@ -666,7 +800,6 @@ def apply_query(n_clicks, n_submit, dropdown_value, input_value):
             if dropdown_value is None:
                 return ['']
             return [dropdown_value]
-
 
 # Main
 if __name__ == '__main__':

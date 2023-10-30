@@ -348,6 +348,8 @@ def tidy_xlsx(file_contents):
         _df.insert(len(_df.columns), 'Max', 1)
     if not 'Credit' in _df.columns:
         _df.insert(len(_df.columns), 'Credit', 3)
+    if not 'Campus' in _df.columns:
+        _df.insert(len(_df.columns), 'Campus', 'M')
 
     _df.rename(
         columns={
@@ -362,6 +364,7 @@ def tidy_xlsx(file_contents):
         inplace=True,
     )
 
+    print(_df.columns)
     # _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
               # 'Credit', 'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
     _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
@@ -1150,6 +1153,7 @@ def data_loading(
 
     if contents is not None and input_id == 'upload-data':
         df = parse_contents(contents, name)
+        print(df.to_string())
         df['colorRec'] = '#b3cde3'
 
     if input_id == 'reset-colors-button':
