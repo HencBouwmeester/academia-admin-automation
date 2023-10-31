@@ -185,6 +185,7 @@ def updateTitles(df):
         ["MTH 4250", "Statistical Theory",],
         ["MTH 4290", "Senior Statistics Project",],
         ["MTH 4410", "Real Analysis I",],
+        ["MTH 4420", "Real Analysis II",],
         ["MTH 4480", "Numerical Analysis I",],
         ["MTH 4490", "Numerical Analysis II",],
         ["MTH 4640", "History of Mathematics",],
