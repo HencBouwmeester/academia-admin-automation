@@ -457,6 +457,7 @@ def updateTitles(df):
         ['MTH 4290', 'Senior Statistics Project',],
         ['MTH 4410', 'Real Analysis I',],
         ['MTH 4420', 'Real Analysis II',],
+        ["MTH 4440", "Partial Differential Equations",],
         ['MTH 4450', 'Complex Variables',],
         ['MTH 4480', 'Numerical Analysis I',],
         ['MTH 4490', 'Numerical Analysis II',],

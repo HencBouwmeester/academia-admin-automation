@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 if DEBUG:
@@ -186,6 +186,7 @@ def updateTitles(df):
         ["MTH 4290", "Senior Statistics Project",],
         ["MTH 4410", "Real Analysis I",],
         ["MTH 4420", "Real Analysis II",],
+        ["MTH 4440", "Partial Differential Equations",],
         ["MTH 4480", "Numerical Analysis I",],
         ["MTH 4490", "Numerical Analysis II",],
         ["MTH 4640", "History of Mathematics",],
@@ -954,7 +955,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     "{:,.0f}".format(sections)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -962,7 +963,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     "{:,.0f}".format(courses)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -970,7 +971,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     '{:,.0f}'.format(waitlist)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -978,7 +979,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     '{:,.0f}'.format(enrolled)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -986,7 +987,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     "{:,.2f}".format(avg_enrl)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -994,7 +995,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     '{:,.1f}'.format(med_enrl)
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
             html.Tr([
@@ -1002,7 +1003,7 @@ def summary_stats(df, category, m):
                 html.Td([
                     ', '.join(['{:,.0f}'.format(_x) for _x in mod_enrl]),
                 ],
-                    style={'text-align':'right'},
+                    style={'textAlign':'right'},
                 ),
             ]),
         ],

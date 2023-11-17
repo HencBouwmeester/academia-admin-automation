@@ -20,7 +20,7 @@ import dash_bootstrap_components as dbc
 
 
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 # Include pretty graph formatting
@@ -126,7 +126,7 @@ def assignRank(df):
         ["Ruch, D",           0,       0,       0,       199450,  200050,  200650],
         ["Sundbye, L",        0,       0,       0,       200050,  200650,  201950],
         ["Schaeffer Fry,",    0,       0,       0,       201350,  201750,  202250],
-        ["Bertram, J",        201150,  201750,  202050,  0,       0,       0],
+        ["Bertram, J",        200950,  201750,  202050,  0,       0,       0],
         ["Freeman, A",        0,       202150,  0,       0,       0,       0],
         ["Schauble, J",       200850,  201550,  202150,  0,       0,       0],
         ["Kuang, Y",          201130,  0,       0,       0,       0,       0],
@@ -735,6 +735,9 @@ def update_graph(data, fig_select, granularValue, semesterValue):
             _df = df.groupby(['Term', 'Rank Desc']).agg({'Instructor': 'count'}).reset_index()
 
             _df['Percentage'] = 100*_df['Instructor'] / _df.groupby('Term')['Instructor'].transform(sum)
+            print(_df['Instructor'])
+            print(_df.groupby('Term')['Instructor'].transform(sum))
+            print(_df.groupby(['Term'])['Instructor'].transform(lambda x: sum(set(x))))
 
             Y="Percentage"
             Title='Rank Count per Term (%)'

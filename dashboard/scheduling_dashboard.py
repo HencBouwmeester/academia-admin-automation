@@ -103,6 +103,7 @@ def updateTitles(df):
         ['MTH 4290', 'Senior Statistics Project',],
         ['MTH 4410', 'Real Analysis I',],
         ['MTH 4420', 'Real Analysis II',],
+        ["MTH 4440", "Partial Differential Equations",],
         ['MTH 4450', 'Complex Variables',],
         ['MTH 4480', 'Numerical Analysis I',],
         ['MTH 4490', 'Numerical Analysis II',],
@@ -364,7 +365,7 @@ def tidy_xlsx(file_contents):
         inplace=True,
     )
 
-    print(_df.columns)
+    # print(_df.columns)
     # _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
               # 'Credit', 'Max', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor']]
     _df = _df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
@@ -1153,7 +1154,7 @@ def data_loading(
 
     if contents is not None and input_id == 'upload-data':
         df = parse_contents(contents, name)
-        print(df.to_string())
+        # print(df.to_string())
         df['colorRec'] = '#b3cde3'
 
     if input_id == 'reset-colors-button':
@@ -1256,13 +1257,15 @@ def query_input_output(val, query):
 @app.callback(
     [Output('datatable-interactivity', 'filter_query')],
     [Input('apply_query_button', 'n_clicks'),
+     Input('filter-query-input', 'n_submit'),
      State('filter-query-dropdown', 'value'),
      State('filter-query-input', 'value')]
 )
-def apply_query(n_clicks, dropdown_value, input_value):
+def apply_query(n_clicks, n_submit, dropdown_value, input_value):
     if DEBUG:
         print("function: apply_query")
-    if n_clicks > 0:
+    # if n_clicks > 0:
+    if n_clicks or n_submit:
         if dropdown_value == 'custom':
             return [input_value]
         else:
