@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from utilities import *
+
 # Import required libraries
 import dash
 import pandas as pd
@@ -10,11 +12,10 @@ import numpy as np
 import base64
 import io
 from dash.dependencies import Input, Output, State
-import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
 
-DEBUG = True
+DEBUG = False
 mathserver = False
 
 if DEBUG:
@@ -114,420 +115,6 @@ def data_bars(column_data, column_apply):
     return styles
 
 
-# blank figure when no data is present
-blankFigure={
-    'data': [],
-    'layout': go.Layout(
-        xaxis={
-            'showticklabels': False,
-            'ticks': '',
-            'showgrid': False,
-            'zeroline': False
-        },
-        yaxis={
-            'showticklabels': False,
-            'ticks': '',
-            'showgrid': False,
-            'zeroline': False
-        }
-    )
-}
-
-def updateTitles(df):
-    course_titles = [
-        ["MTH 1051", "Principles of Math in Chem Lab",],
-        ["MTH 1080", "Mathematics for Liberal Arts",],
-        ["MTH 1081", "Math. for Lib. Arts with Lab",],
-        ["MTH 1082", "Math. for Liberal Arts Lab",],
-        ["MTH 1101", "College Algebra for Calc Lab",],
-        ["MTH 1108", "College Algebra Stretch Part I",],
-        ["MTH 1109", "College Alg. Stretch Part II",],
-        ["MTH 1110", "College Algebra for Calculus",],
-        ["MTH 1111", "College Alg. for Calc with Lab",],
-        ["MTH 1112", "College Algebra thru Modeling",],
-        ["MTH 1115", "College Alg thru Mdlng w Lab",],
-        ["MTH 1116", "College Alg thru Mdlng Lab",],
-        ["MTH 1120", "College Trigonometry",],
-        ["MTH 1210", "Introduction to Statistics",],
-        ["MTH 1310", "Finite Math - Mgmt & Soc Scncs",],
-        ["MTH 1311", "Finite Math-Mgmt -with Lab",],
-        ["MTH 1312", "Finite Mathematics Lab",],
-        ["MTH 1320", "Calculus - Mgmt & Soc Sciences",],
-        ["MTH 1400", "Precalculus Mathematics",],
-        ["MTH 1410", "Calculus I",],
-        ["MTH 1610", "Integrated Mathematics I",],
-        ["MTH 2140", "Computational Matrix Algebra",],
-        ["MTH 2410", "Calculus II",],
-        ["MTH 2420", "Calculus III",],
-        ["MTH 2520", "R Programming",],
-        ["MTH 2540", "Scientific Computing",],
-        ["MTH 2620", "Integrated Mathematics II",],
-        ["MTH 3100", "Intro to Mathematical Proofs",],
-        ["MTH 3110", "Abstract Algebra I",],
-        ["MTH 3130", "Applied Methods in Linear Algebra",],
-        ["MTH 3140", "Linear Algebra",],
-        ["MTH 3170", "Discrete Math for Comp Science",],
-        ["MTH 3210", "Probability and Statistics",],
-        ["MTH 3220", "Statistical Methods",],
-        ["MTH 3240", "Environmental Statistics",],
-        ["MTH 3270", "Data Science",],
-        ["MTH 3400", "Chaos & Nonlinear Dynamics",],
-        ["MTH 3420", "Differential Equations",],
-        ["MTH 3430", "Mathematical Modeling",],
-        ["MTH 3440", "Partial Differential Equations",],
-        ["MTH 3470", "Intro Discrete Math & Modeling",],
-        ["MTH 3510", "SAS Programming",],
-        ["MTH 3650", "Foundations of Geometry",],
-        ["MTH 4110", "Abstract Algebra II",],
-        ["MTH 4150", "Elementary Number Theory",],
-        ["MTH 4210", "Probability Theory",],
-        ["MTH 4230", "Regression/Computational Stats",],
-        ["MTH 4250", "Statistical Theory",],
-        ["MTH 4290", "Senior Statistics Project",],
-        ["MTH 4410", "Real Analysis I",],
-        ["MTH 4420", "Real Analysis II",],
-        ["MTH 4440", "Partial Differential Equations",],
-        ["MTH 4480", "Numerical Analysis I",],
-        ["MTH 4490", "Numerical Analysis II",],
-        ["MTH 4640", "History of Mathematics",],
-        ["MTH 4660", "Introduction to Topology",],
-        ["MTL 3600", "Mathematics of Elementary Curriculum",],
-        ["MTL 3620", "Mathematics of Secondary Curriculum",],
-        ["MTL 3630", "Teaching Secondary Mathematics",],
-        ["MTL 3638", "Secondry Mathematics Field Experience",],
-        ["MTL 3750", "Number & Alg in the K-8 Curriculum",],
-        ["MTL 3760", "Geom & Stats in the K-8 Curriculum",],
-        ["MTL 3850", "STEM Teaching and Learning",],
-        ["MTL 3858", "STEM Practicum",],
-        ["MTL 4630", "Teaching Secondary Mathematics",],
-        ["MTL 4690", "Student Teaching & Seminar: Secondary 7-12",],
-        ["MTLM 5020", "Integrated Mathematics II",],
-        ["MTLM 5600", "Mathematics of the Elementary Curriculum",],
-    ]
-
-    df_titles = pd.DataFrame(course_titles, columns=["Class", "Title"])
-
-    cols = df.columns
-    df = df.set_index("Class")
-    df.update(df_titles.set_index("Class"))
-    df.reset_index(inplace=True)
-    df = df[cols]
-
-
-    return df
-
-def convertAMPMtime(timeslot):
-    if DEBUG:
-        print("function: convertAMPMtime")
-
-    try:
-        starthour = int(timeslot[0:2])
-        endhour = int(timeslot[5:7])
-        if timeslot[-2:] == "PM":
-            endhour = endhour + 12 if endhour < 12 else endhour
-            starthour = starthour + 12 if starthour + 12 <= endhour else starthour
-        timeslot = "{:s}:{:s}-{:s}:{:s}".format(
-            str(starthour).zfill(2), timeslot[2:4], str(endhour).zfill(2), timeslot[7:9]
-        )
-    except ValueError:  # catch the TBA times
-        pass
-
-    return timeslot
-
-def tidy_txt(file_contents):
-    if DEBUG:
-        print("function: tidy_txt")
-    """Take in SWRCGSR output and format into pandas-compatible format.
-
-    Args:
-        file_contents:
-            input decoded filestream of SWRCGSR output from an uploaded textfile.
-
-    Returns:
-        Dataframe.
-    """
-
-    _LINE_PATTERN = [
-        (0, 5),
-        (5, 10),
-        (10, 16),
-        (16, 20),
-        (20, 22),
-        (22, 26),
-        (26, 28),
-        (28, 44),
-        (44, 51),
-        (51, 56),
-        (56, 61),
-        (61, 66),
-        (66, 71),
-        (71, 79),
-        (79, 91),
-        (91, 99),
-        (99, 104),
-        (104, 109),
-        (109, 121),
-        (121, 140),
-    ]
-
-    # read the data date from the file
-    for i in range(5):
-        line = file_contents.readline()
-        if i == 4:
-            d = line.split()[-1]
-            break
-
-    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
-
-    # read into a dataframe based on specified column spacing
-    _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
-
-    # read the report Term and Year from file
-    term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
-
-    # rename the columns
-    # make allowances for newer version of pandas
-    if pd.__version__ >= '1.4.1':
-        k = 1
-    else:
-        k = 2
-    _df.columns = _df.iloc[k]
-
-    # manual filtering of erroneous data which preserves data for MTH 1108/1109
-    _df = _df.dropna(how='all')
-    _df = _df[~_df["Subj"].str.contains("Subj", na=False)]
-    _df = _df[~_df["Subj"].str.contains("---", na=False)]
-    _df = _df[~_df["Subj"].str.contains("SWRC", na=False)]
-    _df = _df[~_df["Subj"].str.contains("Ter", na=False)]
-    _df = _df[~_df["Instructor"].str.contains("Page", na=False)]
-    _df = _df.drop(_df.index[_df["Loc"].str.startswith("BA", na=False)].tolist())
-    _df = _df[_df["Begin/End"].notna()]
-
-    # add columns for Access Table
-    _df.insert(len(_df.columns), "PTCR", 0)
-    _df["PTCR"] = _df["Credit"]
-    _df.insert(len(_df.columns), "Final", "Y")
-    _df.insert(len(_df.columns), "OrigRoom", " ")
-    _df["OrigRoom"] = _df["Loc"]
-    _df.insert(len(_df.columns), "Bldg", " ")
-    _df.insert(len(_df.columns), "Room", " ")
-    _df["Bldg"] = _df["Loc"].str.split(" ").str[0]
-    _df["Room"] = _df["Loc"].str.split(" ").str[1]
-    _df.insert(len(_df.columns), "Dates", " ")
-    _df["Dates"] = _df["Begin/End"] + "/" + str(term_code[2:4])
-    _df.insert(len(_df.columns), "Class Start Date", " ")
-    _df.insert(len(_df.columns), "Class End Date", " ")
-    _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
-    _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
-
-    # reset index and remove old index column
-    _df = _df.reset_index()
-    _df = _df.drop([_df.columns[0]], axis=1)
-
-    # change PTCR for 1081s, 1311s, 1111s, and 1115s to 0
-    for nmbr in ["1081", "1111", "1115", "1311"]:
-        for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains(nmbr) & _df["S"].str.contains("A")].index.tolist():
-            _df.loc[row, "PTCR"] = 0
-
-    # change all online final flags to N since they do not need a room
-    for row in _df[_df["Cam"].str.startswith("I", na=False)].index.tolist():
-        _df.loc[row, "Final"] = "N"
-
-    # correct report to also include missing data for MTH 1109
-    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1109") & _df["S"].str.contains("A")].index.tolist():
-        for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
-            _df.loc[row + 1, col] = _df.loc[row, col]
-        _df.loc[row + 1, "Credit"] = 0
-        _df.loc[row + 1, "PTCR"] = 0
-
-    # correct report to also include missing data for MTH 1108
-    for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains("1108") & _df["S"].str.contains("A")].index.tolist():
-        for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
-            _df.loc[row + 1, col] = _df.loc[row, col]
-        _df.loc[row + 1, "Credit"] = 0
-        _df.loc[row + 1, "PTCR"] = 0
-        row_dict = _df.loc[row].to_dict()
-        row_dict["Instructor"] = ","
-        row_dict["Credit"] = 0
-        row_dict["PTCR"] = 1
-        _df = pd.concat([_df, pd.DataFrame(row_dict, index=[0])], ignore_index=True)
-
-    # add columns for Access Table
-    _df.insert(len(_df.columns), "Class", " ")
-    _df["Class"] = _df["Subj"] + " " + _df["Nmbr"]
-    _df['DaysTimeLoc'] = _df['Days'] +  _df['Time'] + _df['Loc']
-    _df = updateTitles(_df)
-
-    # remove all rows with irrelevant data
-    _df = _df[_df["CRN"].notna()]
-    _df = _df[_df.CRN.apply(lambda x: x.isnumeric())]
-    _df.rename(
-        columns={
-            "Subj": "Subject",
-            "Nmbr": "Number",
-            "Sec": "Section",
-            "Cam": "Campus",
-            "Enrl": "Enrolled",
-            "WLst": "WList",
-            "%Ful": "Full",
-        },
-        inplace=True,
-    )
-    _df[["Credit", "Max", "Enrolled", "WCap", "WList"]] = _df[
-        ["Credit", "Max", "Enrolled", "WCap", "WList"]
-    ].apply(pd.to_numeric, errors="coerce")
-
-    _df = _df.sort_values(by=["Subject", "Number", "Section"])
-
-    # include in calculations
-    _df['Calc'] = 'Y'
-    for row in _df.index.to_list():
-        if _df.loc[row, 'S'] == 'C':
-            _df.loc[row, 'Calc'] = 'N'
-
-    return _df, term_code, data_date
-
-def tidy_csv(file_contents):
-    if DEBUG:
-        print("function: tidy_csv")
-    """ Converts the CSV format to the TXT format from Banner
-
-    Args:
-        file_contents:
-            input decoded filestream of SWRCGSR output from an uploaded textfile.
-
-    Returns:
-        Dataframe.
-    """
-
-    _file = file_contents.read()
-    _file = _file.replace("\r","")
-
-    _list = []
-    line = ""
-    for char in _file:
-        if char == '\n':
-            line = line.replace('"','')
-            _list.append(line[:-1])
-            line = ""
-        else:
-            line += char
-
-    # delete information in first line to match txt file type
-    _list = _list[1:]
-    _list.insert(0,'')
-
-    return tidy_txt(io.StringIO("\n".join(_list)))
-
-def tidy_xlsx(file_contents):
-    if DEBUG:
-        print("function: tidy_xlsx")
-    """ Converts an Excel Spreadsheet
-
-    Make sure that you copy and paste all data as values before trying to import.
-
-    Args:
-        file_contents:
-            input decoded filestream of SWRCGSR output from an uploaded textfile.
-
-    Returns:
-        Dataframe.
-    """
-
-    term_code = "190000"
-    d = "02-FEB-1900"
-    data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
-    _df = pd.read_excel(file_contents,
-                        engine='openpyxl',
-                        converters={
-                            'Subject':str,
-                            'Number':str,
-                            'CRN':str,
-                            'Section':str,
-                            'Campus':str,
-                            'Title':str,
-                            'Days':str,
-                            'Time':str,
-                            'Loc':str,
-                            'Instructor':str,
-                        })
-
-    # create missing columns, if necessary
-    if not 'S' in _df.columns:
-        _df.insert(len(_df.columns), "S", "A")
-    if not 'Begin/End' in _df.columns:
-        _df.insert(len(_df.columns), "Begin/End", "01/01-01/01")
-    if not 'T' in _df.columns:
-        _df.insert(len(_df.columns), "T", 1)
-    if not 'WCap' in _df.columns:
-        _df.insert(len(_df.columns), "WCap", 0)
-    if not 'WList' in _df.columns:
-        _df.insert(len(_df.columns), "WList", 0)
-    if not 'Enrolled' in _df.columns:
-        _df.insert(len(_df.columns), "Enrolled", 0)
-    if not 'Rcap' in _df.columns:
-        _df.insert(len(_df.columns), "Rcap", 0)
-    if not 'Max' in _df.columns:
-        _df.insert(len(_df.columns), "Max", 1)
-    if not 'Full' in _df.columns:
-        _df.insert(len(_df.columns), "Full", 0)
-    if not 'Credit' in _df.columns:
-        _df.insert(len(_df.columns), "Credit", 3)
-
-    _df.rename(
-        columns={
-            "Subj": "Subject",
-            "Nmbr": "Number",
-            "Sec": "Section",
-            "Cam": "Campus",
-            "Enrl": "Enrolled",
-            "WLst": "WList",
-            "%Ful": "Full",
-        },
-        inplace=True,
-    )
-
-    _df = _df[["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
-              "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
-              "Rcap", "Full", "Begin/End", "Instructor"]]
-
-    _df.insert(len(_df.columns), "Class", " ")
-    _df["Class"] = _df["Subject"] + " " + _df["Number"]
-    _df['DaysTimeLoc'] = _df['Days'] +  _df['Time'] + _df['Loc']
-
-    # add columns for Access Table
-    _df.insert(len(_df.columns), "PTCR", 0)
-    _df["PTCR"] = _df["Credit"]
-    _df.insert(len(_df.columns), "Final", "Y")
-    _df.insert(len(_df.columns), "OrigRoom", " ")
-    _df["OrigRoom"] = _df["Loc"]
-    _df.insert(len(_df.columns), "Bldg", " ")
-    _df.insert(len(_df.columns), "Room", " ")
-    _df["Bldg"] = _df["Loc"].str.split(" ").str[0]
-    _df["Room"] = _df["Loc"].str.split(" ").str[1]
-    _df.insert(len(_df.columns), "Dates", " ")
-    _df["Dates"] = _df["Begin/End"] + "/" + str(term_code[2:4])
-    _df.insert(len(_df.columns), "Class Start Date", " ")
-    _df.insert(len(_df.columns), "Class End Date", " ")
-    _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
-    _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
-
-    # there might be CRNs that are unknown (blank), so fill sequentially starting
-    # from 99999 and go down
-    i = 1
-    for row in _df[_df["CRN"].isna()].index.tolist():
-        _df.loc[row, "CRN"] = str(100000 - i)
-        i += 1
-
-    # include in calculations
-    _df['Calc'] = 'Y'
-    for row in _df.index.to_list():
-        if _df.loc[row, 'S'] == 'C':
-            _df.loc[row, 'Calc'] = 'N'
-
-    return _df, term_code, data_date
-
-
 def to_access(df, report_term):
     _df = df.copy()
 
@@ -573,6 +160,11 @@ def to_access(df, report_term):
     return data
 
 def to_excel(df, report_term):
+    """
+    This will export the Number and Sections as formulas to preserve the leading zeros
+    To correctly import this back into Python, you will need to open it and save it in
+    Excel first, before importing.
+    """
     _df = df.copy()
 
     # only grab needed columns and correct ordering
@@ -585,14 +177,15 @@ def to_excel(df, report_term):
     writer = pd.ExcelWriter(
         xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
     )
-    _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
+    
+    _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=str(x)))
     _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df.to_excel(writer, sheet_name=report_term, index=False)
 
     workbook = writer.book
     worksheet = writer.sheets[report_term]
 
-    bold = workbook.add_format({"bold": True})
+    # bold = workbook.add_format({"bold": True})
 
     rowCount = len(_df.index)
 
@@ -670,11 +263,122 @@ def to_excel(df, report_term):
     # Save it
     writer.close()
     xlsx_io.seek(0)
-    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     data = base64.b64encode(xlsx_io.read()).decode("utf-8")
     return data
 
-def parse_contents(contents, filename, date):
+def to_excel_dean(df, report_term):
+    _df = df.copy()
+
+    # only grab needed columns and correct ordering
+    cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
+            "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
+            "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio", "Calc"]
+    _df = _df[cols]
+
+    xlsx_io = io.BytesIO()
+    writer = pd.ExcelWriter(
+        xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
+    )
+    _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
+    _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
+    _df.to_excel(writer, sheet_name=report_term, index=False)
+
+    workbook = writer.book
+    worksheet = writer.sheets[report_term]
+
+    # bold = workbook.add_format({"bold": True})
+
+    rowCount = len(_df.index)
+
+    worksheet.freeze_panes(1, 0)
+    worksheet.set_column("A:A", 6.5)
+    worksheet.set_column("B:B", 7)
+    worksheet.set_column("C:C", 5.5)
+    worksheet.set_column("D:D", 6.5)
+    worksheet.set_column("E:E", 2)
+    worksheet.set_column("F:F", 6.5)
+    worksheet.set_column("G:G", 2)
+    worksheet.set_column("H:H", 13.2)
+    worksheet.set_column("I:I", 5.5)
+    worksheet.set_column("J:J", 4)
+    worksheet.set_column("K:K", 7)
+    worksheet.set_column("L:L", 5)
+    worksheet.set_column("M:M", 5)
+    worksheet.set_column("N:N", 5.5)
+    worksheet.set_column("O:O", 12)
+    worksheet.set_column("P:P", 7)
+    worksheet.set_column("Q:Q", 4)
+    worksheet.set_column("R:R", 3.5)
+    worksheet.set_column("S:S", 10.5)
+    worksheet.set_column("T:T", 14)
+    worksheet.set_column("U:U", 8)
+
+    # Common cell formatting
+    # Light red fill with dark red text
+    format1 = workbook.add_format({"bg_color": "#FFC7CE", "font_color": "#9C0006"})
+    # Light yellow fill with dark yellow text
+    format2 = workbook.add_format({"bg_color": "#FFEB9C", "font_color": "#9C6500"})
+    # Green fill with dark green text.
+    format3 = workbook.add_format({"bg_color": "#C6EFCE", "font_color": "#006100"})
+    # Darker green fill with black text.
+    format4 = workbook.add_format({"bg_color": "#008000", "font_color": "#000000"})
+
+    # Add enrollment evaluation conditions
+
+    # 1000 level classes that have fewer than 20 students
+    worksheet.conditional_format(
+        1,  # row 2
+        10,  # column K
+        rowCount,  # last row
+        10,  # column K
+        {"type": "formula", "criteria": "=_xlfn.AND($K2<20,_xlfn.NUMBERVALUE($B2)<2000)", "value": "TRUE", "format": format1},
+    )
+
+    # 2000 level classes that have fewer than 18 students
+    worksheet.conditional_format(
+        1,  # row 2
+        10,  # column K
+        rowCount,  # last row
+        10,  # column K
+        {"type": "formula", "criteria": "=_xlfn.AND($K2<18,_xlfn.NUMBERVALUE($B2)>1999,_xlfn.NUMBERVALUE($B2)<3000)", "value": "TRUE", "format": format1},
+    )
+
+    # 3000 level classes that have fewer than 15 students
+    worksheet.conditional_format(
+        1,  # row 2
+        10,  # column K
+        rowCount,  # last row
+        10,  # column K
+        {"type": "formula", "criteria": "=_xlfn.AND($K2<15,_xlfn.NUMBERVALUE($B2)>2999,_xlfn.NUMBERVALUE($B2)<4000)", "value": "TRUE", "format": format1},
+    )
+
+    # 4000 level classes that have fewer than 10 students
+    worksheet.conditional_format(
+        1,  # row 2
+        10,  # column K
+        rowCount,  # last row
+        10,  # column K
+        {"type": "formula", "criteria": "=_xlfn.AND($K2<10,_xlfn.NUMBERVALUE($B2)>3999)", "value": "TRUE", "format": format1},
+    )
+
+    # classes that have students on the waitlist
+    worksheet.conditional_format(
+        1,  # row 2
+        12,  # column M
+        rowCount,  # last row
+        12,  # column M
+        {"type": "cell", "criteria": ">", "value": 0, "format": format2},
+    )
+
+    # Save it
+    writer.close()
+    xlsx_io.seek(0)
+    # media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    data = base64.b64encode(xlsx_io.read()).decode("utf-8")
+    return data
+
+def parse_contents(contents, filename): #, date):
     if DEBUG:
         print("function: parse_contents")
     """Assess filetype of uploaded file and pass to appropriate processing functions,
@@ -690,22 +394,28 @@ def parse_contents(contents, filename, date):
         class EnrollmentData containing data and attributes
     """
 
-    content_type, content_string = contents.split(",")
+    _, content_string = contents.split(",")
 
     decoded = base64.b64decode(content_string)
-    try:
-        if "txt" in filename:
-            # Assume that the user uploaded a banner fixed width file with .txt extension
-            df, term_code, data_date = tidy_txt(io.StringIO(decoded.decode("utf-8")))
-            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
-        elif "csv" in filename:
-            # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
-            df, term_code, data_date = tidy_csv(io.StringIO(decoded.decode("utf-8")))
-            df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
-        elif "xlsx" in filename:
-            df, term_code, data_date = tidy_xlsx(io.BytesIO(decoded))
-    except Exception as e:
-        print(e)
+
+    df = pd.DataFrame()
+    term_code = ''
+    data_date = ''
+
+    # try:
+    if "txt" in filename:
+        # Assume that the user uploaded a banner fixed width file with .txt extension
+        df, term_code, data_date = tidy_txt(io.StringIO(decoded.decode("utf-8")))
+        df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
+    elif "csv" in filename:
+        # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
+        df, term_code, data_date = tidy_csv(io.StringIO(decoded.decode("utf-8")))
+        df["Time"] = df["Time"].apply(lambda x: convertAMPMtime(x))
+    elif "xlsx" in filename:
+        df, term_code, data_date = tidy_xlsx(io.BytesIO(decoded))
+    # except Exception as e:
+    #     print(e)
+    else:
         return html.Div(["There was an error processing this file."])
 
 
@@ -794,14 +504,23 @@ def create_datatable(df):
                     'backgroundColor': '#FFEB9C',
                     'color': '#9C6500'
                 },
+                # 1000 level min of 20; 2000 level min of 18, 3000 level min of 15; 4000 level min of 10
                 {
                     'if': {
-                        'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
+                        'filter_query': '{S} contains A && {Credit} > 0 && ({Subject} contains MTH || {Subject} contains MTL) && ({Number} != "1082" && {Number} != "1101" && {Number} != "1116" && {Number} != "1312") && ({Enrolled} < 20 && {Number} < 2000) || ({Enrolled} < 18 && ({Number} >= 2000 && {Number} < 3000)) || ({Enrolled} < 15 && ({Number} >= 3000 && {Number} < 4000)) || ({Enrolled} < 10 && {Number} >= 4000)',
                         'column_id': 'Enrolled'
                     },
                     'backgroundColor': '#FFC7CE',
                     'color': '#9C0006'
                 },
+                # {
+                #     'if': {
+                #         'filter_query': '({Enrolled} < 10 && {Max} >= 20 && {S} contains A) || ({Enrolled} < 6 && {S} contains A)',
+                #         'column_id': 'Enrolled'
+                #     },
+                #     'backgroundColor': '#FFC7CE',
+                #     'color': '#9C0006'
+                # },
                 {
                     'if': {
                         'filter_query': '{Ratio} > 80',
@@ -883,6 +602,7 @@ def summary_stats(df, category, m):
     courses = 0
     waitlist = 0
     enrolled = 0
+    min_enrl = 0
     avg_enrl = 0
     med_enrl = 0
     mod_enrl = [0]
@@ -900,6 +620,7 @@ def summary_stats(df, category, m):
             courses = df["Class"].nunique()
             waitlist = df['WList'].sum()
             enrolled = df['Enrolled'].sum()
+            min_enrl = df["Enrolled"].min()
             avg_enrl = df["Enrolled"].mean()
             if np.isnan(avg_enrl):
                 avg_enrl = 0
@@ -909,6 +630,55 @@ def summary_stats(df, category, m):
             mod_enrl = multi_mode(df['Enrolled'].to_list())
             fig=freq_dist_graph(df['Enrolled'].to_list(), m)
 
+
+        elif category == 'Total':
+            df_labs = df[df['Calc']=='L']
+            lab_sections = df_labs["CRN"].nunique()
+            lab_courses = df_labs["Class"].nunique()
+
+            # only courses that we want included in calculations
+            df_N = df[(df['Calc'] == 'N') & (df['Credit'] > 0)]
+            df = df[df['Calc'] == 'Y']
+
+            # face-to-face courses
+            df_M = df[(df["Campus"]=="M")]
+
+            # online courses
+            df_I = df[(df["Campus"]=="I")]
+
+            # include all courses marked 'Y' and subtract labs and 5000 level courses
+            sections = df["CRN"].nunique() - lab_sections - df[df['Number'].str.startswith('5')]["CRN"].nunique()
+            if sections > 0:
+                courses = df["Class"].nunique() - lab_courses
+                waitlist = df['WList'].sum()
+
+                # add in the independent studies and omnibus courses
+                # enrolled = df['Enrolled'].sum() + df_N['Enrolled'].sum()
+
+                # calculate enrollments for each day/time/loc block
+                enrl = df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+                # add in the online sections
+                enrl += df_I['Enrolled'].tolist()
+                # add in the F2F without day/time/loc (such as independent studies)
+                enrl += df_M[df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+                # courses marked with a 'N' are not included in minimum, median, mode or sections
+                sections = len(enrl)
+
+                min_enrl = np.min(enrl)
+                med_enrl = median(enrl)
+                mod_enrl = multi_mode(enrl)
+                fig=freq_dist_graph(enrl, m)
+
+                # no add in the students in those sections that we ommited
+                enrl += df_N['Enrolled'].to_list()
+
+                enrolled = sum(enrl)
+                
+                avg_enrl = enrolled / sections
+                # avg_enrl = np.mean(enrl)
+            else:
+                sections = 0
 
         else:
             df_labs = df[df['Calc']=='L']
@@ -926,7 +696,7 @@ def summary_stats(df, category, m):
 
             # print(df_labs["CRN"])
             # print(df["CRN"])
-            sections = df["CRN"].nunique()# - lab_sections
+            sections = df["CRN"].nunique() - lab_sections
             if sections > 0:
                 courses = df["Class"].nunique() - lab_courses
                 waitlist = df['WList'].sum()
@@ -939,6 +709,7 @@ def summary_stats(df, category, m):
                 # add in the F2F without day/time/loc (such as independent studies)
                 enrl += df_M[df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
 
+                min_enrl = np.min(enrl)
                 avg_enrl = np.mean(enrl)
                 med_enrl = median(enrl)
                 mod_enrl = multi_mode(enrl)
@@ -978,6 +749,14 @@ def summary_stats(df, category, m):
                 html.Td(["Total: "]),
                 html.Td([
                     '{:,.0f}'.format(enrolled)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Min: "]),
+                html.Td([
+                    "{:,.0f}".format(min_enrl)
                 ],
                     style={'textAlign':'right'},
                 ),
@@ -1316,9 +1095,9 @@ app.layout = html.Div([
                         "Lab enrollments, marked with an 'L' in the datatable, \
                         are not included in Total, Lower, \
                         or Upper Division calculations."]),
-                    html.Li([
-                        "Rows marked with an 'N' in the datatable are not \
-                        included in any of the calculations."]),
+                    # html.Li([
+                    #     "Rows marked with an 'N' in the datatable are not \
+                    #     included in any of the calculations."]),
                     html.Li([
                         "5000 level courses are only included in the Total \
                         calculations."]),
@@ -1330,7 +1109,7 @@ app.layout = html.Div([
         html.Div([
             html.Div([
                 dcc.Graph(
-                    figure=blankFigure,
+                    figure=blankFigure(),
                     id="max_v_enrl_by_crn_graph"
                 )
             ],
@@ -1338,7 +1117,7 @@ app.layout = html.Div([
             ),
             html.Div([
                 dcc.Graph(
-                    figure=blankFigure,
+                    figure=blankFigure(),
                     id="max_v_enrl_by_course_graph"
                 )
             ],
@@ -1380,7 +1159,7 @@ app.layout = html.Div([
             ),
             html.Div([
                 dcc.Graph(
-                    figure=blankFigure,
+                    figure=blankFigure(),
                     id="graph_f2f"
                 ),
                 html.Label([
@@ -1406,7 +1185,7 @@ app.layout = html.Div([
         html.Div([
             html.Div([
                 dcc.Graph(
-                    figure=blankFigure,
+                    figure=blankFigure(),
                     id="enrl_by_instructor_graph",
                 )
             ],
@@ -1414,7 +1193,7 @@ app.layout = html.Div([
             ),
             html.Div([
                 dcc.Graph(
-                    figure=blankFigure,
+                    figure=blankFigure(),
                     id="chp_by_course_graph",
                 )
             ],
@@ -1528,12 +1307,12 @@ html.Div([dcc.Input(id='term-code', placeholder='', style={'display': 'none'})])
      Output('term-code', 'value')],
     Input('upload-data', 'contents'),
     [State('upload-data-button', 'n_clicks'),
-     State('upload-data', 'filename'),
-     State('upload-data', 'last_modified')],
+     State('upload-data', 'filename')],
+     # State('upload-data', 'last_modified')],
 )
-def initial_data_loading(contents, n_clicks, filename, date):
+def initial_data_loading(contents, n_clicks, filename):#, date):
     if contents is not None and n_clicks > 0:
-        df, report_term, term_code, data_date = parse_contents(contents, filename, date)
+        df, report_term, term_code, data_date = parse_contents(contents, filename) #, date)
 
         # these are courses that should not be included in the calculations
         lab_courses = ('MTH 1082','MTH 1101', 'MTH 1116', 'MTH 1312')
@@ -1572,6 +1351,7 @@ def initial_data_loading(contents, n_clicks, filename, date):
         term_code = ''
         stats_graph_title = ""
         n_clicks = 0
+        title_report_semester = "Enrollment Report"
 
     datatable_container_children = [
         html.Div(
@@ -1601,6 +1381,7 @@ def export_all(all_n_clicks, access_n_clicks, dean_n_clicks, data, report_term, 
     if DEBUG:
         print("function: export_all")
     ctx = dash.callback_context
+    trigger = ''
     if ctx.triggered:
         trigger = (ctx.triggered[0]['prop_id'].split('.')[0])
     _df = pd.DataFrame(data)
@@ -1615,7 +1396,7 @@ def export_all(all_n_clicks, access_n_clicks, dean_n_clicks, data, report_term, 
     elif 'export-dean-button' == trigger and dean_n_clicks > 0:
         _df = labs_combined(_df)
         return {'base64': True,
-                'content': to_excel(_df, report_term),
+                'content': to_excel_dean(_df, report_term),
                 'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
 
 @app.callback(
@@ -1629,6 +1410,7 @@ def export_filtered(n_clicks, data, report_term, term_code):
     if DEBUG:
         print("function: export_filtered")
     _df = pd.DataFrame(data)
+    print(_df)
     if n_clicks > 0:
         return {'base64': True,
                 'content': to_excel(_df, report_term),
@@ -1706,7 +1488,7 @@ def max_v_enrl_by_crn(data, fig):
                     "Course": True,
                     "CRN": False,
                     "Instructor": True,
-                    "Ratio": True,
+                    "Ratio": ':0.1f',
                     "variable": False,
                     "WList": True,
                 },
@@ -1767,7 +1549,7 @@ def max_v_enrl_by_course(data, fig):
                 y=["Max", "Enrolled"],
                 color_discrete_map = {"Max": '#00447c', "Enrolled": '#d11242'},
                 title="Enrollment per Course",
-                hover_data={"Ratio": True, "WList": True},
+                hover_data={"Ratio": ':0.1f', "WList": True},
             )
             .update_layout(
                 showlegend=False,
@@ -1776,7 +1558,6 @@ def max_v_enrl_by_course(data, fig):
                 barmode="overlay",
             )
         )
-        return fig
     else:
         return fig
 
@@ -1933,7 +1714,7 @@ def graph_enrollment_by_instructor(data, fig):
     Input('datatable', 'derived_viewport_data'),
     State('chp_by_course_graph', 'figure'),
 )
-def chp_by_course(data, fig):
+def chp_by_course_callback(data, fig):
     if data:
         df = pd.DataFrame(data).copy()
         df = df[df["Credit"] != 0]
@@ -1945,6 +1726,11 @@ def chp_by_course(data, fig):
                 title="Credit Hour Production by Course",
                 color="Ratio",
                 color_continuous_scale=['#d11242', '#717073', '#00447c'],
+                hover_data={
+                    "Course": True,
+                    "CHP": True,
+                    "Ratio": ':0.1f',
+                }
             )
             .update_xaxes(categoryorder="category descending")
             .update_layout(showlegend=False)

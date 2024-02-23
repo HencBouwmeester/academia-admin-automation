@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from utilities import *
 
 # Import required libraries
 from dash import html, dcc, dash_table, callback_context, Dash
@@ -67,26 +68,9 @@ def generate_tab_fig(day, tab, fig):
     if DEBUG:
         print("function: generate_tab_fig")
     # blank figure when no data is present
-    blankFigure={
-        'data': [],
-        'layout': go.Layout(
-            xaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            },
-            yaxis={
-                'showticklabels': False,
-                'ticks': '',
-                'showgrid': False,
-                'zeroline': False
-            }
-        )
-    }
 
     if fig is None:
-        fig = blankFigure
+        fig = blankFigure()
 
     modeBarButtonsToRemove = ['zoom2d',
                               'pan2d',
@@ -399,92 +383,10 @@ def find_day(row):
 
     return Days
 
+
 def correct_date(row):
     return row['Date'][:-4]
 
-def updateTitles(df):
-    if DEBUG:
-        print("function: updateTitles")
-    course_titles = [
-        ['MTH 1051', 'Principles of Math in Chem Lab',],
-        ['MTH 1080', 'Mathematics for Liberal Arts',],
-        ['MTH 1081', 'Math. for Lib. Arts with Lab',],
-        ['MTH 1082', 'Math. for Liberal Arts Lab',],
-        ['MTH 1101', 'College Algebra for Calc Lab',],
-        ['MTH 1108', 'College Algebra Stretch Part I',],
-        ['MTH 1109', 'College Alg. Stretch Part II',],
-        ['MTH 1110', 'College Algebra for Calculus',],
-        ['MTH 1111', 'College Alg. for Calc with Lab',],
-        ['MTH 1112', 'College Algebra thru Modeling',],
-        ['MTH 1115', 'College Alg thru Mdlng w Lab',],
-        ['MTH 1116', 'College Alg thru Mdlng Lab',],
-        ['MTH 1120', 'College Trigonometry',],
-        ['MTH 1210', 'Introduction to Statistics',],
-        ['MTH 1310', 'Finite Math - Mgmt & Soc Scncs',],
-        ['MTH 1311', 'Finite Math-Mgmt -with Lab',],
-        ['MTH 1312', 'Finite Mathematics Lab',],
-        ['MTH 1320', 'Calculus - Mgmt & Soc Sciences',],
-        ['MTH 1400', 'Precalculus Mathematics',],
-        ['MTH 1410', 'Calculus I',],
-        ['MTH 1610', 'Integrated Mathematics I',],
-        ['MTH 2140', 'Computational Matrix Algebra',],
-        ['MTH 2410', 'Calculus II',],
-        ['MTH 2420', 'Calculus III',],
-        ['MTH 2520', 'R Programming',],
-        ['MTH 2540', 'Scientific Computing',],
-        ['MTH 2620', 'Integrated Mathematics II',],
-        ['MTH 3100', 'Intro to Mathematical Proofs',],
-        ['MTH 3110', 'Abstract Algebra I',],
-        ['MTH 3130', 'Applied Methods in Linear Algebra',],
-        ['MTH 3140', 'Linear Algebra',],
-        ['MTH 3170', 'Discrete Math for Comp Science',],
-        ['MTH 3210', 'Probability and Statistics',],
-        ['MTH 3220', 'Statistical Methods',],
-        ['MTH 3240', 'Environmental Statistics',],
-        ['MTH 3270', 'Data Science',],
-        ['MTH 3400', 'Chaos & Nonlinear Dynamics',],
-        ['MTH 3420', 'Differential Equations',],
-        ['MTH 3430', 'Mathematical Modeling',],
-        ['MTH 3440', 'Partial Differential Equations',],
-        ['MTH 3470', 'Intro Discrete Math & Modeling',],
-        ['MTH 3510', 'SAS Programming',],
-        ['MTH 3650', 'Foundations of Geometry',],
-        ['MTH 4110', 'Abstract Algebra II',],
-        ['MTH 4150', 'Elementary Number Theory',],
-        ['MTH 4210', 'Probability Theory',],
-        ['MTH 4230', 'Regression/Computational Stats',],
-        ['MTH 4250', 'Statistical Theory',],
-        ['MTH 4290', 'Senior Statistics Project',],
-        ['MTH 4410', 'Real Analysis I',],
-        ['MTH 4420', 'Real Analysis II',],
-        ["MTH 4440", "Partial Differential Equations",],
-        ['MTH 4450', 'Complex Variables',],
-        ['MTH 4480', 'Numerical Analysis I',],
-        ['MTH 4490', 'Numerical Analysis II',],
-        ['MTH 4640', 'History of Mathematics',],
-        ['MTH 4660', 'Introduction to Topology',],
-        ['MTL 3600', 'Mathematics of Elementary Curriculum',],
-        ['MTL 3620', 'Mathematics of Secondary Curriculum',],
-        ['MTL 3630', 'Teaching Secondary Mathematics',],
-        ['MTL 3638', 'Secondry Mathematics Field Experience',],
-        ['MTL 3750', 'Number & Alg in the K-8 Curriculum',],
-        ['MTL 3760', 'Geom & Stats in the K-8 Curriculum',],
-        ['MTL 3850', 'STEM Teaching and Learning',],
-        ['MTL 3858', 'STEM Practicum',],
-        ['MTL 4690', 'Student Teaching & Seminar: Secondary 7-12',],
-        ['MTLM 5020', 'Integrated Mathematics II',],
-        ['MTLM 5600', 'Mathematics of the Elementary Curriculum',],
-    ]
-
-    df_titles = DataFrame(course_titles, columns=['Class', 'Title'])
-
-    cols = df.columns
-    df = df.set_index('Class')
-    df.update(df_titles.set_index('Class'))
-    df.reset_index(inplace=True)
-    df = df[cols]
-
-    return df
 
 def convertAMPMtime_grid(timeslot):
     try:
@@ -658,132 +560,8 @@ df_grid = DataFrame({'Credit': finals_grid[::7], 'Meetings': finals_grid[1::7],
 df_grid['Class_Start'] = df_grid['Class_Start'].apply(lambda x: convertAMPMtime_grid(x))
 df_grid['Class_End'] = df_grid['Class_End'].apply(lambda x: convertAMPMtime_grid(x))
 
-def convertAMPMtime(timeslot):
-    if DEBUG:
-        print("function: convertAMPMtime")
-    """Convert time format from 12hr to 24hr and account for TBA times.
 
-    Args:
-        timeslot: dataframe cell contents.
-
-    Returns:
-        reformmated dataframe cell contents."""
-
-    try:
-        starthour = int(timeslot[0:2])
-        endhour = int(timeslot[5:7])
-        if timeslot[-2:] == 'PM':
-            endhour = endhour + 12 if endhour < 12 else endhour
-            starthour = starthour + 12 if starthour + 12 <= endhour else starthour
-        timeslot = '{:s}:{:s}-{:s}:{:s}'.format(
-            str(starthour).zfill(2), timeslot[2:4], str(endhour).zfill(2), timeslot[7:9]
-        )
-    except ValueError:  # catch the TBA times
-        pass
-
-    return timeslot
-
-def tidy_txt(file_contents):
-    if DEBUG:
-        print("function: tidy_txt")
-    """Take in SWRCGSR output and format into pandas-compatible format.
-
-    Args:
-        file_contents:
-            input decoded filestream of SWRCGSR output from an uploaded textfile.
-
-    Returns:
-        Dataframe.
-    """
-
-    _LINE_PATTERN = [
-        (0, 5),
-        (5, 10),
-        (10, 16),
-        (16, 20),
-        (20, 22),
-        (22, 26),
-        (26, 28),
-        (28, 44),
-        (44, 51),
-        (51, 56),
-        (56, 61),
-        (61, 66),
-        (66, 71),
-        (71, 79),
-        (79, 91),
-        (91, 99),
-        (99, 104),
-        (104, 109),
-        (109, 121),
-        (121, 140),
-    ]
-
-    # move cursor to first nonempty line
-    for i in range(5):
-        line = file_contents.readline()
-
-    # read into a dataframe based on specified column spacing
-    _df = read_fwf(file_contents, colspecs=_LINE_PATTERN)
-
-    ##############  HENC   ###############
-    # print(_df)
-
-    # read the report Term and Year from file
-    term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
-
-    # rename the columns
-    # make allowances for newer version of pandas
-    if __version__ >= '1.4.1':
-        k = 1
-    else:
-        k = 2
-    _df.columns = _df.iloc[k]
-
-    # manual filtering of erroneous data which preserves data for MTH 1108/1109
-    _df = _df.dropna(how='all')
-    _df = _df[~_df['Subj'].str.contains('Subj', na=False)]
-    _df = _df[~_df['Subj'].str.contains('---', na=False)]
-    _df = _df[~_df['Subj'].str.contains('SWRC', na=False)]
-    _df = _df[~_df['Subj'].str.contains('Ter', na=False)]
-    _df = _df[~_df['Instructor'].str.contains('Page', na=False)]
-    _df = _df.drop(_df.index[_df['Loc'].str.startswith('BA', na=False)].tolist())
-    _df = _df[_df['Begin/End'].notna()]
-
-    # reset index and remove old index column
-    _df = _df.reset_index()
-    _df = _df.drop([_df.columns[0]], axis=1)
-
-    # update all titles to show full name
-    _df.insert(len(_df.columns), 'Class', ' ')
-    _df['Class'] = _df['Subj'] + ' ' + _df['Nmbr']
-    _df = updateTitles(_df)
-
-    # remove all rows with irrelevant data
-    _df = _df[_df['CRN'].notna()]
-    _df = _df[_df.CRN.apply(lambda x: x.isnumeric())]
-    _df.rename(
-        columns={
-            'Subj': 'Subject',
-            'Nmbr': 'Number',
-            'Sec': 'Section',
-            'Cam': 'Campus',
-            'Enrl': 'Enrolled',
-            'WLst': 'WList',
-            '%Ful': 'Full',
-        },
-        inplace=True,
-    )
-    _df[['Credit', 'Max', 'Enrolled', 'WCap', 'WList']] = _df[
-        ['Credit', 'Max', 'Enrolled', 'WCap', 'WList']
-    ].apply(to_numeric, errors='coerce')
-
-    _df = _df.sort_values(by=['Subject', 'Number', 'Section'])
-    _df.drop(['T', 'WCap', 'WList', 'Rcap', 'Full'], axis=1, inplace=True)
-
-    return _df
-
-def tidy_csv(file_contents):
+def tidy_csv_old(file_contents):
     if DEBUG:
         print("function: tidy_csv")
     """ Converts the CSV format to the TXT format from Banner
@@ -815,7 +593,7 @@ def tidy_csv(file_contents):
 
     return tidy_txt(StringIO('\n'.join(_list)))
 
-def tidy_xlsx(file_contents):
+def tidy_xlsx_old(file_contents):
     if DEBUG:
         print("function: tidy_xlsx")
     """ Converts an Excel Spreadsheet
@@ -904,21 +682,20 @@ def parse_enrollment(contents, filename):#, date):
     content_type, content_string = contents.split(',')
 
     decoded = b64decode(content_string)
-    try:
-        if 'txt' in filename:
-            # Assume that the user uploaded a banner fixed width file with .txt extension
-            df = tidy_txt(StringIO(decoded.decode('utf-8')))
-            df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
-        elif 'csv' in filename:
-            # Assume the user uploaded a banner Shift-F1 export quasi-csv file with .csv extension
-            df = tidy_csv(StringIO(decoded.decode('utf-8')))
-            df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
-        elif 'xlsx' in filename:
-            df = tidy_xlsx(BytesIO(decoded))
-    except Exception as e:
-        print(e)
-        return html.Div(['There was an error processing this file.'])
 
+    df = pd.DataFrame()
+    if 'txt' in filename:
+        df, _, _ = tidy_txt(StringIO(decoded.decode('utf-8')))
+    elif 'csv' in filename:
+        df = tidy_csv(StringIO(decoded.decode('utf-8')))
+    elif 'xlsx' in filename:
+        df, _, _ = tidy_xlsx(BytesIO(decoded))
+        print(df)
+
+    df = df[df['Credit']>0]
+    df = df[df['S']!='C']
+    df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
+    df = df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title', 'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor', 'Class']].copy()
     return df
 
 def parse_finals_xlsx(contents, CRNs):
@@ -944,7 +721,8 @@ def parse_finals_xlsx(contents, CRNs):
     df['Time'] = df.apply(lambda row: create_time(row), axis=1)
     df['Days'] = df.apply(lambda row: find_day(row), axis=1)
     df['Date'] = df.apply(lambda row: correct_date(row), axis=1)
-    df = df[['CRN', 'Days', 'Time', 'Loc', 'Date']]
+
+    df = df[['CRN', 'Class', 'Days', 'Time', 'Loc', 'Date']]
 
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
 
