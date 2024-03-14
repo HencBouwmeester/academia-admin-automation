@@ -690,7 +690,6 @@ def parse_enrollment(contents, filename):#, date):
         df = tidy_csv(StringIO(decoded.decode('utf-8')))
     elif 'xlsx' in filename:
         df, _, _ = tidy_xlsx(BytesIO(decoded))
-        print(df)
 
     df = df[df['Credit']>0]
     df = df[df['S']!='C']

@@ -177,7 +177,7 @@ def to_excel(df, report_term):
     writer = pd.ExcelWriter(
         xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
     )
-    
+
     _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=str(x)))
     _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df.to_excel(writer, sheet_name=report_term, index=False)
@@ -606,7 +606,7 @@ def summary_stats(df, category, m):
     avg_enrl = 0
     med_enrl = 0
     mod_enrl = [0]
-    fig=freq_dist_graph([], 0)
+    fig=freq_dist_graph([0], 0)
 
     if not df.empty:
 
@@ -674,7 +674,7 @@ def summary_stats(df, category, m):
                 enrl += df_N['Enrolled'].to_list()
 
                 enrolled = sum(enrl)
-                
+
                 avg_enrl = enrolled / sections
                 # avg_enrl = np.mean(enrl)
             else:
@@ -908,7 +908,9 @@ def labs_combined(df):
 
     # remove the lab sections from the data
     for lab in parent_lab.values():
-        df.drop(df[df['Number'] == lab].index, inplace=True)
+        mask = df[df['Number'] != lab].index.to_list()
+        df = df.loc[mask]
+        # df.drop(df[df['Number'] == lab].index, inplace=True)
 
     return df
 
