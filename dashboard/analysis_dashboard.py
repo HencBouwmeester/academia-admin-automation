@@ -610,7 +610,7 @@ def enable_options(y_select_dropdown):
 )
 def update_graph(data, x_select_dropdown, y_select_dropdown, agg_function, granularValue, semesterValue, percentageValue, plotTypeValue):
 
-    if x_select_dropdown == '' or y_select_dropdown == '' or x_select_dropdown==y_select_dropdown:
+    if x_select_dropdown == None or y_select_dropdown == None or x_select_dropdown==y_select_dropdown:
         raise PreventUpdate
 
     df = pd.DataFrame(data)
@@ -724,6 +724,10 @@ def update_graph(data, x_select_dropdown, y_select_dropdown, agg_function, granu
                     # hover_data=hoverData,
                 )
             )
+
+
+        print(_df.to_string())
+
         fig.update_traces(
             hovertemplate=hoverTemplate,
         )

@@ -420,9 +420,9 @@ def parse_contents(contents, filename): #, date):
 
 
     # fill Nan with zeros
-    df["Enrolled"] = df["Enrolled"].fillna(0)
-    df["Rcap"] = df["Rcap"].fillna(0)
-    df["Full"] = df["Full"].fillna(0)
+    df["Enrolled"] = df["Enrolled"].astype(float).fillna(0)
+    df["Rcap"] = df["Rcap"].astype(float).fillna(0)
+    df["Full"] = df["Full"].astype(float).fillna(0)
 
     # Helper columns
     df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
@@ -1214,6 +1214,8 @@ app.layout = html.Div([
                         {'label': 'Canceled CRNs', 'value': '{S} contains C'},
                         {'label': 'Lower Division', 'value': '{Number} < 3000 && {S} contains A'},
                         {'label': 'Upper Division', 'value': '{Number} >= 3000 && {S} contains A'},
+                        {'label': "Dean's minimums", 'value': '(({Number} < 2000 && {Number} !="1080" && {Number} !="1081" && {Number} !="1082" && {Number} !="1101" && {Number} !="1110" && {Number} !="1111"  && {Number} !="1112" && {Number} !="1115" && {Number} !="1116" && {Number} !="1310" && {Number} !="1311" && {Number} !="1312") && {Credit} > 0 && {Enrolled} < 20) || ({Number} <3000 && {Number} >= 2000 && {Enrolled} < 18) || ({Number} <4000 && {Number} >= 3000 && {Enrolled} < 15) || ({Number} >= 3000 && {Enrolled} < 10)'},
+                        {'label': "Provost's minimums", 'value': '(({Number} < 2000 && {Number} !="1080" && {Number} !="1081" && {Number} !="1082" && {Number} !="1101" && {Number} !="1110" && {Number} !="1111"  && {Number} !="1112" && {Number} !="1115" && {Number} !="1116" && {Number} !="1310" && {Number} !="1311" && {Number} !="1312") && {Credit} > 0 && {Enrolled} < 15) || ({Number} <3000 && {Number} >= 2000 && {Enrolled} < 15) || ({Number} <4000 && {Number} >= 3000 && {Enrolled} < 10) || ({Number} >= 3000 && {Enrolled} < 10)'},
                         {'label': 'Math w/o Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} < 1081 || {Number} > 1082) && ({Number} != "1101") && ({Number} != "1111") && ({Number} < 1115 || {Number} > 1116) && ({Number} < 1311 || {Number} > 1312)'},
                         {'label': 'Math Labs', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},
                         {'label': 'Math Labs with Parents', 'value': '{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)'},

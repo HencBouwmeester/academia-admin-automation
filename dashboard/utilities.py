@@ -71,6 +71,7 @@ def updateTitles(df):
         ["MTH 3450", "Complex Variables",],
         ["MTH 3470", "Intro Discrete Math & Modeling",],
         ["MTH 3510", "SAS Programming",],
+        ["MTH 3640", "History of Mathematics",],
         ["MTH 3650", "Foundations of Geometry",],
         ["MTH 4110", "Abstract Algebra II",],
         ["MTH 4150", "Elementary Number Theory",],
@@ -97,6 +98,7 @@ def updateTitles(df):
         ["MTL 4690", "Student Teaching & Seminar: Secondary 7-12",],
         ["MTLM 5020", "Integrated Mathematics II",],
         ["MTLM 5600", "Mathematics of the Elementary Curriculum",],
+        ["MTLM 5610", "Elementary Mathematics from an Advanced Perspective"],
     ]
 
     df_titles = pd.DataFrame(course_titles, columns=["Class", "Title"])
@@ -111,6 +113,9 @@ def updateTitles(df):
 
 
 def convertAMPMtime(timeslot):
+
+    if pd.isna(timeslot):
+        return
 
     try:
         if ("AM" in timeslot) or ("PM" in timeslot):
@@ -207,7 +212,9 @@ def tidy_txt(file_contents):
     _df = pd.read_fwf(file_contents, colspecs=_LINE_PATTERN)
 
     # read the report Term and Year from file
-    term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
+    dd = _df.iloc[0]
+    term_code = str(dd.iloc[1][3:])+str(dd.iloc[2][:-2])
+    # term_code = str(_df.iloc[0][1])[3:] + str(_df.iloc[0][2])[:-2]
 
     # rename the columns
     # make allowances for newer version of pandas
@@ -225,6 +232,24 @@ def tidy_txt(file_contents):
     _df = _df[~_df["Subj"].str.contains("SWRC", na=False)]
     _df = _df[~_df["Subj"].str.contains("Ter", na=False)]
     _df = _df[~_df["Instructor"].str.contains("Page", na=False)]
+
+    _df.reset_index(drop=True, inplace=True)
+    # pick up all rows where the "Begin/End" does not contain data
+    nan_rows_indexes=list(_df.loc[pd.isna(_df["Begin/End"]), :].index.values)
+    # append the "Loc" and "Instructor" to the previous row
+    mask = []
+    for row in _df.index.to_list():
+        if row in nan_rows_indexes:
+            for column in ["Loc", "Instructor"]:
+                # only do this when the data is not null and is a string
+                if not pd.isnull(_df.iloc[row][column]) and isinstance(_df.iloc[row-1][column],str):
+                    _df.loc[row-1,column] = _df.iloc[row-1][column] + _df.iloc[row][column]
+                    # keep track of those rows and remove them later
+                    mask.append(row)
+
+    # remove those rows whose data was appended to the previous row
+    _df = _df.drop(mask)
+
     _df = _df.drop(_df.index[_df["Loc"].str.startswith("BA", na=False)].tolist())
     # _df = _df[_df["Time"].notna()]
     _df = _df[_df["Begin/End"].notna()]
@@ -246,7 +271,7 @@ def tidy_txt(file_contents):
     _df["Class Start Date"] = _df["Begin/End"].str[0:5] +  "/" + str(term_code[2:4])
     _df["Class End Date"] = _df["Begin/End"].str[-5:] +  "/" + str(term_code[2:4])
 
-    _df = _df[_df["Instructor"].str.contains(',', na=False)]
+    # _df = _df[_df["Instructor"].str.contains(',', na=False)]
     # reset index and remove old index column
     _df = _df.reset_index()
     _df = _df.drop([_df.columns[0]], axis=1)
@@ -288,18 +313,18 @@ def tidy_txt(file_contents):
     # print()
     # print(_df.to_string())
 
-    for row in _df.index.to_list():
-        if pd.isnull(_df.loc[row, 'Subj']) and (_df.loc[row-1, 'Nmbr'] not in ['1108', '1109']):
-            weekdays = {'M':0, 'T':1, 'W':2, 'R':3, 'F':4, 'S':5}
-            days = '      '
-            _days = _df.loc[row, 'Days'] + _df.loc[row-1, 'Days']
-            for day in weekdays.keys():
-                if day in _days:
-                    index = weekdays[day]
-                    days = days[:index] + day + days[ index + 1:]
-            _df.loc[row-1, 'Days'] = days.rstrip()
-            _df.loc[row, 'Subj'] = _df.loc[row-1, 'Subj']
-            _df.loc[row, 'Nmbr'] = _df.loc[row-1, 'Nmbr']
+    # for row in _df.index.to_list():
+        # if pd.isnull(_df.loc[row, 'Subj']) and (_df.loc[row-1, 'Nmbr'] not in ['1108', '1109']):
+            # weekdays = {'M':0, 'T':1, 'W':2, 'R':3, 'F':4, 'S':5}
+            # days = '      '
+            # _days = _df.loc[row, 'Days'] + _df.loc[row-1, 'Days']
+            # for day in weekdays.keys():
+                # if day in _days:
+                    # index = weekdays[day]
+                    # days = days[:index] + day + days[ index + 1:]
+            # _df.loc[row-1, 'Days'] = days.rstrip()
+            # _df.loc[row, 'Subj'] = _df.loc[row-1, 'Subj']
+            # _df.loc[row, 'Nmbr'] = _df.loc[row-1, 'Nmbr']
 
     # only remove the extra rows from above that we no longer need but preserve
     # the extra rows for 1108 and 1109
@@ -390,20 +415,36 @@ def tidy_xlsx(file_contents):
     term_code = "190000"
     d = "02-FEB-1900"
     data_date = datetime.datetime.strptime(d, "%d-%b-%Y")
-    _df = pd.read_excel(file_contents,
-                        engine='openpyxl',
-                        converters={
-                            'Subject':str,
-                            'Number':str,
-                            'CRN':str,
-                            'Section':str,
-                            'Campus':str,
-                            'Title':str,
-                            'Days':str,
-                            'Time':str,
-                            'Loc':str,
-                            'Instructor':str,
-                        })
+
+    # _df = pd.read_excel(file_contents,
+                        # engine='openpyxl',
+                        # converters={
+                            # 'Subject':str,
+                            # 'Number':str,
+                            # 'CRN':str,
+                            # 'Section':str,
+                            # 'Campus':str,
+                            # 'Title':str,
+                            # 'Days':str,
+                            # 'Time':str,
+                            # 'Loc':str,
+                            # 'Instructor':str,
+                        # })
+
+    # work around to import the Number and Section correctly since they are formulas
+    from openpyxl import load_workbook
+    wb = load_workbook(file_contents)
+    sheet_names = wb.get_sheet_names()
+    name = sheet_names[0]
+    sheet_ranges = wb[name]
+    df_test = pd.DataFrame(sheet_ranges.values)
+    df_test.columns = df_test.iloc[0]
+    df_test = df_test.iloc[1:,:]
+    df_test["Number"] =  df_test["Number"].str.replace('"','')
+    df_test["Number"] =  df_test["Number"].str.replace('=','')
+    df_test["Section"] =  df_test["Section"].str.replace('"','')
+    df_test["Section"] =  df_test["Section"].str.replace('=','')
+    _df = df_test.copy()
 
     # create missing columns, if necessary
     if not 'S' in _df.columns:

@@ -85,6 +85,7 @@ def parse_contents(contents, filename):#, date):
         df, _, _ = tidy_xlsx(io.BytesIO(decoded))
 
     df = df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title', 'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor', 'Class']].copy()
+    df = df[df['S']=='A']
     df.loc[:,'Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
     return df
 
@@ -168,10 +169,10 @@ def update_grid(data, filtered_data, slctd_row_indices):
     # remove classes without rooms
     _dfLoc = _dfLoc[_dfLoc['Campus'] != 'I']
     _dfLoc = _dfLoc[_dfLoc['Loc'] != 'TBA']
-    _dfLoc = _dfLoc[_dfLoc['Loc'] != 'OFFC  T']
+    _dfLoc = _dfLoc[_dfLoc['Loc'] != 'OFFC TBA']
     _df = _df[_df['Campus'] != 'I']
     _df = _df[_df['Loc'] != 'TBA']
-    _df = _df[_df['Loc'] != 'OFFC  T']
+    _df = _df[_df['Loc'] != 'OFFC TBA']
 
     # remove canceled classes
     _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
@@ -179,20 +180,20 @@ def update_grid(data, filtered_data, slctd_row_indices):
 
     # add columns for rectangle dimensions and annotation
     if not 'xRec' in _df.columns:
-        _df.insert(len(_df.columns), 'xRec', 0)
+        _df.insert(len(_df.columns), 'xRec', 0.0)
     if not 'yRec' in _df.columns:
-        _df.insert(len(_df.columns), 'yRec', 0)
+        _df.insert(len(_df.columns), 'yRec', 0.0)
     if not 'wRec' in _df.columns:
-        _df.insert(len(_df.columns), 'wRec', 1)
+        _df.insert(len(_df.columns), 'wRec', 1.0)
     if not 'hRec' in _df.columns:
-        _df.insert(len(_df.columns), 'hRec', 0)
+        _df.insert(len(_df.columns), 'hRec', 0.0)
     if not 'textRec' in _df.columns:
         _df.insert(len(_df.columns), 'textRec', '')
     if not 'alphaRec' in _df.columns:
         _df.insert(len(_df.columns), 'alphaRec', 1.0)
 
     if not 'timeLoc' in _df.columns:
-        _df.insert(len(_df.columns), 'timeLoc', 0)
+        _df.insert(len(_df.columns), 'timeLoc', 0.0)
     _df['timeLoc'] = _df['Time'] + _df['Loc']
 
 
