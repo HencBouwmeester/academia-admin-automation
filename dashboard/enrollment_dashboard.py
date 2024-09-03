@@ -147,7 +147,7 @@ def to_access(df, report_term):
     # setup the IO stream
     xlsx_io = io.BytesIO()
     writer = pd.ExcelWriter(
-        xlsx_io, engine="xlsxwriter", options={"strings_to_numbers": True}
+        xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
     )
     # _df["Sec"] = _df["Sec"].apply(lambda x: '="{x:s}"'.format(x=x))
     _df.to_excel(writer, sheet_name="Schedule", index=False)
@@ -427,7 +427,11 @@ def parse_contents(contents, filename): #, date):
     # Helper columns
     df.loc[:, "CHP"] = df["Credit"] * df["Enrolled"]
     df.loc[:, "Course"] = df["Subject"] + df["Number"]
-    df.loc[:, "Ratio"] = 100 * df["Enrolled"] / df["Max"]
+
+    # protect for division by zero
+    for row in df.index.to_list():
+        if df.loc[row, "Max"] != 0:
+            df.loc[row, "Ratio"] = 100 * df.loc[row, "Enrolled"] / df.loc[row, "Max"]
 
     if term_code[-2:] == "30":
         report_term = "Spring " + term_code[0:4]
