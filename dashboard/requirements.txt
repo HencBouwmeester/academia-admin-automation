@@ -29,6 +29,6 @@ tenacity==8.3.0
 typing_extensions==4.11.0
 tzdata==2024.1
 urllib3==2.2.1
-Werkzeug==3.0.3
+Werkzeug==3.0.6
 XlsxWriter==3.2.0
 zipp==3.18.2
