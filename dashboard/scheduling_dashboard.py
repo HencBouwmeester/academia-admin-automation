@@ -698,7 +698,8 @@ def show_contents(contents):
 
 @app.callback(
     [Output('weekdays-tabs-content', 'children'),
-     Output('datatable-interactivity-container', 'children')],
+     Output('datatable-interactivity-container', 'children'),
+     Output('upload-data-button', 'n_clicks'),],
     [Input('update-grid-button', 'n_clicks'),
      Input('reset-colors-button', 'n_clicks'),
      Input('change-color-button', 'n_clicks'),
@@ -711,7 +712,8 @@ def show_contents(contents):
      State('datatable-interactivity', 'derived_virtual_data'),
      State('datatable-interactivity', 'derived_virtual_indices'),
      State('datatable-interactivity', 'derived_virtual_selected_rows'),
-     State('color-select', 'value')
+     State('color-select', 'value'),
+     State('upload-data-button', 'n_clicks'),
     ]
 )
 def data_loading(
@@ -727,7 +729,8 @@ def data_loading(
     filtered_rows,
     vtl_indices,
     slctd_row_indices,
-    slctd_color
+    slctd_color,
+    n_clicks,
 ):
 
     ctx = dash.callback_context
@@ -744,7 +747,7 @@ def data_loading(
     if len(rows) != len(filtered_rows):
         _index = vtl_indices
 
-    if contents is not None and input_id == 'upload-data':
+    if contents is not None and input_id == 'upload-data' and n_clicks > 0:
         df = parse_contents(contents, name)
         # print(df.to_string())
         df['colorRec'] = '#b3cde3'
@@ -768,7 +771,7 @@ def data_loading(
         tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
 
 
-    return tabs_children, data_children
+    return tabs_children, data_children, n_clicks
 
 
 @app.callback(

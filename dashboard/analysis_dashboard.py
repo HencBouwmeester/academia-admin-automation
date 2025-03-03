@@ -82,11 +82,11 @@ def assignRank(df):
         ["Dyhr, B",           0,       0,       0,       201050,  201650,  202250],
         ["Ethier, J",         0,       0,       0,       200850,  201450,  202050],
         ["Evans, B",          0,       0,       0,       200350,  200950,  201650],
-        ["Fry, B",            0,       0,       0,       201650,  202050,  0],
+        ["Fry, B",            0,       0,       0,       201650,  202050,  202450],
         ["Gilmore, D",        0,       0,       0,       0,       0,       200050],
         ["Grevstad, N",       0,       0,       0,       200350,  200950,  201550],
         ["Harder, C",         0,       0,       0,       201150,  201750,  0],
-        ["Heer, H",           0,       201450,  0,       0,       0,       0],
+        ["Heer, H",           0,       201450,  202450,       0,       0,       0],
         ["Koester, M",        0,       0,       0,       201050,  201650,  202150],
         ["Li, Y",             0,       0,       0,       202350,  0,       0],
         ["McKenna, P",        0,       0,       0,       200050,  200650,  201650],
@@ -610,7 +610,7 @@ def enable_options(y_select_dropdown):
 )
 def update_graph(data, x_select_dropdown, y_select_dropdown, agg_function, granularValue, semesterValue, percentageValue, plotTypeValue):
 
-    if x_select_dropdown == None or y_select_dropdown == None or x_select_dropdown==y_select_dropdown:
+    if x_select_dropdown == None or y_select_dropdown == None or x_select_dropdown==y_select_dropdown or y_select_dropdown == "":
         raise PreventUpdate
 
     df = pd.DataFrame(data)

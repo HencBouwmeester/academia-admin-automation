@@ -980,6 +980,15 @@ app.layout = html.Div([
                     html.Div([
                         html.H6(
                             "0",
+                            id="total_credits_text"),
+                        html.P("Total Credits"),
+                    ],
+                        id="total_credits",
+                        className="mini_container",
+                    ),
+                    html.Div([
+                        html.H6(
+                            "0",
                             id="total_CHP_text"),
                         html.P("Total Credit Hour Production"),
                     ],
@@ -1883,6 +1892,7 @@ def chp_by_course(data):
 @app.callback(
     [Output("total_sections_text", "children"),
      Output("total_courses_text", "children"),
+     Output("total_credits_text", "children"),
      Output("total_CHP_text", "children"),
      Output("avg_enrollment_text", "children"),
      Output("avg_fill_rate_text", "children"),
@@ -1899,6 +1909,7 @@ def update_stats(data):
         return [
             "{:,.0f}".format(df["CRN"].nunique()),
             "{:,.0f}".format(df["Course"].nunique()),
+            "{:,.0f}".format(df["Credit"].sum()),
             "{:,.0f}".format(df["CHP"].sum()),
             round(df["Enrolled"].mean(), 2),
             "{}%".format(round(df["Ratio"].mean(), 2)),
@@ -1906,7 +1917,7 @@ def update_stats(data):
             round(df["WList"].mean(), 2),
         ]
     else:
-        return ["0", "0", "0", "0.00", "0.00", "0.00", "0.00"]
+        return ["0", "0", "0", "0", "0.00", "0.00", "0.00", "0.00"]
 
 
 

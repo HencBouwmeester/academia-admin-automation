@@ -155,20 +155,20 @@ def update_grid(data):#toggle, data, filtered_data, slctd_row_indices):
 
     # add columns for rectangle dimensions and annotation
     if not 'xRec' in _df.columns:
-        _df.insert(len(_df.columns), 'xRec', 0)
+        _df.insert(len(_df.columns), 'xRec', 0.0)
     if not 'yRec' in _df.columns:
-        _df.insert(len(_df.columns), 'yRec', 0)
+        _df.insert(len(_df.columns), 'yRec', 0.0)
     if not 'wRec' in _df.columns:
-        _df.insert(len(_df.columns), 'wRec', 1)
+        _df.insert(len(_df.columns), 'wRec', 1.0)
     if not 'hRec' in _df.columns:
-        _df.insert(len(_df.columns), 'hRec', 0)
+        _df.insert(len(_df.columns), 'hRec', 0.0)
     if not 'textRec' in _df.columns:
         _df.insert(len(_df.columns), 'textRec', '')
     if not 'alphaRec' in _df.columns:
         _df.insert(len(_df.columns), 'alphaRec', 1.0)
 
     if not 'timeLoc' in _df.columns:
-        _df.insert(len(_df.columns), 'timeLoc', 0)
+        _df.insert(len(_df.columns), 'timeLoc', 0.0)
     _df['timeLoc'] = _df['Time'] + _df['Loc']
 
 
@@ -751,6 +751,8 @@ def parse_finals_csv(contents, CRNs):
             line = ''
         else:
             line += char
+
+    # print(file_contents)
 
     rows = []
     for line in file_contents:
@@ -1734,12 +1736,12 @@ def export_all(n_clicks, data):
 
         xlsx_io = BytesIO()
         writer = ExcelWriter(
-            xlsx_io, engine='xlsxwriter', options={'strings_to_numbers': False}
+            xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}}
         )
         df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
 
         # Save it
-        writer.save()
+        writer.close()
         xlsx_io.seek(0)
         media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         data = b64encode(xlsx_io.read()).decode('utf-8')
@@ -1914,7 +1916,7 @@ def create_combined_table(n_clicks, tab, data_enrollment, data_finals, data_room
     # rms = df_tmp['Final_Loc'].unique()
     for r in rms:
         cap_enrl = df_tmp[df_tmp['Final_Loc'] == r]['Enrolled'].sum()
-        cap_rm = int(df_rooms[df_rooms['Room'] == r]['Cap'])
+        cap_rm = int(df_rooms[df_rooms['Room'] == r]['Cap'].iloc[0])
         if cap_enrl <= cap_rm:
             for row in _indexFilter:
                 df_enrollment.loc[row, 'Error'] = ''
