@@ -20,6 +20,8 @@ app = dash.Dash(
     __name__,
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
+    requests_pathname_prefix='/analysis/',
+    routes_pathname_prefix='/analysis/',
 )
 
 server = app.server
@@ -76,7 +78,7 @@ def assignRank(df):
         print("function: assignRank")
     _a = [
         ["Boneh, S",          0,       0,       0,       0,       0,       201150],
-        ["Bouwmeester, H",    200830,  0,       0,       201650,  202250,  0],
+        ["Bouwmeester, H",    200830,  0,       0,       201650,  202250,  202650],
         ["Carter, J",         0,       0,       0,       201050,  201750,  202250],
         ["Davis, D",          0,       0,       0,       200750,  201250,  201850],
         ["Dyhr, B",           0,       0,       0,       201050,  201650,  202250],
@@ -84,9 +86,9 @@ def assignRank(df):
         ["Evans, B",          0,       0,       0,       200350,  200950,  201650],
         ["Fry, B",            0,       0,       0,       201650,  202050,  202450],
         ["Gilmore, D",        0,       0,       0,       0,       0,       200050],
-        ["Grevstad, N",       0,       0,       0,       200350,  200950,  201550],
+        ["Grevstad, N",       0,       0,       0,       200450,  200950,  201550],
         ["Harder, C",         0,       0,       0,       201150,  201750,  0],
-        ["Heer, H",           0,       201450,  202450,       0,       0,       0],
+        ["Heer, H",           0,       201950,  202450,       0,       0,       0],
         ["Koester, M",        0,       0,       0,       201050,  201650,  202150],
         ["Li, Y",             0,       0,       0,       202350,  0,       0],
         ["McKenna, P",        0,       0,       0,       200050,  200650,  201650],
@@ -253,7 +255,7 @@ def tidy_xlsx(file_contents):
         inplace=True,
     )
 
-    _df = _df[['Term', 'Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
+    _df = _df[['Term', 'Year', 'Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title',
               'Credit', 'Enrolled', 'Days', 'Time', 'Loc', 'Instructor']]
 
     _df = assignRank(_df)
@@ -303,8 +305,8 @@ def create_datatable(df):
             dash_table.DataTable(
                 id='datatable',
                 columns=[{'name': n, 'id': i} for n,i in zip([
-                    'Term', 'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
-                    'Enrl', 'Days', 'Time', 'Loc', 'Instructor', 'Rank'
+                    'Term', 'Year', 'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'Title', 'Credit',
+                    'Enrl', 'Days', 'Time', 'Loc', 'Instructor', 'Rank',
                 ],[ *df.columns ])],
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
@@ -319,7 +321,7 @@ def create_datatable(df):
                         'whiteSpace': 'normal'
                     }
                     for i,w in zip([ *df.columns ],
-                                   ['9%', '5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
+                                   ['6%', '3%', '5%', '5.5%', '5.5%', '4.5%', '3.5%', '4.5%', '19.5%',
                                     '5.5%', '4.5%', '5.5%', '8%', '5.5%', '11%', '3%'])
                 ],
                 fixed_rows={'headers': True, 'data': 0},
@@ -823,8 +825,9 @@ def apply_query(n_clicks, n_submit, dropdown_value, input_value):
 
 # Main
 if __name__ == '__main__':
-    if mathserver:
-        app.run_server(debug=DEBUG)
-    else:
-        app.run_server(debug=DEBUG, port='8052')
+    app.run_server(debug=DEBUG, port='8004')
+    # if mathserver:
+        # app.run_server(debug=DEBUG)
+    # else:
+        # app.run_server(debug=DEBUG, port='8052')
 

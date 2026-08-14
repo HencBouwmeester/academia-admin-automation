@@ -26,6 +26,8 @@ app = dash.Dash(
     __name__,
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
+    requests_pathname_prefix='/scheduling/',
+    routes_pathname_prefix='/scheduling/',
 )
 
 server = app.server
@@ -899,11 +901,12 @@ def export_filtered(n_clicks, data):
 
 # Main
 if __name__ == '__main__':
-    if mathserver:
-        app.run_server(debug=DEBUG)
-    else:
-        # app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
-        app.run_server(debug=DEBUG, port='8051')
+    app.run_server(debug=DEBUG, port='8002')
+    # if mathserver:
+        # app.run_server(debug=DEBUG)
+    # else:
+        # # app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
+        # app.run_server(debug=DEBUG, port='8051')
 
 
 '''

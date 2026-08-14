@@ -62,6 +62,7 @@ def updateTitles(df):
         ["MTH 3170", "Discrete Math for Comp Science",],
         ["MTH 3210", "Probability and Statistics",],
         ["MTH 3220", "Statistical Methods",],
+        ["MTH 3230", "Stochastic Processes",],
         ["MTH 3240", "Environmental Statistics",],
         ["MTH 3270", "Data Science",],
         ["MTH 3400", "Chaos & Nonlinear Dynamics",],
@@ -348,20 +349,23 @@ def tidy_txt(file_contents):
     for stretch_course in ['1108', '1109']:
         for row in _df[_df["Subj"].str.contains("MTH") & _df["Nmbr"].str.contains(stretch_course) & _df["S"].str.contains("A")].index.tolist():
 
-            # copy all but days, time and location to next row
-            for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
-                _df.loc[row + 1, col] = _df.loc[row, col]
+            # only do this if there are extra rows; if it is a rollover, you will not have extra rows
+            if pd.isna(_df.loc[row+1,"Subj"]):
 
-            # define values for Credit and PTCR
-            _df.loc[row + 1, "Credit"] = 0
-            _df.loc[row + 1, "PTCR"] = 0
+                # copy all but days, time and location to next row
+                for col in ["Subj", "Nmbr", "CRN", "Sec", "S", "Cam", "T", "Title", "Max", "Enrl", "WCap", "WLst", "Instructor"]:
+                    _df.loc[row + 1, col] = _df.loc[row, col]
 
-            # copy all values from parent row and make available for lab instructor
-            row_dict = _df.loc[row].to_dict()
-            row_dict["Instructor"] = ","
-            row_dict["Credit"] = 0
-            row_dict["PTCR"] = 1
-            _df = pd.concat([_df, pd.DataFrame(row_dict, index=[0])], ignore_index=True)
+                # define values for Credit and PTCR
+                _df.loc[row + 1, "Credit"] = 0
+                _df.loc[row + 1, "PTCR"] = 0
+
+                # copy all values from parent row and make available for lab instructor
+                row_dict = _df.loc[row].to_dict()
+                row_dict["Instructor"] = ","
+                row_dict["Credit"] = 0
+                row_dict["PTCR"] = 1
+                _df = pd.concat([_df, pd.DataFrame(row_dict, index=[0])], ignore_index=True)
 
     # add columns for Access Table
     _df.insert(len(_df.columns), "Class", " ")

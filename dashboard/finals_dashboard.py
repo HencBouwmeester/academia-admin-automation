@@ -3,6 +3,7 @@ from utilities import *
 
 # Import required libraries
 from dash import html, dcc, dash_table, callback_context, Dash
+import dash
 from pandas import set_option, DataFrame, read_fwf, __version__, \
         to_numeric, read_excel, merge, ExcelWriter
 from plotly import io as pio
@@ -11,6 +12,12 @@ from io import StringIO, BytesIO
 from dash.dependencies import Input, Output, State
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+
+import re
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable
 
 DEBUG = False
 mathserver = False
@@ -25,6 +32,8 @@ app = Dash(
     __name__,
     meta_tags=[{'name': 'viewport', 'content': 'width=device-width'}],
     prevent_initial_callbacks=True,
+    requests_pathname_prefix='/finals/',
+    routes_pathname_prefix='/finals/',
 )
 
 server = app.server
@@ -44,6 +53,273 @@ if mathserver:
     })
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+
+
+
+def convert_term_title_to_code(term_title):
+    """
+    Converts a descriptive term title (e.g., "Fall Semester 2026" or "Spring 2025")
+    into a standard Banner code format (YYYY50, YYYY30, or YYYY40).
+    """
+    if not term_title:
+        return "Unknown"
+
+    # Standardize to lowercase for resilient matching
+    title_lower = str(term_title).lower()
+
+    # Extract any 4-digit sequence representing the year
+    year_match = re.search(r'\b(\d{4})\b', title_lower)
+    if not year_match:
+        return "Unknown"
+    year = year_match.group(1)
+
+    # Map key words to their respective Banner code suffixes
+    semester_mapping = {
+        'spring': '30',
+        'summer': '40',
+        'fall': '50'
+    }
+
+    # Check which suffix matches the text string
+    suffix = ""
+    for term_keyword, code_suffix in semester_mapping.items():
+        if term_keyword in title_lower:
+            suffix = code_suffix
+            break
+
+    # Return formatted string if suffix found, otherwise return just the year
+    return f"{year}{suffix}" if suffix else year
+
+
+def detect_academic_term(df):
+    """
+    Scans spreadsheet columns for date ranges or term entries and automatically
+    returns a formatted string like 'Fall 2026 Schedule', 'Spring 2026 Schedule', etc.
+    """
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+
+    # Pre-set sensible system defaults
+    month = current_month
+    year = current_year
+
+    # 1. Look for a date or registration window column header
+    date_col = None
+    for col in df.columns:
+        c_clean = str(col).lower().replace(" ", "").replace("/", "").replace("_", "")
+        if "begin" in c_clean or "date" in c_clean or "start" in c_clean or "term" in c_clean:
+            date_col = col
+            break
+
+    # 2. Safely extract dates from the first valid record row
+    if date_col and not df[date_col].dropna().empty:
+        first_val = df[date_col].dropna().iloc[0]
+
+        # Check if Pandas automatically parsed the column as a datetime object
+        if hasattr(first_val, 'month'):
+            month = first_val.month
+            year = getattr(first_val, 'year', current_year)
+        else:
+            # Otherwise, use RegEx to pull digit tokens from raw text (e.g., '08/17-12/13')
+            val_str = str(first_val).strip()
+            nums = re.findall(r'\d+', val_str)
+            if nums:
+                # If the first number token is 1 or 2 digits, it's standard US (MM/DD)
+                if len(nums[0]) <= 2:
+                    potential_month = int(nums[0])
+                    if 1 <= potential_month <= 12:
+                        month = potential_month
+                # If the first number token is 4 digits, it's standard ISO format (YYYY-MM-DD)
+                elif len(nums[0]) == 4:
+                    year = int(nums[0])
+                    if len(nums) > 1:
+                        potential_month = int(nums[1])
+                        if 1 <= potential_month <= 12:
+                            month = potential_month
+
+                # Scan remaining tokens to grab a proper 4-digit year if present
+                for n in nums:
+                    if len(n) == 4:
+                        year = int(n)
+                        break
+
+    # 3. Apply seasonal month buckets using Tuples to prevent system rendering bugs
+    fall_months = (8, 9, 10, 11, 12)
+    spring_months = (1, 2, 3, 4, 5)
+
+    if month in fall_months:
+        term = "Fall"
+    elif month in spring_months:
+        term = "Spring"
+    else:
+        term = "Summer"
+
+    return f"{term} {year}"
+
+
+def draw_canvas_decorations(canvas, doc):
+    """
+    Draws professional lower running footer bars, live timestamps,
+    and automatic page indexing metrics directly onto the canvas layer.
+    """
+    canvas.saveState()
+    canvas.setFont("Helvetica", 9)
+
+    # Lower Page Accent Boundary Line
+    canvas.setStrokeColor(colors.HexColor("#CBD5E0"))
+    canvas.setLineWidth(1)
+    canvas.line(36, 45, 576, 45)
+
+    # Left Side: Dynamic single-line live system runtime clock stamp
+    current_time_str = datetime.now().strftime("%m/%d/%Y   %I:%M %p")
+    canvas.drawString(36, 32, current_time_str)
+
+    # Right Side: Page indexing number counter
+    canvas.drawRightString(576, 32, f"Page {doc.page}")
+    canvas.restoreState()
+
+
+
+def build_grouped_replica_pdf(dataframe, group_by_col, term_title, output_target):
+    """
+    Assembles cleaned row blocks into independent tabular grid boxes separated
+    by custom padding rows.
+
+    'output_target' can be a file path string or a io.BytesIO() buffer object.
+    """
+    if isinstance(output_target, str):
+        print(f"--> Building report sorted by {group_by_col}...")
+
+    # Pass the buffer/path directly into SimpleDocTemplate
+    doc = SimpleDocTemplate(
+        output_target,
+        pagesize=letter,
+        leftMargin=36, rightMargin=36,
+        topMargin=36, bottomMargin=60
+    )
+
+    styles = getSampleStyleSheet()
+
+    # Typography Setup (leftIndent=0 pulls title completely flush against the left page margin)
+    dept_hdr = ParagraphStyle('DeptHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=15, leading=18, spaceAfter=2, alignment=0, leftIndent=0)
+    sub_title = ParagraphStyle('SubTitle', fontName='Helvetica-Bold', fontSize=13, leading=16, alignment=0, leftIndent=6)
+    sort_tag = ParagraphStyle('SortTag', fontName='Helvetica-Oblique', fontSize=11, leading=14, alignment=2, rightIndent=6)
+
+    th_style = ParagraphStyle('TH', fontName='Helvetica-BoldOblique', fontSize=9, leading=11, alignment=0)
+    td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=9, leading=11, alignment=0)
+
+    th_center_style = ParagraphStyle('TH_Center', fontName='Helvetica-BoldOblique', fontSize=9, leading=11, alignment=1)
+    td_center_style = ParagraphStyle('TD_Center', fontName='Helvetica', fontSize=9, leading=11, alignment=1)
+
+
+    story = []
+
+    # Master Institutional Title Header
+    story.append(Paragraph("DEPARTMENT OF MATHEMATICS AND STATISTICS", dept_hdr))
+
+    # Subtitle Metadata Table Schema (splits header width into two clean 270-point sides)
+    right_label = "Instructor Sort" if group_by_col == 'Instructor' else "Course Sort"
+    header_table_data = [
+        [Paragraph(term_title + " Finals Schedule", sub_title), Paragraph(right_label, sort_tag)]
+    ]
+    header_table = Table(header_table_data, colWidths=[270, 270])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(header_table)
+
+    # Double Horizontal Accent Rules under Title
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.black, spaceBefore=1, spaceAfter=1))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black, spaceBefore=1, spaceAfter=12))
+
+    # Proportional Column Width Specifications (Sum total completely matches the printable area width of 540)
+    # col_widths = (38, 32, 55, 60, 26, 24, 135, 96, 40, 34)
+    # headers = ['CRN', 'Day', 'Time', 'Class', 'Sec', 'CR', 'Title', 'Instructor', 'Bldg', 'Room']
+    col_widths = (60, 45, 45, 40, 80, 80, 65, 125)
+    headers = ['Class', 'Section', 'CRN', 'Day', 'Exam Date', 'Exam Time', 'Exam Rm', 'Instructor']
+
+    # Create the master data array and seed it with the primary column headers row
+    table_matrix = [[Paragraph(h, th_center_style) for h in headers]]
+
+    # Apply database sort hierarchies before grouping
+    if group_by_col == 'Instructor':
+        sorted_df = dataframe.sort_values(by=['Instructor', 'Class', 'Section'])
+    else:
+        sorted_df = dataframe.sort_values(by=['Class', 'Section', 'Instructor'])
+
+    grouped = sorted_df.groupby(group_by_col)
+
+    blank_row_indices = []
+    current_row_idx = 1  # Index 0 is the main table headers row
+
+    total_groups = len(grouped)
+    for i, (group_name, group_data) in enumerate(grouped):
+        for _, row in group_data.iterrows():
+            table_matrix.append([
+                Paragraph(str(row['Class']), td_style),
+                Paragraph(str(row['Section']), td_center_style),
+                Paragraph(str(row['CRN']), td_center_style),
+                Paragraph(str(row['Final_Day']), td_center_style),
+                Paragraph(str(row['Final_Date']), td_center_style),
+                Paragraph(str(row['Final_Time']), td_center_style),
+                Paragraph(str(row['Final_Loc']), td_center_style),
+                Paragraph(str(row['Instructor']), td_style),
+                # Paragraph(str(int(row['Credit'])), td_style),
+                # Paragraph(str(row['Title']), td_style),
+                # Paragraph(str(row['Room']), td_style)
+            ])
+            current_row_idx += 1
+
+        # If this isn't the final row block, insert an empty row placeholder to form an invisible spacing barrier
+        if i < total_groups - 1:
+            table_matrix.append([""] * len(headers))
+            blank_row_indices.append(current_row_idx)
+            current_row_idx += 1
+
+    # Universal layout rules for row cells
+    table_styles = [
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.black),
+    ]
+
+    # Apply standard grid boundaries selectively, deliberately skipping over the blank padding rows
+    start_row = 1
+    for gap_idx in blank_row_indices:
+        # Draw borders for this distinct group chunk box
+        table_styles.append(('GRID', (0, start_row), (-1, gap_idx - 1), 0.5, colors.HexColor("#A0AEC0")))
+
+        # Format the hidden separator row to clear background lines, borders, and margins
+        table_styles.append(('ROWBACKGROUNDS', (0, gap_idx), (-1, gap_idx), [colors.white]))
+        table_styles.append(('TOPPADDING', (0, gap_idx), (-1, gap_idx), 0))
+        table_styles.append(('BOTTOMPADDING', (0, gap_idx), (-1, gap_idx), 14)) # Adjust this number to scale the gap size
+
+        start_row = gap_idx + 1
+
+    # Draw the final border box for the remaining chunk of data rows at the bottom
+    table_styles.append(('GRID', (0, start_row), (-1, len(table_matrix) - 1), 0.5, colors.HexColor("#A0AEC0")))
+
+    # Compile the final multi-page single master table object (repeatRows=1 forces sticky headers)
+    pdf_table = Table(table_matrix, colWidths=col_widths, repeatRows=1)
+    pdf_table.setStyle(TableStyle(table_styles))
+    story.append(pdf_table)
+
+    doc.build(story, onFirstPage=draw_canvas_decorations, onLaterPages=draw_canvas_decorations)
+
+    if isinstance(output_target, str):
+        print(f"--> Success! Created file: {output_target}")
+
+
+
+
+
 
 def generate_weekday_tab(day):
     if DEBUG:
@@ -1361,20 +1637,22 @@ app.layout = html.Div([
                 },
                 className='button'
             ),
-            html.Button(
-                'Export for Access',
-                id='download-to-access-button',
-                n_clicks=0,
-                disabled=True,
-                style={
-                    'padding': '0px',
-                    'textAlign': 'center',
-                    'width': '95%',
-                    'fontSize': '1rem',
-                },
-                className='button'
-            ),
-            dcc.Download(id='datatable-to-access-download'),
+#            html.Button(
+#                'Export for Access',
+#                id='download-to-access-button',
+#                n_clicks=0,
+#                disabled=True,
+#                style={
+#                    'padding': '0px',
+#                    'textAlign': 'center',
+#                    'width': '95%',
+#                    'fontSize': '1rem',
+#                },
+#                className='button'
+#            ),
+#            dcc.Download(id='datatable-to-access-download'),
+            html.Hr(),
+            html.Label('Export:'),
             html.Button(
                 'Export to Excel',
                 id='export-all-button',
@@ -1390,6 +1668,36 @@ app.layout = html.Div([
                 className='button'
             ),
             dcc.Download(id='datatable-download'),
+            html.Button(
+                    'Export PDF (Instructor)',
+                    id='export-pdf-instructor-button',
+                    n_clicks=0,
+                    disabled=True,
+                    style={
+                        'marginLeft': '5px',
+                        'padding': '0px',
+                        'textAlign': 'center',
+                        'width': '95%',
+                        'fontSize': '1rem',
+                        },
+                    className='button'
+                    ),
+            dcc.Download(id='datatable-pdf-instructor-download'),
+            html.Button(
+                    'Export PDF (Course)',
+                    id='export-pdf-course-button',
+                    n_clicks=0,
+                    disabled=True,
+                    style={
+                        'marginLeft': '5px',
+                        'padding': '0px',
+                        'textAlign': 'center',
+                        'width': '95%',
+                        'fontSize': '1rem',
+                        },
+                    className='button'
+                    ),
+            dcc.Download(id='datatable-pdf-course-download'),
         ],
             id='buttonContainer',
         ),
@@ -1583,14 +1891,18 @@ def load_finals_data(contents, filename, n_clicks, data_enrollment):
         # obtain list of CRNs from enrollment report
         CRNs = df_enrollment['CRN'].unique()
 
-        try:
-            if 'csv' in filename:
-                df_finals = parse_finals_csv(contents, CRNs)
-            elif 'xlsx' in filename:
-                df_finals = parse_finals_xlsx(contents, CRNs)
-        except Exception as e:
-            print(e)
-            return html.Div(['There was an error processing this file.'])
+        if 'csv' in filename:
+            df_finals = parse_finals_csv(contents, CRNs)
+        elif 'xlsx' in filename:
+            df_finals = parse_finals_xlsx(contents, CRNs)
+        # try:
+            # if 'csv' in filename:
+                # df_finals = parse_finals_csv(contents, CRNs)
+            # elif 'xlsx' in filename:
+                # df_finals = parse_finals_xlsx(contents, CRNs)
+        # except Exception as e:
+            # print(e)
+            # return html.Div(['There was an error processing this file.'])
 
         data_children = [
             dash_table.DataTable(
@@ -1649,17 +1961,32 @@ def enable_update_button(enrollment_contents, finals_contents):
         return False
     return True
 
+# @app.callback(
+#    [Output('download-to-access-button', 'disabled'),
+#     Output('export-all-button', 'disabled'),
+#     Output('export-pdf-instructor-button', 'disabled'),
+#     Output('export-pdf-course-button', 'disabled'),],
+#    Input('update-button', 'n_clicks'),
+#)
+#def enable_update_button(n_clicks):
+#    if DEBUG:
+#        print('function: enable_disable_button')
+#    if n_clicks > 0:
+#        return False, False, False, False
+#    return True, True, True, True
+
 @app.callback(
-    [Output('download-to-access-button', 'disabled'),
-     Output('export-all-button', 'disabled')],
-    Input('update-button', 'n_clicks'),
-)
+        [Output('export-all-button', 'disabled'),
+         Output('export-pdf-instructor-button', 'disabled'),
+         Output('export-pdf-course-button', 'disabled'),],
+        Input('update-button', 'n_clicks'),
+        )
 def enable_update_button(n_clicks):
     if DEBUG:
         print('function: enable_disable_button')
     if n_clicks > 0:
-        return False, False
-    return True, True
+        return False, False, False
+    return True, True, True
 
 @app.callback(
     Output('datatable-finals', 'data'),
@@ -1693,60 +2020,60 @@ def export_all(n_clicks, data):
     if n_clicks > 0:
         return {'base64': True, 'content': to_excel(_df), 'filename': 'FinalsSchedule.xlsx', }
 
-@app.callback(
-    Output('datatable-to-access-download', 'data'),
-    [Input('download-to-access-button', 'n_clicks'),
-     State('datatable-combined', 'data')]
-)
-def export_all(n_clicks, data):
-    # download as MS Excel for import in MS Access Database
-    if DEBUG:
-        print("function: download")
-    if n_clicks > 0:
-
-        # retrieve the datatable
-        _df = DataFrame(data)
-
-        # create columns for export
-        col_dept = []
-        col_endtime = []
-        for row in _df.index.tolist():
-            col_dept.append(
-                str(_df.loc[row, 'Subject']) + '-' +
-                str(_df.loc[row, 'Number']) + '-' +
-                str(_df.loc[row, 'Section']) + ' ' +
-                str(_df.loc[row, 'CRN']) + ' ' +
-                str(_df.loc[row, 'Title'])
-            )
-            col_endtime.append(str(_df.loc[row, 'Final_Time'][-5:]))
-
-        # create dictionary of all columns
-        d = {
-            'DEPT/CID CALL and Title': col_dept,
-            'CRN': _df['CRN'],
-            'Day': _df['Final_Day'],
-            'Final Exam Time': _df['Final_Time'],
-            'EndTime': col_endtime,
-            'Final Exam Date': _df['Final_Date'],
-            'Final Exam Rm': _df['Final_Loc'],
-            'ContactName': _df['Instructor'],
-            'Error': _df['Error']
-        }
-        df = DataFrame(d)
-
-        xlsx_io = BytesIO()
-        writer = ExcelWriter(
-            xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}}
-        )
-        df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
-
-        # Save it
-        writer.close()
-        xlsx_io.seek(0)
-        media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        data = b64encode(xlsx_io.read()).decode('utf-8')
-
-        return {'base64': True, 'content': data, 'filename': 'Final Exam Schedule.xlsx', }
+# @app.callback(
+#     Output('datatable-to-access-download', 'data'),
+#     [Input('download-to-access-button', 'n_clicks'),
+#      State('datatable-combined', 'data')]
+# )
+# def export_all(n_clicks, data):
+#     # download as MS Excel for import in MS Access Database
+#     if DEBUG:
+#         print("function: download")
+#     if n_clicks > 0:
+#
+#         # retrieve the datatable
+#         _df = DataFrame(data)
+#
+#         # create columns for export
+#         col_dept = []
+#         col_endtime = []
+#         for row in _df.index.tolist():
+#             col_dept.append(
+#                 str(_df.loc[row, 'Subject']) + '-' +
+#                 str(_df.loc[row, 'Number']) + '-' +
+#                 str(_df.loc[row, 'Section']) + ' ' +
+#                 str(_df.loc[row, 'CRN']) + ' ' +
+#                 str(_df.loc[row, 'Title'])
+#             )
+#             col_endtime.append(str(_df.loc[row, 'Final_Time'][-5:]))
+#
+#         # create dictionary of all columns
+#         d = {
+#             'DEPT/CID CALL and Title': col_dept,
+#             'CRN': _df['CRN'],
+#             'Day': _df['Final_Day'],
+#             'Final Exam Time': _df['Final_Time'],
+#             'EndTime': col_endtime,
+#             'Final Exam Date': _df['Final_Date'],
+#             'Final Exam Rm': _df['Final_Loc'],
+#             'ContactName': _df['Instructor'],
+#             'Error': _df['Error']
+#         }
+#         df = DataFrame(d)
+#
+#         xlsx_io = BytesIO()
+#         writer = ExcelWriter(
+#             xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}}
+#         )
+#         df.to_excel(writer, sheet_name='Final Exam Schedule', index=False)
+#
+#         # Save it
+#         writer.close()
+#         xlsx_io.seek(0)
+#         media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+#         data = b64encode(xlsx_io.read()).decode('utf-8')
+#
+#         return {'base64': True, 'content': data, 'filename': 'Final Exam Schedule.xlsx', }
 
 @app.callback(
     [Output('datatable-combined-div', 'children'),
@@ -2020,9 +2347,98 @@ def update_tab_display(tab):
                 styles.append({'display': 'none'})
         return styles[:]
 
+@app.callback(
+    [Output('datatable-pdf-instructor-download', 'data'),
+     Output('datatable-pdf-course-download', 'data')],
+    [Input('export-pdf-instructor-button', 'n_clicks'),
+     Input('export-pdf-course-button', 'n_clicks')],
+    [State('datatable-combined', 'data')],
+    prevent_initial_call=True
+)
+def export_pdf_reports(instructor_clicks, course_clicks, table_data):
+    ctx = dash.callback_context
+    if not ctx.triggered or not table_data:
+        return [dash.no_update, dash.no_update]
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    # Convert active datatable records back into a Pandas DataFrame
+    df = pd.DataFrame(table_data)
+    df.insert(len(df.columns), "Class", " ")
+    df["Class"] = df["Subject"] + " " + df["Number"]
+
+    # Remove canceled classes (Keep only status 'A')
+    if 'S' in df.columns:
+        df = df[df['S'].astype(str).str.strip() == 'A']
+
+    # Mirror processing checks applied in parse_and_clean_excel from your standalone script
+    if 'Class' in df.columns and 'CR' in df.columns:
+        course_mask = df['Class'].astype(str).str.contains('1108|1109', na=False)
+        # Handle cases where 'CR' columns might be read as floats or strings
+        df['CR'] = pd.to_numeric(df['CR'], errors='coerce').fillna(0).astype(int)
+        zero_credit_mask = df['CR'] == 0
+        df.loc[course_mask & zero_credit_mask, 'CR'] = 1
+
+    # Standardize remaining string definitions to match layout specs
+    # df['CRN'] = df['CRN'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x)
+    df['Section'] = df['Section'].fillna('001').astype(str).str.zfill(3)
+    df['Final_Day'] = df['Final_Day'].fillna('').astype(str)
+    df['Final_Time'] = df['Final_Time'].fillna('TBA').astype(str)
+    df['Final_Loc'] = df['Final_Loc'].fillna('ONLI').astype(str)
+    # df['Room'] = df['Room'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x)
+    df['Title'] = df['Title'].fillna('').astype(str)
+    # df['Class'] = df['Class'].fillna('').astype(str)
+    df['Instructor'] = df['Instructor'].replace(r'^\s*,\s*$', 'TBA', regex=True).fillna('TBA')
+
+    # Core execution handler
+    if trigger_id == 'export-pdf-instructor-button' and instructor_clicks > 0:
+        report_term = detect_academic_term(df)
+        pdf_buffer = io.BytesIO()
+        build_grouped_replica_pdf(df, 'Instructor', report_term, pdf_buffer)
+        pdf_buffer.seek(0)
+
+        encoded_pdf = b64encode(pdf_buffer.read()).decode("utf-8")
+        return [{
+            'base64': True,
+            'content': encoded_pdf,
+            'filename': f"Finals Sort by Instructor {report_term}.pdf",
+            'type': 'application/pdf'
+        }, dash.no_update]
+
+    elif trigger_id == 'export-pdf-course-button' and course_clicks > 0:
+        report_term = detect_academic_term(df)
+        pdf_buffer = io.BytesIO()
+        build_grouped_replica_pdf(df, 'Class', report_term, pdf_buffer)
+        pdf_buffer.seek(0)
+
+        encoded_pdf = b64encode(pdf_buffer.read()).decode("utf-8")
+        return [dash.no_update, {
+            'base64': True,
+            'content': encoded_pdf,
+            'filename': f"Finals Sort by Course {report_term}.pdf",
+            'type': 'application/pdf'
+        }]
+
+    return [dash.no_update, dash.no_update]
+
+@app.callback(
+    [Output('upload-enrollment', 'filename'),
+     Output('upload-finals', 'filename')],
+    Input('update-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def clear_upload_cache(n_clicks):
+    if n_clicks > 0:
+        # Returning None forces the browser to wipe out its file memory cache,
+        # making "A.txt" immediately clickable and un-greyed again!
+        return None, None
+    return dash.no_update, dash.no_update
+
+
 # Main
 if __name__ == '__main__':
-    if mathserver:
-        app.run_server(debug=DEBUG)
-    else:
-        app.run_server(debug=DEBUG, port='8053')
+    app.run_server(debug=DEBUG, port="8003")
+    # if mathserver:
+        # app.run_server(debug=DEBUG)
+    # else:
+        # app.run_server(debug=DEBUG, port='8053')
