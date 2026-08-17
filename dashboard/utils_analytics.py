@@ -144,8 +144,8 @@ def summary_stats(df, category, m):
     if not df.empty:
 
         # only use active courses
-        df = df[df['S'] == 'A']
-        df['DaysTimeLoc'] = df['Days'] +  df['Time'] + df['Loc']
+        df = df[df['S'] == 'A'].copy()
+        df.loc[:,'DaysTimeLoc'] = df['Days'] +  df['Time'] + df['Loc']
 
         if category == 'Lab':
             df = df[df['Calc'] == 'L']

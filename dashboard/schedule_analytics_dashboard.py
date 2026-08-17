@@ -172,16 +172,16 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                             ], className="row flex-display"),
                                         # Class Division Breakdown Data Matrices Row
                                         html.Div([
-                                            html.Div([
-                                                html.Div([
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="lab_enrollment", className="mini_container two columns"),
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="1000_enrollment", className="mini_container two columns"),
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="2000_enrollment", className="mini_container two columns"),
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="3000_enrollment", className="mini_container two columns"),
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="4000_enrollment", className="mini_container two columns"),
-                                                    html.Div(summary_stats(pd.DataFrame(), '', 0), id="calc_total_enrollment", className="mini_container two columns"),
-                                                    ], style={'display': 'flex'}),
-                                                ], className="pretty_container twelve columns"),
+                                            # html.Div([
+                                                # html.Div([
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="lab_enrollment", className="mini_container two columns"),
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="1000_enrollment", className="mini_container two columns"),
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="2000_enrollment", className="mini_container two columns"),
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="3000_enrollment", className="mini_container two columns"),
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="4000_enrollment", className="mini_container two columns"),
+                                                    # html.Div(summary_stats(pd.DataFrame(), '', 0), id="calc_total_enrollment", className="mini_container two columns"),
+                                                    # ], style={'display': 'flex'}),
+                                                # ], className="pretty_container twelve columns"),
                                             ], className="row flex-display", id="calc_row"),
 
                                         # Institutional Notes Panel

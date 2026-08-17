@@ -945,7 +945,8 @@ def parse_contents_integrated(contents, filename):
         'Nmbr': 'Number',
         'Sec': 'Section',
         'Cam': 'Campus',
-        'Enrl': 'Enrolled'
+        'Enrl': 'Enrolled',
+        'Calc': 'Calc'
     }
     df = df.rename(columns=column_normalization)
 
@@ -958,8 +959,15 @@ def parse_contents_integrated(contents, filename):
         # df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x) if pd.notna(x) else x)
 
     # Filter to active status courses if present
-    if 'S' in df.columns:
-        df = df[df['S'] == 'A']
+    # if 'S' in df.columns:
+        # df = df[df['S'] == 'A']
+
+    # 3. Clean up formatting and execute the explicit override rule
+    # This cleanly acts on the data framework after all type conversions are finalized.
+    df['S'] = df['S'].astype(str).str.strip()
+
+    if 'Calc' in df.columns:
+        df.loc[df['S'] == 'C', 'Calc'] = 'N'
 
     # Master dashboard schema fields configuration mapping
     dashboard_fields = ['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'T', 'Title', 'Credit',
@@ -1003,10 +1011,10 @@ def create_datatable(df, filter_query):
             },
             style_cell={
                 'fontFamily': '"Inter", sans-serif',
-                'fontSize': '1.50rem',
-                'padding': '12px 10px',
-                'border': '1px solid #f1f5f9',
-                'color': '#334155',
+                'fontSize': '1.15rem',
+                'padding': '6px 10px',
+                # 'border': '1px solid #f1f5f9',
+                # 'color': '#334155',
                 'whiteSpace': 'nowrap',
                 'overflow': 'hidden',
                 'textOverflow': 'ellipsis'
@@ -1019,16 +1027,80 @@ def create_datatable(df, filter_query):
                     } for c in ['Title', 'Instructor', 'Days']
                 ],
             style_data_conditional=[
+                # *data_bars('Ratio', 'Max'),
                 {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#f8fafc'
-                }
-            ] + [
+                    "if": {"row_index": "odd"},
+                    "backgroundColor": "rgb(248, 248, 248)",
+                },
                 {
-                    'if': {'filter_query': '{{colorRec}} = "{}"'.format(color), 'column_id': 'colorRec'},
-                    'color': 'transparent',
-                    'backgroundColor': color,
-                } for color in accent_colors
+                    'if': {
+                        'filter_query': '{WLst} > 0',
+                        'column_id': 'WLst'
+                    },
+                    'backgroundColor': '#FEFCBF',
+                    'color': '#744210'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Ratio} > 80',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#C6EFCE',
+                    'color': '#006100'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Ratio} > 94',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#008000',
+                    'color': 'white'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Calc} = "L"', 'column_id': 'Calc'
+                    },
+                    'backgroundColor': '#EBF8FF',
+                    'color': '#2B6CB0',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {
+                        'filter_query': '{Calc} = "N"', 'column_id': 'Calc'
+                    },
+                    'backgroundColor': '#FFF5F5',
+                    'color': '#C53030'
+                },
+                # 1000 level min of 20; 2000 level min of 18, 3000 level min of 15; 4000 level min of 10
+                {
+                    'if': {
+                        'filter_query': '{S} contains "A" && {Credit} > 0 && {Max} > 0 && ({Subject} contains MTH || {Subject} contains MTL) && ({Number} != "1082" && {Number} != "1101" && {Number} != "1116" && {Number} != "1312") && ({Enrolled} < 20 && {Number} < 2000) || ({Enrolled} < 18 && ({Number} >= 2000 && {Number} < 3000)) || ({Enrolled} < 15 && ({Number} >= 3000 && {Number} < 4000)) || ({Enrolled} < 10 && {Number} >= 4000)',
+                        'column_id': 'Enrolled'
+                    },
+                    'backgroundColor': '#FFC7CE',
+                    'color': '#9C0006'
+                },
+                *[
+                    {
+                        'if': {'filter_query': '{{colorRec}} = "{}"'.format(color), 'column_id': 'colorRec'},
+                        'color': 'transparent',
+                        'backgroundColor': color,
+                    } for color in accent_colors
+                ],
+                {
+                    'if': {
+                        'filter_query': '{S} contains C',
+                    },
+                    'backgroundColor': '#FFF5F5',
+                    'color': '#C53030'
+                },
+                {
+                    'if': {
+                        'filter_query': '{S} contains "C"', 'column_id': 'colorRec'
+                    },
+                    'backgroundColor': '#FFF5F5',
+                    'color': '#FFF5F5'
+                },
             ],
             fixed_rows={'headers': True, 'data': 0},
             editable=True,
@@ -1289,4 +1361,36 @@ def to_excel(df, report_term):
     data = base64.b64encode(xlsx_io.read()).decode('utf-8')
     return data
 
+
+def data_bars(column_data, column_apply):
+    n_bins = 20
+    bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]
+    ranges = [100 * i for i in bounds]
+    styles = []
+    for i in range(1, len(bounds)):
+        min_bound = ranges[i - 1]
+        max_bound = ranges[i]
+        max_bound_percentage = bounds[i] * 100
+        styles.append({
+            'if': {
+                'filter_query': (
+                    '{{{column}}} >= {min_bound}' +
+                    (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
+                ).format(column=column_data, min_bound=min_bound, max_bound=max_bound),
+                'column_id': column_apply
+            },
+            'background': (
+                """
+                    linear-gradient(90deg,
+                    #CACACA 0%,
+                    #CACACA {max_bound_percentage}%,
+                    white {max_bound_percentage}%,
+                    white 100%)
+                """.format(max_bound_percentage=max_bound_percentage)
+            ),
+            'paddingBottom': 2,
+            'paddingTop': 2
+        })
+
+    return styles
 
