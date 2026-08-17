@@ -13,7 +13,6 @@ import datetime
 import dash_daq as daq
 
 DEBUG = False
-mathserver = False
 
 if DEBUG:
     print('Dash Version: {:s}'.format(dash.__version__))
@@ -37,14 +36,6 @@ app.title = 'Scheduling'
 app.config.update({
     'suppress_callback_exceptions': True,
 })
-
-# specifics for the math.msudenver.edu server
-if mathserver:
-    app.config.update({
-       'url_base_pathname':'/scheduling/',
-       'routes_pathname_prefix':'/scheduling/',
-       'requests_pathname_prefix':'/scheduling/',
-    })
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -89,6 +80,10 @@ def parse_contents(contents, filename):#, date):
     df = df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title', 'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor', 'Class']].copy()
     df = df[df['S']=='A']
     df.loc[:,'Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
+
+    # HENC_AI
+    df['id'] = df.index
+
     return df
 
     # except Exception as e:
@@ -163,18 +158,34 @@ def update_grid(data, filtered_data, slctd_row_indices):
     else:
         return [ blankFigure() for k in range(6)]
 
-    # replace all NaN or None in Loc with TBA
-    for row in _df.index.tolist():
-        if _df.loc[row, 'Loc'] != _df.loc[row, 'Loc'] or _df.loc[row, 'Loc'] == None:
-            _df.loc[row, 'Loc'] = 'TBA'
+    # # replace all NaN or None in Loc with TBA
+    # for row in _df.index.tolist():
+        # if _df.loc[row, 'Loc'] != _df.loc[row, 'Loc'] or _df.loc[row, 'Loc'] == None:
+            # _df.loc[row, 'Loc'] = 'TBA'
 
-    # remove classes without rooms
+    # # remove classes without rooms
+    # _dfLoc = _dfLoc[_dfLoc['Campus'] != 'I']
+    # _dfLoc = _dfLoc[_dfLoc['Loc'] != 'TBA']
+    # _dfLoc = _dfLoc[_dfLoc['Loc'] != 'OFFC TBA']
+    # _df = _df[_df['Campus'] != 'I']
+    # _df = _df[_df['Loc'] != 'TBA']
+    # _df = _df[_df['Loc'] != 'OFFC TBA']
+
+    # Safely convert NaN / None values in the location column to a standard string
+    _dfLoc['Loc'] = _dfLoc['Loc'].fillna('TBA').astype(str)
+    _df['Loc'] = _df['Loc'].fillna('TBA').astype(str)
+
+    # 1. Filter out online campuses ('I')
     _dfLoc = _dfLoc[_dfLoc['Campus'] != 'I']
-    _dfLoc = _dfLoc[_dfLoc['Loc'] != 'TBA']
-    _dfLoc = _dfLoc[_dfLoc['Loc'] != 'OFFC TBA']
     _df = _df[_df['Campus'] != 'I']
-    _df = _df[_df['Loc'] != 'TBA']
-    _df = _df[_df['Loc'] != 'OFFC TBA']
+
+    # 2. Build a regex mask to exclude any location string containing OFFC, ONLI, or TBA
+    exclude_mask_loc = _dfLoc['Loc'].str.contains('OFFC|ONLI|TBA', case=False, na=False)
+    exclude_mask_df = _df['Loc'].str.contains('OFFC|ONLI|TBA', case=False, na=False)
+
+    # 3. Apply the exclusion filters natively
+    _dfLoc = _dfLoc[~exclude_mask_loc]
+    _df = _df[~exclude_mask_df]
 
     # remove canceled classes
     _dfLoc = _dfLoc[_dfLoc['S'] != 'C']
@@ -333,7 +344,11 @@ def update_grid(data, filtered_data, slctd_row_indices):
         # setup the axes and tick marks
         if nLoc:
             fig.update_layout(
-                autosize=False,
+                # HENC_AI
+                # autosize=False,
+                # width=1350,
+                autosize=True,
+                # HENC_AI
                 height=45*nLoc,
                 margin=dict(
                     l=50,
@@ -470,6 +485,9 @@ def generate_tab_fig(day, tab, fig):
                     'modeBarButtonsToRemove': modeBarButtonsToRemove,
                     'showAxisDragHandles': True,
                     'toImageButtonOptions': {'filename': day_abbrv},
+                    # HENC_AI
+                    'responsive': True,
+                    # HENC_AI
                 },
                 id='schedule_'+day_abbrv,
             )], type='circle', color='#064779')],
@@ -665,20 +683,66 @@ app.layout = html.Div(
                     }
                 ),
                 html.Div([ html.Br(),]),
+                # HENC_AI
+                # html.Div(
+                    # id='datatable-interactivity-container',
+                    # children=[
+                        # dash_table.DataTable(
+                            # id='datatable-interactivity',
+                            # data = [{}],
+                        # )
+                    # ],
+                    # style={
+                        # 'width': '100%',
+                        # 'display': 'block',
+                        # 'marginLeft': 'auto',
+                        # 'marginRight': 'auto'},
+                # ),
                 html.Div(
                     id='datatable-interactivity-container',
                     children=[
                         dash_table.DataTable(
                             id='datatable-interactivity',
-                            data = [{}],
+                            columns=[
+                                {'name': 'Subject', 'id': 'Subject'},
+                                {'name': 'Number', 'id': 'Number'},
+                                {'name': 'CRN', 'id': 'CRN'},
+                                {'name': 'Section', 'id': 'Section'},
+                                {'name': 'S', 'id': 'S'},
+                                {'name': 'Campus', 'id': 'Campus'},
+                                {'name': 'Title', 'id': 'Title'},
+                                {'name': 'Credit', 'id': 'Credit'},
+                                {'name': 'Max', 'id': 'Max'},
+                                {'name': 'Enrl', 'id': 'Enrolled'},
+                                {'name': 'Days', 'id': 'Days'},
+                                {'name': 'Time', 'id': 'Time'},
+                                {'name': 'Loc', 'id': 'Loc'},
+                                {'name': 'Begin/End', 'id': 'Begin/End'},
+                                {'name': 'Instructor', 'id': 'Instructor'},
+                                {'name': '', 'id': 'colorRec'},
+                            ],
+                            style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold'},
+                            style_cell={'font-family': 'sans-serif', 'font-size': '1rem'},
+                            editable=True,
+                            filter_action='native',
+                            sort_action='native',
+                            sort_mode='multi',
+                            row_selectable='multi', # Enables selection checkboxes
+                            style_data_conditional=[
+                                {
+                                    'if': {'filter_query': '{colorRec} = ' + color, 'column_id': 'colorRec'},
+                                    'color': color, 'backgroundColor': color
+                                } for color in ['#b3cde3', '#fbb4ae', '#ccebc5', '#decbe4', '#fed9a6', '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2']
+                            ],
+                            fixed_rows={'headers': True, 'data': 0},
+                            style_data={'whiteSpace': 'normal', 'height': 'auto'},
+                            data=[]
                         )
                     ],
-                    style={
-                        'width': '100%',
-                        'display': 'block',
-                        'marginLeft': 'auto',
-                        'marginRight': 'auto'},
+                    style={'width': '100%', 'display': 'block', 'marginLeft': 'auto', 'marginRight': 'auto'},
                 ),
+
+                # HENC_AI
             ],
             id='output-data-upload',
             style={'display': 'none'}
@@ -698,6 +762,83 @@ def show_contents(contents):
     if contents is not None:
         return {'display': 'block'}
 
+# HENC_AI
+# @app.callback(
+    # [Output('weekdays-tabs-content', 'children'),
+     # Output('datatable-interactivity-container', 'children'),
+     # Output('upload-data-button', 'n_clicks'),],
+    # [Input('update-grid-button', 'n_clicks'),
+     # Input('reset-colors-button', 'n_clicks'),
+     # Input('change-color-button', 'n_clicks'),
+     # State('weekdays-tabs', 'value'),
+     # State('upload-data', 'filename'),
+     # Input('upload-data', 'contents'),
+     # Input("datatable-interactivity", "data_timestamp"),
+     # State("datatable-interactivity", "filter_query"),
+     # State("datatable-interactivity", "data"),
+     # State('datatable-interactivity', 'derived_virtual_data'),
+     # State('datatable-interactivity', 'derived_virtual_indices'),
+     # State('datatable-interactivity', 'derived_virtual_selected_rows'),
+     # State('color-select', 'value'),
+     # State('upload-data-button', 'n_clicks'),
+    # ]
+# )
+# def data_loading(
+    # update_n_clicks,
+    # select_n_clicks,
+    # deselect_n_clicks,
+    # tab,
+    # name,
+    # contents,
+    # timestamp,
+    # filter_query,
+    # rows,
+    # filtered_rows,
+    # vtl_indices,
+    # slctd_row_indices,
+    # slctd_color,
+    # n_clicks,
+# ):
+
+    # ctx = dash.callback_context
+    # input_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # if DEBUG:
+        # print('function: data_loading')
+        # print('Trigger: {:s}'.format(input_id))
+
+    # df = pd.DataFrame(rows)
+
+    # _index = slctd_row_indices
+
+    # if len(rows) != len(filtered_rows):
+        # _index = vtl_indices
+
+    # if contents is not None and input_id == 'upload-data' and n_clicks > 0:
+        # df = parse_contents(contents, name)
+        # # print(df.to_string())
+        # df['colorRec'] = '#b3cde3'
+
+    # if input_id == 'reset-colors-button':
+        # df['colorRec'] = '#b3cde3'
+
+    # if input_id == "change-color-button":
+        # df.loc[_index, 'colorRec'] = slctd_color
+
+    # data_children = create_datatable(df, filter_query)
+
+    # if input_id == 'update-grid-button':
+        # df = pd.DataFrame(filtered_rows)
+        # figs = update_grid(df.to_dict(), df.to_dict(), [])
+        # # figs = update_grid(True, df.to_dict(), df.to_dict(), [])
+        # tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+    # else:
+        # figs = update_grid(df.to_dict(), df.to_dict(), [])
+        # # figs = update_grid(True, df.to_dict(), df.to_dict(), [])
+        # tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+
+
+    # return tabs_children, data_children, n_clicks
 @app.callback(
     [Output('weekdays-tabs-content', 'children'),
      Output('datatable-interactivity-container', 'children'),
@@ -736,45 +877,51 @@ def data_loading(
 ):
 
     ctx = dash.callback_context
-    input_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    # FIXED: Reverted back to your original string parsing so button comparisons work
+    input_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else ""
 
     if DEBUG:
         print('function: data_loading')
         print('Trigger: {:s}'.format(input_id))
 
+    # Initialize dataframe from master records
     df = pd.DataFrame(rows)
 
-    _index = slctd_row_indices
-
-    if len(rows) != len(filtered_rows):
-        _index = vtl_indices
-
+    # 1. Handle File Uploads
     if contents is not None and input_id == 'upload-data' and n_clicks > 0:
         df = parse_contents(contents, name)
-        # print(df.to_string())
         df['colorRec'] = '#b3cde3'
 
-    if input_id == 'reset-colors-button':
+    # 2. Reset All Row Colors
+    elif input_id == 'reset-colors-button':
         df['colorRec'] = '#b3cde3'
 
-    if input_id == "change-color-button":
-        df.loc[_index, 'colorRec'] = slctd_color
+    # 3. Change Color (Reverted back to your exact global filter coloring logic)
+    elif input_id == "change-color-button":
+        _index = slctd_row_indices
+        if filtered_rows and len(rows) != len(filtered_rows):
+            _index = vtl_indices
 
+        if _index:
+            df.loc[_index, 'colorRec'] = slctd_color
+
+    # Regenerate the interactive datatable with the current state and query filters
     data_children = create_datatable(df, filter_query)
 
+    # 4. Enforce your grid routing behavior
     if input_id == 'update-grid-button':
-        df = pd.DataFrame(filtered_rows)
-        figs = update_grid(df.to_dict(), df.to_dict(), [])
-        # figs = update_grid(True, df.to_dict(), df.to_dict(), [])
-        tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+        # ONLY plot what matches the filter in the datatable
+        df_grid = pd.DataFrame(filtered_rows) if filtered_rows else df
+        figs = update_grid(df_grid.to_dict('records'), df_grid.to_dict('records'), [])
     else:
-        figs = update_grid(df.to_dict(), df.to_dict(), [])
-        # figs = update_grid(True, df.to_dict(), df.to_dict(), [])
-        tabs_children = [ generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
+        # Keep plotting ALL master classes on the calendar layout view
+        figs = update_grid(df.to_dict('records'), df.to_dict('records'), [])
 
+    tabs_children = [generate_tab_fig(day, tab, fig) for day, fig in zip(days, figs)]
 
     return tabs_children, data_children, n_clicks
 
+# HENC_AI
 
 @app.callback(
     [Output('schedule_mon_div', 'style'),
@@ -820,7 +967,7 @@ def alter_row(add_n_clicks, delete_n_clicks, selected_rows, rows):
         rows.append(
             {'Subject': '', 'Number':'', 'CRN': '', 'Section': '', 'S': 'A',
              'Campus': '', 'Title': '', 'Credit': '', 'Max': '', 'Enrl': '', 'Days': '',
-             'Time': '', 'Loc': 'TBA', 'Being/End': '', 'Instructor': ',',
+             'Time': '', 'Loc': 'TBA', 'Begin/End': '', 'Instructor': ',',
              'colorRec': '#b3cde3'}
         )
 
@@ -901,13 +1048,7 @@ def export_filtered(n_clicks, data):
 
 # Main
 if __name__ == '__main__':
-    app.run_server(debug=DEBUG, port='8002')
-    # if mathserver:
-        # app.run_server(debug=DEBUG)
-    # else:
-        # # app.run_server(debug=DEBUG, host='10.0.2.15', port='8051')
-        # app.run_server(debug=DEBUG, port='8051')
-
+    app.run(debug=DEBUG, port='8002')
 
 '''
             aliceblue, antiquewhite, aqua, aquamarine, azure,

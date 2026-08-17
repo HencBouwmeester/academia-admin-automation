@@ -400,6 +400,9 @@ def tidy_txt(file_contents):
         if _df.loc[row, 'S'] == 'C':
             _df.loc[row, 'Calc'] = 'N'
 
+    # HENC_AI
+    _df['id'] = _df.index
+
     return _df, term_code, data_date
 
 
@@ -522,6 +525,9 @@ def tidy_xlsx(file_contents):
     for row in _df.index.to_list():
         if _df.loc[row, 'S'] == 'C':
             _df.loc[row, 'Calc'] = 'N'
+
+    # HENC_AI
+    _df['id'] = _df.index
 
     return _df, term_code, data_date
 
