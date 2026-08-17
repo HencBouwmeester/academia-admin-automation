@@ -1362,6 +1362,159 @@ def to_excel(df, report_term):
     return data
 
 
+def to_excel_stacked(df, report_term):
+    _df = df.copy()
+    _df = labs_combined(_df)
+    xlsx_io = io.BytesIO()
+    writer = pd.ExcelWriter(xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}})
+    _df.to_excel(writer, sheet_name=report_term, index=False)
+    writer.close()
+    xlsx_io.seek(0)
+    data = base64.b64encode(xlsx_io.read()).decode('utf-8')
+    return data
+
+
+    # # only grab needed columns and correct ordering
+    # cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
+            # "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
+            # "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio", "Calc"]
+    # _df = _df[cols]
+
+    # xlsx_io = io.BytesIO()
+    # writer = pd.ExcelWriter(
+        # xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
+    # )
+    # _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
+    # _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
+    # _df.to_excel(writer, sheet_name=report_term, index=False)
+
+    # workbook = writer.book
+    # worksheet = writer.sheets[report_term]
+
+    # # bold = workbook.add_format({"bold": True})
+
+    # rowCount = len(_df.index)
+
+    # worksheet.freeze_panes(1, 0)
+    # worksheet.set_column("A:A", 6.5)
+    # worksheet.set_column("B:B", 7)
+    # worksheet.set_column("C:C", 5.5)
+    # worksheet.set_column("D:D", 6.5)
+    # worksheet.set_column("E:E", 2)
+    # worksheet.set_column("F:F", 6.5)
+    # worksheet.set_column("G:G", 2)
+    # worksheet.set_column("H:H", 13.2)
+    # worksheet.set_column("I:I", 5.5)
+    # worksheet.set_column("J:J", 4)
+    # worksheet.set_column("K:K", 7)
+    # worksheet.set_column("L:L", 5)
+    # worksheet.set_column("M:M", 5)
+    # worksheet.set_column("N:N", 5.5)
+    # worksheet.set_column("O:O", 12)
+    # worksheet.set_column("P:P", 7)
+    # worksheet.set_column("Q:Q", 4)
+    # worksheet.set_column("R:R", 3.5)
+    # worksheet.set_column("S:S", 10.5)
+    # worksheet.set_column("T:T", 14)
+    # worksheet.set_column("U:U", 8)
+
+    # # Common cell formatting
+    # # Light red fill with dark red text
+    # format1 = workbook.add_format({"bg_color": "#FFC7CE", "font_color": "#9C0006"})
+    # # Light yellow fill with dark yellow text
+    # format2 = workbook.add_format({"bg_color": "#FFEB9C", "font_color": "#9C6500"})
+    # # Green fill with dark green text.
+    # format3 = workbook.add_format({"bg_color": "#C6EFCE", "font_color": "#006100"})
+    # # Darker green fill with black text.
+    # format4 = workbook.add_format({"bg_color": "#008000", "font_color": "#000000"})
+
+    # # Add enrollment evaluation conditions
+
+    # # 1000 level classes that have fewer than 20 students
+    # worksheet.conditional_format(
+        # 1,  # row 2
+        # 10,  # column K
+        # rowCount,  # last row
+        # 10,  # column K
+        # {"type": "formula", "criteria": "=_xlfn.AND($K2<20,_xlfn.NUMBERVALUE($B2)<2000)", "value": "TRUE", "format": format1},
+    # )
+
+    # # 2000 level classes that have fewer than 18 students
+    # worksheet.conditional_format(
+        # 1,  # row 2
+        # 10,  # column K
+        # rowCount,  # last row
+        # 10,  # column K
+        # {"type": "formula", "criteria": "=_xlfn.AND($K2<18,_xlfn.NUMBERVALUE($B2)>1999,_xlfn.NUMBERVALUE($B2)<3000)", "value": "TRUE", "format": format1},
+    # )
+
+    # # 3000 level classes that have fewer than 15 students
+    # worksheet.conditional_format(
+        # 1,  # row 2
+        # 10,  # column K
+        # rowCount,  # last row
+        # 10,  # column K
+        # {"type": "formula", "criteria": "=_xlfn.AND($K2<15,_xlfn.NUMBERVALUE($B2)>2999,_xlfn.NUMBERVALUE($B2)<4000)", "value": "TRUE", "format": format1},
+    # )
+
+    # # 4000 level classes that have fewer than 10 students
+    # worksheet.conditional_format(
+        # 1,  # row 2
+        # 10,  # column K
+        # rowCount,  # last row
+        # 10,  # column K
+        # {"type": "formula", "criteria": "=_xlfn.AND($K2<10,_xlfn.NUMBERVALUE($B2)>3999)", "value": "TRUE", "format": format1},
+    # )
+
+    # # classes that have students on the waitlist
+    # worksheet.conditional_format(
+        # 1,  # row 2
+        # 12,  # column M
+        # rowCount,  # last row
+        # 12,  # column M
+        # {"type": "cell", "criteria": ">", "value": 0, "format": format2},
+    # )
+
+    # # Save it
+    # writer.close()
+    # xlsx_io.seek(0)
+    # # media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # data = base64.b64encode(xlsx_io.read()).decode("utf-8")
+    # return data
+
+def labs_combined(df):
+    # Combine Max, Enrollments, and WaitLists for Co-Requisite Labs with their parents
+
+    # only use the active courses
+    df = df[df["S"]=="A"]
+
+    parent_lab = {"1080": "1081", "1110": "1111", "1112": "1115", "1310": "1311"}
+    # filter for parent sections
+    for parent in parent_lab.keys():
+        mask_parents = (df['Number'] == parent)
+
+        #filter for lab sections
+        mask_labs = (df['Number'] == parent_lab[parent])
+        for row_p in df[mask_parents].index.tolist():
+            for row_l in df[mask_labs].index.tolist():
+                if (df.loc[row_p, 'Days'] == df.loc[row_l, 'Days']) and (df.loc[row_p, 'Time'] == df.loc[row_l, 'Time']) and (df.loc[row_p, 'Loc'] == df.loc[row_l, 'Loc']):
+                    df.loc[row_p, 'Max'] += df.loc[row_l, 'Max']
+                    df.loc[row_p, 'Enrolled'] += df.loc[row_l, 'Enrolled']
+                    df.loc[row_p, 'WLst'] += df.loc[row_l, 'WLst']
+
+                    # recalculate the CHP and Ratio
+                    df.loc[row_p, 'CHP'] = df.loc[row_p, 'Credit'] * df.loc[row_p, 'Enrolled']
+                    df.loc[row_p, 'Ratio'] = 100 * df.loc[row_p, 'Enrolled'] / df.loc[row_p, 'Max']
+
+    # remove the lab sections from the data
+    for lab in parent_lab.values():
+        mask = df[df['Number'] != lab].index.to_list()
+        df = df.loc[mask]
+        # df.drop(df[df['Number'] == lab].index, inplace=True)
+
+    return df
+
+
 def data_bars(column_data, column_apply):
     n_bins = 20
     bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]

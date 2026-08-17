@@ -13,7 +13,7 @@ from utils import parse_enrollment_file, process_excel_import, \
         build_grouped_pdf, build_grouped_replica_pdf, detect_academic_term, \
         blankFigure, convert_to_24hr, convert_term_title_to_code, \
         generate_weekday_tab, generate_tab_fig, parse_contents_integrated, \
-        create_datatable, update_grid, to_excel
+        create_datatable, update_grid, to_excel, to_excel_stacked
 from utils_analytics import *
 
 DEBUG = False
@@ -305,6 +305,8 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                                 dcc.Download(id='datatable-download'),
                                                 html.Button('Export Excel (Filtered)', id='export-filtered-button', n_clicks=0, className='btn-secondary', style={'marginRight': '8px'}),
                                                 dcc.Download(id='datatable-filtered-download'),
+                                                html.Button('Export Excel (Stacked)', id='export-stacked-button', n_clicks=0, className='btn-secondary', style={'marginRight': '8px'}),
+                                                dcc.Download(id='datatable-stacked-download'),
                                                 dbc.Button("Export PDF (Instructor)", id="btn-pdf-instructor",  className='btn-secondary', style={'marginRight': '8px'}),
                                                 dbc.Button("Export PDF (Course)", id="btn-pdf-course",  className='btn-secondary', style={'marginRight': '8px'}),
                                             ],
@@ -522,6 +524,20 @@ def export_filtered(n_clicks, data):
         term_code = convert_term_title_to_code(report_term)
         return {'base64': True,
                 'content': to_excel(df, report_term),
+                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+
+@app.callback(
+    Output('datatable-download', 'data'),
+    [Input('export-stacked-button', 'n_clicks'),
+     State('datatable-interactivity', 'data')]
+)
+def export_all(n_clicks, data):
+    df = pd.DataFrame(data)
+    if n_clicks > 0 and not df.empty:
+        report_term = detect_academic_term(df)
+        term_code = convert_term_title_to_code(report_term)
+        return {'base64': True,
+                'content': to_excel_stacked(df, report_term),
                 'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
 
 @dash.callback(
