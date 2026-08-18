@@ -2,9 +2,15 @@ from dash import html, dcc, dash_table
 import io
 import re
 import base64
-import pandas as pd
 import datetime
+import numpy as np
+import pandas as pd
+
+import plotly.express as px
+import plotly.io as pio
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -277,37 +283,6 @@ def convert_to_24hr(time_str):
 
     return f"{start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}"
 
-# def parse_enrollment_file(file_content):
-    # if not file_content or not file_content.strip():
-        # return {}, pd.DataFrame()
-
-    # lines = file_content.split('\n')
-    # header_metadata = {}
-    # cleaned_rows = []
-
-    # for line in lines:
-        # if "METROPOLITAN STATE UNIVERSITY" in line:
-            # date_match = re.search(r'(\d{2}-[A-Z]{3}-\d{4})', line)
-            # if date_match:
-                # header_metadata['report_date'] = date_match.group(1)
-        # if "Term:" in line and 'term' not in header_metadata:
-            # t_match = re.search(r'Term:\s*(\d+)', line)
-            # d_match = re.search(r'Dept:\s*([^\s-]+)', line)
-            # if t_match: header_metadata['term'] = t_match.group(1)
-            # if d_match: header_metadata['dept'] = d_match.group(1)
-
-    # ignorable = ["SWRCGSR", "METROPOLITAN STATE", "Class Enrollment", "Term:",
-                 # "Subj Nmbr CRN", "---- ---- ----", "Subject Code", "** TOTALS **",
-                 # "Cr Hr Prod", "Sections", "------------"]
-
-    # for line in lines:
-        # if any(kw in line for kw in ignorable) or not line.strip():
-            # continue
-        # if line.strip().startswith('\x0c') or line.strip().isdigit():
-            # continue
-        # cleaned_rows.append(line)
-
-    # return header_metadata, reconstruct_records(cleaned_rows)
 
 def parse_enrollment_file(file_content):
     if not file_content or not file_content.strip():
@@ -475,7 +450,7 @@ def expand_and_split_courses(raw_records):
             time_parts = row['Time'].split(' / ')
             loc_parts = row['Loc'].split(' / ')
 
-            # --- FIXED: Extract absolute string elements using indexing instead of copying entire arrays ---
+            # --- Extract absolute string elements using indexing instead of copying entire arrays ---
             lab_days = day_parts[0] if len(day_parts) > 0 else row['Days']
             lab_time = time_parts[0] if len(time_parts) > 0 else row['Time']
             lab_loc  = loc_parts[0]  if len(loc_parts) > 0  else row['Loc']
@@ -525,77 +500,6 @@ def expand_and_split_courses(raw_records):
 
     return pd.DataFrame(expanded_records)
 
-
-# def process_excel_import(file_content_bytes):
-    # import io
-
-    # # Read raw bytes directly from the base64 Dash upload stream
-    # df = pd.read_excel(io.BytesIO(file_content_bytes))
-
-    # # 2. Define the normalization map (Inconsistent Name -> Standard Name)
-    # column_mapping = {
-        # 'Subj': 'Subj',
-        # 'Subject': 'Subj',
-        # 'Nmbr': 'Nmbr',
-        # 'Number': 'Nmbr',
-        # 'Sec': 'Sec',
-        # 'Section': 'Sec',
-        # 'Cam': 'Cam',
-        # 'Campus': 'Cam',
-        # 'Max Enrl': 'Max Enrl',
-        # 'Max': 'Max Enrl',
-        # 'Enrl': 'Enrl',
-        # 'Enrolled': 'Enrl',
-        # 'WLst': 'WLst',
-        # 'WList': 'WLst',
-        # '%Ful': '%Ful',
-        # 'Full': '%Ful',
-    # }
-
-    # # Optional: Clean column names (remove whitespace and standardize casing)
-    # # df.columns = df.columns.str.strip().str.title()
-
-    # # 3. Rename the columns safely
-    # df = df.rename(columns=column_mapping)
-
-    # # Define the canonical master schema layout your dashboard expects
-    # expected_columns = [
-        # 'Subj', 'Nmbr', 'CRN', 'Sec', 'S', 'Cam', 'T', 'Title',
-        # 'Credit', 'Max Enrl', 'Enrl', 'WCap', 'WLst', 'Days',
-        # 'Time', 'Loc', 'Rcap', '%Ful', 'Begin/End', 'Instructor',
-        # 'Course', 'CHP', 'Ratio', 'Calc'
-    # ]
-
-    # # Add any missing columns and fill them with safe default empty values
-    # for col in expected_columns:
-        # if col not in df.columns:
-            # if col in ['Max Enrl', 'Enrl', 'WCap', 'WLst', 'Rcap', 'Credit', 'CHP']:
-                # df[col] = 0
-            # else:
-                # df[col] = ""
-
-    # # Reorder columns to match standard layout, keeping extra excel columns at the end
-    # all_cols = expected_columns + [c for c in df.columns if c not in expected_columns]
-    # df = df[all_cols]
-
-    # # Safely convert specific columns to numeric values, leaving non-numeric items blank (NaN)
-    # numeric_cols = ['CRN', 'Max Enrl', 'Enrl', 'WCap', 'WLst', 'Rcap', '%Ful']
-    # for col in numeric_cols:
-        # if col in df.columns:
-            # df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # if not df.empty:
-        # # Explicitly enforce numeric types to ensure multiplication doesn't break
-        # df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
-        # df['Enrl'] = pd.to_numeric(df['Enrl'], errors='coerce').fillna(0)
-
-        # # Calculate Credit Hour Production
-        # df['CHP'] = df['Credit'] * df['Enrl']
-
-    # # Dummy metadata for excel imports since there's no report header to parse
-    # metadata = {'report_date': 'Excel Import', 'term': 'N/A', 'dept': 'N/A'}
-
-    # return metadata, df
 
 def process_excel_import(file_content_bytes):
     import io
@@ -786,6 +690,7 @@ def draw_canvas_decorations(canvas, doc):
     canvas.drawRightString(576, 32, f"Page {doc.page}")
     canvas.restoreState()
 
+
 def build_grouped_pdf(dataframe, group_by_col, term_title, output_target):
     doc = SimpleDocTemplate(
         output_target, pagesize=letter,
@@ -836,6 +741,7 @@ def build_grouped_pdf(dataframe, group_by_col, term_title, output_target):
     ]))
     story.append(pdf_table)
     doc.build(story, onFirstPage=draw_canvas_decorations, onLaterPages=draw_canvas_decorations)
+
 
 def build_grouped_replica_pdf(dataframe, group_by_col, term_title, output_target):
     """
@@ -1355,6 +1261,7 @@ def update_grid(data, filtered_data, slctd_row_indices):
 
     return figs
 
+
 def to_excel(df, report_term):
     _df = df.copy()
     xlsx_io = io.BytesIO()
@@ -1377,114 +1284,6 @@ def to_excel_stacked(df, report_term):
     data = base64.b64encode(xlsx_io.read()).decode('utf-8')
     return data
 
-
-    # # only grab needed columns and correct ordering
-    # cols = ["Subject", "Number", "CRN", "Section", "S", "Campus", "T", "Title",
-            # "Credit", "Max", "Enrolled", "WCap", "WList", "Days", "Time", "Loc",
-            # "Rcap", "Full", "Begin/End", "Instructor", "CHP", "Course", "Ratio", "Calc"]
-    # _df = _df[cols]
-
-    # xlsx_io = io.BytesIO()
-    # writer = pd.ExcelWriter(
-        # xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': True}}
-    # )
-    # _df["Section"] = _df["Section"].apply(lambda x: '="{x:s}"'.format(x=x))
-    # _df["Number"] = _df["Number"].apply(lambda x: '="{x:s}"'.format(x=x))
-    # _df.to_excel(writer, sheet_name=report_term, index=False)
-
-    # workbook = writer.book
-    # worksheet = writer.sheets[report_term]
-
-    # # bold = workbook.add_format({"bold": True})
-
-    # rowCount = len(_df.index)
-
-    # worksheet.freeze_panes(1, 0)
-    # worksheet.set_column("A:A", 6.5)
-    # worksheet.set_column("B:B", 7)
-    # worksheet.set_column("C:C", 5.5)
-    # worksheet.set_column("D:D", 6.5)
-    # worksheet.set_column("E:E", 2)
-    # worksheet.set_column("F:F", 6.5)
-    # worksheet.set_column("G:G", 2)
-    # worksheet.set_column("H:H", 13.2)
-    # worksheet.set_column("I:I", 5.5)
-    # worksheet.set_column("J:J", 4)
-    # worksheet.set_column("K:K", 7)
-    # worksheet.set_column("L:L", 5)
-    # worksheet.set_column("M:M", 5)
-    # worksheet.set_column("N:N", 5.5)
-    # worksheet.set_column("O:O", 12)
-    # worksheet.set_column("P:P", 7)
-    # worksheet.set_column("Q:Q", 4)
-    # worksheet.set_column("R:R", 3.5)
-    # worksheet.set_column("S:S", 10.5)
-    # worksheet.set_column("T:T", 14)
-    # worksheet.set_column("U:U", 8)
-
-    # # Common cell formatting
-    # # Light red fill with dark red text
-    # format1 = workbook.add_format({"bg_color": "#FFC7CE", "font_color": "#9C0006"})
-    # # Light yellow fill with dark yellow text
-    # format2 = workbook.add_format({"bg_color": "#FFEB9C", "font_color": "#9C6500"})
-    # # Green fill with dark green text.
-    # format3 = workbook.add_format({"bg_color": "#C6EFCE", "font_color": "#006100"})
-    # # Darker green fill with black text.
-    # format4 = workbook.add_format({"bg_color": "#008000", "font_color": "#000000"})
-
-    # # Add enrollment evaluation conditions
-
-    # # 1000 level classes that have fewer than 20 students
-    # worksheet.conditional_format(
-        # 1,  # row 2
-        # 10,  # column K
-        # rowCount,  # last row
-        # 10,  # column K
-        # {"type": "formula", "criteria": "=_xlfn.AND($K2<20,_xlfn.NUMBERVALUE($B2)<2000)", "value": "TRUE", "format": format1},
-    # )
-
-    # # 2000 level classes that have fewer than 18 students
-    # worksheet.conditional_format(
-        # 1,  # row 2
-        # 10,  # column K
-        # rowCount,  # last row
-        # 10,  # column K
-        # {"type": "formula", "criteria": "=_xlfn.AND($K2<18,_xlfn.NUMBERVALUE($B2)>1999,_xlfn.NUMBERVALUE($B2)<3000)", "value": "TRUE", "format": format1},
-    # )
-
-    # # 3000 level classes that have fewer than 15 students
-    # worksheet.conditional_format(
-        # 1,  # row 2
-        # 10,  # column K
-        # rowCount,  # last row
-        # 10,  # column K
-        # {"type": "formula", "criteria": "=_xlfn.AND($K2<15,_xlfn.NUMBERVALUE($B2)>2999,_xlfn.NUMBERVALUE($B2)<4000)", "value": "TRUE", "format": format1},
-    # )
-
-    # # 4000 level classes that have fewer than 10 students
-    # worksheet.conditional_format(
-        # 1,  # row 2
-        # 10,  # column K
-        # rowCount,  # last row
-        # 10,  # column K
-        # {"type": "formula", "criteria": "=_xlfn.AND($K2<10,_xlfn.NUMBERVALUE($B2)>3999)", "value": "TRUE", "format": format1},
-    # )
-
-    # # classes that have students on the waitlist
-    # worksheet.conditional_format(
-        # 1,  # row 2
-        # 12,  # column M
-        # rowCount,  # last row
-        # 12,  # column M
-        # {"type": "cell", "criteria": ">", "value": 0, "format": format2},
-    # )
-
-    # # Save it
-    # writer.close()
-    # xlsx_io.seek(0)
-    # # media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    # data = base64.b64encode(xlsx_io.read()).decode("utf-8")
-    # return data
 
 def labs_combined(df):
     # Combine Max, Enrollments, and WaitLists for Co-Requisite Labs with their parents
@@ -1594,6 +1393,424 @@ def apply_co_requisite_sorting_keys(df):
         is_lab_weight + "_" +
         sec_str
     )
+
+    return df
+
+# --- Analytical Functions ---
+
+def median(nums):
+    if len(nums):
+        if len(nums) == 1:
+            return nums[0]
+        nums = sorted(nums)
+        middle1 = (len(nums) - 1) // 2
+        middle2 = len(nums) // 2
+        return (nums[middle1] + nums[middle2]) / 2
+    return 0
+
+
+def multi_mode(lst):
+
+    if len(lst) == 0:
+        return [0]
+
+    frequencies = {}
+
+    for num in lst:
+        frequencies[num] = frequencies.get(num,0) + 1
+
+    mode = max([value for value in frequencies.values()])
+
+    modes = []
+
+    for key in frequencies.keys():
+        if frequencies[key] == mode:
+            modes.append(key)
+
+    modes = sorted(modes)
+    return modes[:3]
+
+
+def data_bars(column_data, column_apply):
+    n_bins = 100
+    bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]
+    ranges = [100 * i for i in bounds]
+    styles = []
+    for i in range(1, len(bounds)):
+        min_bound = ranges[i - 1]
+        max_bound = ranges[i]
+        max_bound_percentage = bounds[i] * 100
+        styles.append({
+            'if': {
+                'filter_query': (
+                    '{{{column}}} >= {min_bound}' +
+                    (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
+                ).format(column=column_data, min_bound=min_bound, max_bound=max_bound),
+                'column_id': column_apply
+            },
+            'background': (
+                """
+                    linear-gradient(90deg,
+                    #CACACA 0%,
+                    #CACACA {max_bound_percentage}%,
+                    white {max_bound_percentage}%,
+                    white 100%)
+                """.format(max_bound_percentage=max_bound_percentage)
+            ),
+            'paddingBottom': 2,
+            'paddingTop': 2
+        })
+
+    return styles
+
+def freq_dist_graph(data, m):
+
+    if len(data):
+
+        freq_dist = pd.DataFrame({'Enrolled': data, 'Value': data}).groupby('Enrolled').count()
+
+        X=freq_dist.index.to_list()
+        Y=freq_dist['Value'].to_list()
+
+    else:
+        X = [0, m]
+        Y = [0, 0]
+
+    fig = make_subplots(rows=1, cols=1,)
+    fig.add_trace(
+        go.Bar(
+            x=X,
+            y=Y,
+            width=1,
+            customdata=pd.DataFrame({'x': X, 'y': Y}),
+            hovertemplate='<br>'.join([
+                'Enrl: %{customdata[0]}',
+                'Freq: %{customdata[1]}'])+'<extra></extra>',
+            marker_color='#00447c',
+        ),
+        row=1,col=1,
+    )
+    fig.update_layout(
+        showlegend=False,
+        xaxis_range=[-0.5, m+0.5],
+        xaxis={
+            'showgrid': False,
+            'showticklabels': False,
+            'zeroline': False,
+        },
+        yaxis={
+            'showgrid': False,
+            'showticklabels': False,
+            'zerolinecolor': '#00447c',
+            'zerolinewidth': 1,
+        },
+        margin=dict(l=10, r=10, b=10, t=10),
+        height=50,
+        paper_bgcolor='#ffffff',
+        plot_bgcolor='#ffffff',
+    )
+
+    return fig
+
+def summary_stats(df, category, m):
+
+    sections = 0
+    courses = 0
+    waitlist = 0
+    enrolled = 0
+    min_enrl = 0
+    avg_enrl = 0
+    med_enrl = 0
+    mod_enrl = [0]
+    fig=freq_dist_graph([0], 0)
+
+    if not df.empty:
+
+        # only use active courses
+        df = df[df['S'] == 'A'].copy()
+        df.loc[:,'DaysTimeLoc'] = df['Days'] +  df['Time'] + df['Loc']
+
+        if category == 'Lab':
+            df = df[df['Calc'] == 'L']
+
+            sections = df["CRN"].nunique()
+            courses = df["Course"].nunique()
+            waitlist = df['WLst'].sum()
+            enrolled = df['Enrolled'].sum()
+            min_enrl = df["Enrolled"].min()
+            avg_enrl = df["Enrolled"].mean()
+            if np.isnan(avg_enrl):
+                avg_enrl = 0
+            med_enrl = df["Enrolled"].median()
+            if np.isnan(med_enrl):
+                med_enrl = 0
+            mod_enrl = multi_mode(df['Enrolled'].to_list())
+            fig=freq_dist_graph(df['Enrolled'].to_list(), m)
+
+
+        elif category == 'Total':
+            df_labs = df[df['Calc']=='L']
+            lab_sections = df_labs["CRN"].nunique()
+            lab_courses = df_labs["Course"].nunique()
+
+            # only courses that we want included in calculations
+            df_N = df[(df['Calc'] == 'N') & (df['Credit'] > 0)]
+            df = df[df['Calc'] == 'Y']
+
+            # face-to-face courses
+            df_M = df[(df["Campus"]=="M")]
+
+            # online courses
+            df_I = df[(df["Campus"]=="I")]
+
+            # include all courses marked 'Y' and subtract labs and 5000 level courses
+            sections = df["CRN"].nunique() - lab_sections - df[df['Number'].str.startswith('5')]["CRN"].nunique()
+            if sections > 0:
+                courses = df["Course"].nunique() - lab_courses
+                waitlist = df['WLst'].sum()
+
+                # add in the independent studies and omnibus courses
+                # enrolled = df['Enrolled'].sum() + df_N['Enrolled'].sum()
+
+                # calculate enrollments for each day/time/loc block
+                enrl = df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+                # add in the online sections
+                enrl += df_I['Enrolled'].tolist()
+                # add in the F2F without day/time/loc (such as independent studies)
+                enrl += df_M[df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+                # courses marked with a 'N' are not included in minimum, median, mode or sections
+                sections = len(enrl)
+
+                min_enrl = np.min(enrl)
+                med_enrl = median(enrl)
+                mod_enrl = multi_mode(enrl)
+                fig=freq_dist_graph(enrl, m)
+
+                # no add in the students in those sections that we ommited
+                enrl += df_N['Enrolled'].to_list()
+
+                enrolled = sum(enrl)
+
+                avg_enrl = enrolled / sections
+                # avg_enrl = np.mean(enrl)
+            else:
+                sections = 0
+
+        else:
+            df_labs = df[df['Calc']=='L']
+            lab_sections = df_labs["CRN"].nunique()
+            lab_courses = df_labs["Course"].nunique()
+
+            # only courses that we want included in calculations
+            df = df[df['Calc'] == 'Y']
+
+            # face-to-face courses
+            df_M = df[(df["Campus"]=="M")]
+
+            # online courses
+            df_I = df[(df["Campus"]=="I")]
+
+            # print(df_labs["CRN"])
+            # print(df["CRN"])
+            sections = df["CRN"].nunique() - lab_sections
+            if sections > 0:
+                courses = df["Course"].nunique() - lab_courses
+                waitlist = df['WLst'].sum()
+                enrolled = df['Enrolled'].sum()
+
+                # calculate enrollments for each day/time/loc block
+                enrl = df_M[['Enrolled', 'DaysTimeLoc']].groupby(['DaysTimeLoc']).sum()['Enrolled'].tolist()
+                # add in the online sections
+                enrl += df_I['Enrolled'].tolist()
+                # add in the F2F without day/time/loc (such as independent studies)
+                enrl += df_M[df_M['DaysTimeLoc'].isna()]['Enrolled'].to_list()
+
+                min_enrl = np.min(enrl)
+                avg_enrl = np.mean(enrl)
+                med_enrl = median(enrl)
+                mod_enrl = multi_mode(enrl)
+                fig=freq_dist_graph(enrl, m)
+            else:
+                sections = 0
+
+
+    children=[
+        html.H6(category + " Enrollment"),
+        html.Table([
+            html.Tr([
+                html.Td(["Sections: "]),
+                html.Td([
+                    "{:,.0f}".format(sections)
+                ],
+                        style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Courses: "]),
+                html.Td([
+                    "{:,.0f}".format(courses)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Waitlist: "]),
+                html.Td([
+                    '{:,.0f}'.format(waitlist)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Total: "]),
+                html.Td([
+                    '{:,.0f}'.format(enrolled)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Min: "]),
+                html.Td([
+                    "{:,.0f}".format(min_enrl)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Mean: "]),
+                html.Td([
+                    "{:,.2f}".format(avg_enrl)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Median: "]),
+                html.Td([
+                    '{:,.1f}'.format(med_enrl)
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+            html.Tr([
+                html.Td(["Mode: "]),
+                html.Td([
+                    ', '.join(['{:,.0f}'.format(_x) for _x in mod_enrl]),
+                ],
+                    style={'textAlign':'right'},
+                ),
+            ]),
+        ],
+            style={'width':'100%'},
+        ),
+        html.Div([
+            dcc.Graph(
+                figure=fig,
+                config={
+                    'displaylogo': False,
+                    'displayModeBar': False,
+                    'showAxisDragHandles': False,
+                },
+            )
+        ],
+            style={'width': '95%'},
+        ),
+    ]
+    return children
+
+def create_calc_row_layout(df, df_all):
+
+    max_enrl = 0
+    if not df.empty:
+        # max_enrl = df['Enrolled'].max()
+        _df = labs_combined(df_all)
+        max_enrl = _df['Enrolled'].max()
+
+    mask_1000 = df[df['Number'].str.startswith('1')].index.to_list()
+    mask_2000 = df[df['Number'].str.startswith('2')].index.to_list()
+    mask_3000 = df[df['Number'].str.startswith('3')].index.to_list()
+    mask_4000 = df[df['Number'].str.startswith('4')].index.to_list()
+
+    children=[
+        html.Div([
+            html.Div([
+                html.Div(
+                    summary_stats(df, 'Lab', max_enrl),
+                    id="lab_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_1000], '1000', max_enrl),
+                    id="1000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_2000], '2000', max_enrl),
+                    id="2000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_3000], '3000', max_enrl),
+                    id="3000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df.loc[mask_4000], '4000', max_enrl),
+                    id="4000_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+                html.Div(
+                    summary_stats(df, 'Total', max_enrl),
+                    id="calc_total_enrollment",
+                    className="mini_container",
+                    style={'width': '17.5%'},
+                ),
+            ],
+                style={'display': 'flex'},
+            ),
+        ],
+            className="pretty_container twelve columns",
+        ),
+    ]
+
+    return children
+
+def labs_combined(df):
+    # Combine Max, Enrollments, and WaitLists for Co-Requisite Labs with their parents
+
+    # only use the active courses
+    df = df[df["S"]=="A"]
+
+    parent_lab = {"1080": "1081", "1110": "1111", "1112": "1115", "1310": "1311"}
+    # filter for parent sections
+    for parent in parent_lab.keys():
+        mask_parents = (df['Number'] == parent)
+
+        #filter for lab sections
+        mask_labs = (df['Number'] == parent_lab[parent])
+        for row_p in df[mask_parents].index.tolist():
+            for row_l in df[mask_labs].index.tolist():
+                if (df.loc[row_p, 'Days'] == df.loc[row_l, 'Days']) and (df.loc[row_p, 'Time'] == df.loc[row_l, 'Time']) and (df.loc[row_p, 'Loc'] == df.loc[row_l, 'Loc']):
+                    df.loc[row_p, 'Max'] += df.loc[row_l, 'Max']
+                    df.loc[row_p, 'Enrolled'] += df.loc[row_l, 'Enrolled']
+                    df.loc[row_p, 'WLst'] += df.loc[row_l, 'WLst']
+
+                    # recalculate the CHP and Ratio
+                    df.loc[row_p, 'CHP'] = df.loc[row_p, 'Credit'] * df.loc[row_p, 'Enrolled']
+                    df.loc[row_p, 'Ratio'] = 100 * df.loc[row_p, 'Enrolled'] / df.loc[row_p, 'Max']
+
+    # remove the lab sections from the data
+    for lab in parent_lab.values():
+        mask = df[df['Number'] != lab].index.to_list()
+        df = df.loc[mask]
+        # df.drop(df[df['Number'] == lab].index, inplace=True)
 
     return df
 

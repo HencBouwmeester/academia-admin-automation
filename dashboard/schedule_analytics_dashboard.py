@@ -9,13 +9,7 @@ import plotly.io as pio
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
-from utils import parse_enrollment_file, process_excel_import, \
-        build_grouped_pdf, build_grouped_replica_pdf, detect_academic_term, \
-        blankFigure, convert_to_24hr, convert_term_title_to_code, \
-        generate_weekday_tab, generate_tab_fig, parse_contents_integrated, \
-        create_datatable, update_grid, to_excel, to_excel_stacked, \
-        apply_co_requisite_sorting_keys
-from utils_analytics import *
+from utils import *
 
 DEBUG = False
 
