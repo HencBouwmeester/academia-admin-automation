@@ -993,11 +993,15 @@ def create_datatable(df, filter_query):
 
     accent_colors = ['#b3cde3', '#fbb4ae', '#ccebc5', '#decbe4', '#fed9a6', '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2']
 
+    # visible_columns = [{"name": i, "id": i} for i in df.columns if i != 'SortKey']
+
     return [
         dash_table.DataTable(
             id='datatable-interactivity',
             data=df.to_dict('records'),
             columns = [{"name": i, "id": i} for i in df.columns],
+            # columns=visible_columns,
+            # sort_by=[{'column_id': 'SortKey', 'direction': 'asc'}],
             style_header={
                 'backgroundColor': '#f8fafc',
                 'fontWeight': '700',
@@ -1546,4 +1550,50 @@ def data_bars(column_data, column_apply):
         })
 
     return styles
+
+def apply_co_requisite_sorting_keys(df):
+    """
+    Creates a hidden tracking column to group parent classes and their
+    co-requisite lab sessions while strictly maintaining proper sequential section order.
+    """
+    if df.empty:
+        return df
+
+    subj_str = df['Subject'].astype(str).str.strip()
+    nmbr_str = df['Number'].astype(str).str.strip()
+    sec_str = df['Section'].astype(str).str.strip()
+
+    lab_to_parent_map = {
+        "1081": "1080",
+        "1111": "1110",
+        "1115": "1112",
+        "1311": "1310"
+    }
+
+    # 1. Resolve Cohort Base Number
+    cohort_base_nmbr = nmbr_str.apply(lambda x: lab_to_parent_map.get(x, x))
+
+    # 2. Normalize Section Codes with uniform 3-digit zero padding
+    def extract_and_pad_section(section_val):
+        match = re.match(r'^(\d+)', section_val)
+        if match:
+            # Convert to integer and pad to exactly 3 digits (e.g., "01A" -> "001", "010" -> "010")
+            return f"{int(match.group(1)):03d}"
+        return section_val.zfill(3)
+
+    padded_sec_prefix = sec_str.apply(extract_and_pad_section)
+
+    # 3. Calculate Structural Hierarchy Level (Parent=1, Lab Child=2)
+    is_lab_weight = nmbr_str.apply(lambda x: "2" if x in lab_to_parent_map else "1")
+
+    # Unified Sort Key: Subject_Course_PaddedSection_Weight_OriginalSection
+    df['SortKey'] = (
+        subj_str + "_" +
+        cohort_base_nmbr + "_" +
+        padded_sec_prefix + "_" +
+        is_lab_weight + "_" +
+        sec_str
+    )
+
+    return df
 

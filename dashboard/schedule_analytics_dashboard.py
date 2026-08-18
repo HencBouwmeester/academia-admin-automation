@@ -13,7 +13,8 @@ from utils import parse_enrollment_file, process_excel_import, \
         build_grouped_pdf, build_grouped_replica_pdf, detect_academic_term, \
         blankFigure, convert_to_24hr, convert_term_title_to_code, \
         generate_weekday_tab, generate_tab_fig, parse_contents_integrated, \
-        create_datatable, update_grid, to_excel, to_excel_stacked
+        create_datatable, update_grid, to_excel, to_excel_stacked, \
+        apply_co_requisite_sorting_keys
 from utils_analytics import *
 
 DEBUG = False
@@ -159,14 +160,14 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                         html.Div([
                                             html.Div([
                                                 html.Div([
-                                                    html.Div([html.H6("0", id="total_sections_text"), html.P("Sections")], id="sections", className="mini_container"),
-                                                    html.Div([html.H6("0", id="total_courses_text"), html.P("Courses")], id="total_courses", className="mini_container"),
-                                                    html.Div([html.H6("0", id="total_credits_text"), html.P("Credits")], id="total_credits", className="mini_container"),
-                                                    html.Div([html.H6("0.00", id="total_enrollment_text"), html.P("Enrollment")], id="total_enrollment", className="mini_container"),
-                                                    html.Div([html.H6("0", id="total_CHP_text"), html.P("CHP")], id="total_CHP", className="mini_container"),
-                                                    html.Div([html.H6("0.0", id="avg_enrollment_text"), html.P("Average Enrollment by CRN")], id="avg_enrollment", className="mini_container"),
-                                                    html.Div([html.H6("0.00%", id="avg_fill_rate_text"), html.P("Average Fill Rate")], id="avg_fill_rate", className="mini_container"),
-                                                    html.Div([html.H6("0.00", id="avg_waitlist_text"), html.P("Average Waitlist")], id="avg_waitlist", className="mini_container"),
+                                                    html.Div([html.P("Sections"), html.H6("0", id="total_sections_text"), ], id="sections", className="mini_container"),
+                                                    html.Div([html.P("Courses"), html.H6("0", id="total_courses_text"), ], id="total_courses", className="mini_container"),
+                                                    html.Div([html.P("Credits"), html.H6("0", id="total_credits_text"), ], id="total_credits", className="mini_container"),
+                                                    html.Div([html.P("Enrollment"), html.H6("0.00", id="total_enrollment_text"), ], id="total_enrollment", className="mini_container"),
+                                                    html.Div([html.P("CHP"), html.H6("0", id="total_CHP_text"), ], id="total_CHP", className="mini_container"),
+                                                    html.Div([html.P("Average Enrollment by CRN"), html.H6("0.0", id="avg_enrollment_text"), ], id="avg_enrollment", className="mini_container"),
+                                                    html.Div([html.P("Average Fill Rate"), html.H6("0.00%", id="avg_fill_rate_text"), ], id="avg_fill_rate", className="mini_container"),
+                                                    html.Div([html.P("Average Waitlist"), html.H6("0.00", id="avg_waitlist_text"), ], id="avg_waitlist", className="mini_container"),
                                                     ], style={'display': 'flex', 'flexWrap': 'wrap', 'marginTop': '15px'}),
                                                 ], className="pretty_container twelve columns"),
                                             ], className="row flex-display"),
@@ -202,7 +203,8 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                             html.Div([html.Div([], id="enrl_by_instructor", style={'width': '96%', 'display': 'block', 'margin': '0 auto'})], className="pretty_container four columns"),
                                             html.Div([html.Div([], id="chp_by_course", style={'width': '96%', 'display': 'block', 'margin': '0 auto'})], className="pretty_container four columns"),
                                             html.Div([
-                                                dcc.Graph(figure=blankFigure(), id="graph_f2f"),
+                                                html.H6("Max Ratios", id="f2f-dynamic-title-header", style={'textAlign': 'center', 'marginBottom': '0px'}),
+                                                dcc.Graph(figure=blankFigure(), id="graph_f2f", style={'height': '285px', 'width': '100%'}, config={'displayModeBar': False}),
                                                 html.Label([
                                                     "Enrollment Split View:",
                                                     dcc.RadioItems(
@@ -261,7 +263,7 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                         ], style={'flexGrow': '1', 'marginRight': '12px'}),
 
                                         html.Button('Apply Expression Rule', id='apply_query_button', className='btn-primary'),
-                                        html.Label('All rooms:', style={'display': 'none'}, id='all-rooms-label'),
+                                        # html.Label('All rooms:', style={'display': 'none'}, id='all-rooms-label'),
                                     ],
                                     style={'display': 'flex', 'alignItems': 'center', 'width': '100%'}
                                 ),
@@ -390,6 +392,10 @@ def data_loading(
         # Upgraded to run the unified file parsing engine from utils.py
         df = parse_contents_integrated(contents, name)
         df['colorRec'] = '#b3cde3'
+
+        df = apply_co_requisite_sorting_keys(df)
+        # Pre-sort the backend dataframe by our calculated custom key
+        df = df.sort_values(by=['SortKey'], ascending=True)
 
     elif input_id == 'reset-colors-button':
         if not df.empty:
@@ -895,122 +901,318 @@ def chp_by_course(data):
         return []
 
 
+# @app.callback(
+    # Output('graph_f2f', 'figure'),
+    # [Input('datatable-interactivity', 'derived_viewport_data'),
+     # Input('enrollment-max-actual', 'value'),],
+    # State('graph_f2f', 'figure'),
+# )
+# def graph_f2f(data, toggle, fig):
+    # if data:
+        # df = pd.DataFrame(data).copy()
+        # df = df[df["Credit"] != 0]
+
+        # # remove the zero credit hour sections
+        # df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
+
+        # # capture all ASYNC meaning ({'Campus'} == 'I' && {'Time'} == 'TBA') || ({'Campus'} == 'M' && {'Time'} == 'TBA' && ({'Loc'} == 'ASYN' || {'Loc'} == 'ONLI' || {'Loc'} == 'MOST'))
+        # i_df = df[df['Campus'] == 'I']
+        # mask = i_df[i_df['Time'].str.contains('TBA')].index.to_list()
+        # i_df = df[df['Campus'] == 'M']
+        # i_df =i_df[i_df['Time'].str.contains('TBA')]
+        # mask += i_df[i_df['Loc'].str.contains('ASYN') | i_df['Loc'].str.contains('ONLI') | i_df['Loc'].str.contains('MOST')].index.to_list()
+        # a = df.loc[mask]
+
+        # # capture all SYNC meaning ({'Campus'} == 'I' && {'Time'} != 'TBA') || ({'Campus'} == 'M' && {'Loc'} == 'SYNC')
+        # i_df = df[df['Campus'] == 'I']
+        # mask = i_df[~i_df['Time'].str.contains('TBA')].index.to_list()
+        # i_df = df[df['Campus'] == 'M']
+        # mask += i_df[i_df['Loc'].str.contains('SYNC')].index.to_list()
+        # s = df.loc[mask]
+
+        # if toggle in ["Max", "Enrolled"]:
+            # a = a[toggle].sum()
+            # s = s[toggle].sum()
+            # t = df[toggle].sum()
+
+            # fig = make_subplots(rows=2,
+                                # cols=1,
+                                # specs=[[{'type':'domain'}], [{'type':'domain'}]],
+                                # vertical_spacing=0.15,
+                               # )
+            # fig.add_trace(go.Pie(labels=["Async", "Sync"],
+                                 # values=[a, s],
+                                 # marker_colors=['#00447c', '#d11242'],
+                                 # name="Async vs Sync"),
+                          # 1, 1)
+            # fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 # values=[t-(a+s), a+s],
+                                 # marker_colors=['#00447c', '#d11242'],
+                                 # name="F2F vs Online"),
+                          # 2, 1)
+            # fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+            # return fig.update_layout(
+                # title_text=toggle +" Ratios",
+                # showlegend=False,
+                # annotations=[
+                    # dict(
+                        # text='Async<br />vs<br />Sync',
+                        # x=0.5, y=0.785,
+                        # font_size=10,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # ),
+                    # dict(
+                        # text='F2F<br />vs<br />Online',
+                        # x=0.5, y=0.215,
+                        # font_size=10,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # )
+                # ]
+            # )
+
+        # if toggle in ["Section"]:
+            # a = a[toggle].count()
+            # s = s[toggle].count()
+            # t = df[toggle].count()
+
+            # fig = make_subplots(rows=2,
+                                # cols=1,
+                                # specs=[[{'type':'domain'}], [{'type':'domain'}]],
+                                # vertical_spacing=0.15,
+                               # )
+            # fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 # values=[t-(a+s), a+s],
+                                 # marker_colors=['#00447c', '#d11242'],
+                                 # name="F2F vs Online"),
+                          # 2, 1)
+            # fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+
+            # return fig.update_layout(
+                # title_text=toggle +" Ratios",
+                # showlegend=False,
+                # annotations=[
+                    # dict(
+                        # text='',
+                        # x=0.5, y=0.785,
+                        # font_size=10,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # ),
+                    # dict(
+                        # text='F2F<br />vs<br />Online',
+                        # x=0.5, y=0.215,
+                        # font_size=10,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # )
+                # ]
+            # )
+    # else:
+        # return fig
+
+# @app.callback(
+    # Output('graph_f2f', 'figure'),
+    # [Input('datatable-interactivity', 'derived_viewport_data'),
+     # Input('enrollment-max-actual', 'value'),],
+    # State('graph_f2f', 'figure'),
+# )
+# def graph_f2f(data, toggle, fig):
+    # if data:
+        # df = pd.DataFrame(data).copy()
+        # df = df[df["Credit"] != 0]
+
+        # # remove the zero credit hour sections
+        # df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
+
+        # # capture all ASYNC meaning ({'Campus'} == 'I' && {'Time'} == 'TBA') || ({'Campus'} == 'M' && {'Time'} == 'TBA' && ({'Loc'} == 'ASYN' || {'Loc'} == 'ONLI' || {'Loc'} == 'MOST'))
+        # i_df = df[df['Campus'] == 'I']
+        # mask = i_df[i_df['Time'].str.contains('TBA')].index.to_list()
+        # i_df = df[df['Campus'] == 'M']
+        # i_df = i_df[i_df['Time'].str.contains('TBA')]
+        # mask += i_df[i_df['Loc'].str.contains('ASYN') | i_df['Loc'].str.contains('ONLI') | i_df['Loc'].str.contains('MOST')].index.to_list()
+        # a = df.loc[mask]
+
+        # # capture all SYNC meaning ({'Campus'} == 'I' && {'Time'} != 'TBA') || ({'Campus'} == 'M' && {'Loc'} == 'SYNC')
+        # i_df = df[df['Campus'] == 'I']
+        # mask = i_df[~i_df['Time'].str.contains('TBA')].index.to_list()
+        # i_df = df[df['Campus'] == 'M']
+        # mask += i_df[i_df['Loc'].str.contains('SYNC')].index.to_list()
+        # s = df.loc[mask]
+
+        # if toggle in ["Max", "Enrolled"]:
+            # a = a[toggle].sum()
+            # s = s[toggle].sum()
+            # t = df[toggle].sum()
+
+            # # Updated to 1 row, 1 col to reclaim space
+            # fig = make_subplots(rows=1,
+                                # cols=1,
+                                # specs=[[{'type':'domain'}]],
+                               # )
+
+            # # Keeping only the F2F vs Online plot
+            # fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 # values=[t-(a+s), a+s],
+                                 # marker_colors=['#00447c', '#d11242'],
+                                 # name="F2F vs Online"),
+                          # 1, 1)
+            # fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+            # return fig.update_layout(
+                # title_text=toggle +" Ratios",
+                # showlegend=False,
+                # height=270,
+                # margin=dict(t=40, b=10, l=10, r=10), # Tightened padding bounds
+                # annotations=[
+                    # dict(
+                        # text='F2F<br />vs<br />Online',
+                        # x=0.5, y=0.5, # Re-centered perfectly to center of row 1
+                        # font_size=11,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # )
+                # ]
+            # )
+
+        # if toggle in ["Section"]:
+            # a = a[toggle].count()
+            # s = s[toggle].count()
+            # t = df[toggle].count()
+
+            # # Updated to 1 row, 1 col to reclaim space
+            # fig = make_subplots(rows=1,
+                                # cols=1,
+                                # specs=[[{'type':'domain'}]],
+                               # )
+            # fig.add_trace(go.Pie(labels=["F2F", "Online"],
+                                 # values=[t-(a+s), a+s],
+                                 # marker_colors=['#00447c', '#d11242'],
+                                 # name="F2F vs Online"),
+                          # 1, 1)
+            # fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+
+            # return fig.update_layout(
+                # title_text=toggle +" Ratios",
+                # showlegend=False,
+                # height=270,
+                # margin=dict(t=40, b=10, l=10, r=10), # Tightened padding bounds
+                # annotations=[
+                    # dict(
+                        # text='F2F<br />vs<br />Online',
+                        # x=0.5, y=0.5, # Re-centered perfectly to center of row 1
+                        # font_size=11,
+                        # showarrow=False,
+                        # xanchor = "center",
+                        # yanchor = "middle",
+                    # )
+                # ]
+            # )
+    # else:
+        # return fig
 @app.callback(
-    Output('graph_f2f', 'figure'),
+    [Output('graph_f2f', 'figure'),
+     Output('f2f-dynamic-title-header', 'children')],
     [Input('datatable-interactivity', 'derived_viewport_data'),
      Input('enrollment-max-actual', 'value'),],
     State('graph_f2f', 'figure'),
 )
 def graph_f2f(data, toggle, fig):
+    # Establish a rigid layout blueprint with clean, fixed pixel heights
+    fixed_layout = dict(
+        showlegend=False,
+        height=270,                            # Fixed canvas container height
+        margin=dict(t=15, b=15, l=15, r=15),   # Perfectly symmetric padding bounds
+        annotations=[
+            dict(
+                text='F2F<br />vs<br />Online',
+                x=0.5, y=0.5,
+                font_size=11,
+                showarrow=False,
+                xanchor="center",
+                yanchor="middle",
+            )
+        ]
+    )
+
+    display_title = f"{toggle} Ratios"
+
     if data:
         df = pd.DataFrame(data).copy()
+
+        if df.empty:
+            blank_fig = go.Figure()
+            blank_fig.update_layout(**fixed_layout)
+            return blank_fig, display_title
+
         df = df[df["Credit"] != 0]
+        df = df[pd.to_numeric(df["Credit"], errors='coerce') > 0]
 
-        # remove the zero credit hour sections
-        df = df[pd.to_numeric(df["Credit"], errors='coerce')>0]
-
-        # capture all ASYNC meaning ({'Campus'} == 'I' && {'Time'} == 'TBA') || ({'Campus'} == 'M' && {'Time'} == 'TBA' && ({'Loc'} == 'ASYN' || {'Loc'} == 'ONLI' || {'Loc'} == 'MOST'))
+        # capture all ASYNC meaning
         i_df = df[df['Campus'] == 'I']
-        mask = i_df[i_df['Time'].str.contains('TBA')].index.to_list()
-        i_df = df[df['Campus'] == 'M']
-        i_df =i_df[i_df['Time'].str.contains('TBA')]
-        mask += i_df[i_df['Loc'].str.contains('ASYN') | i_df['Loc'].str.contains('ONLI') | i_df['Loc'].str.contains('MOST')].index.to_list()
+        mask = i_df[i_df['Time'].astype(str).str.contains('TBA', na=False)].index.to_list()
+
+        m_df = df[df['Campus'] == 'M']
+        mask_m = m_df[m_df['Time'].astype(str).str.contains('TBA', na=False)]
+        mask += mask_m[mask_m['Loc'].astype(str).str.contains('ASYN|ONLI|MOST', case=False, na=False)].index.to_list()
         a = df.loc[mask]
 
-        # capture all SYNC meaning ({'Campus'} == 'I' && {'Time'} != 'TBA') || ({'Campus'} == 'M' && {'Loc'} == 'SYNC')
-        i_df = df[df['Campus'] == 'I']
-        mask = i_df[~i_df['Time'].str.contains('TBA')].index.to_list()
-        i_df = df[df['Campus'] == 'M']
-        mask += i_df[i_df['Loc'].str.contains('SYNC')].index.to_list()
-        s = df.loc[mask]
+        # capture all SYNC meaning
+        i_sync = df[df['Campus'] == 'I']
+        mask_s = i_sync[~i_sync['Time'].astype(str).str.contains('TBA', na=False)].index.to_list()
 
+        m_sync = df[df['Campus'] == 'M']
+        mask_s += m_sync[m_sync['Loc'].astype(str).str.contains('SYNC', case=False, na=False)].index.to_list()
+        s = df.loc[mask_s]
+
+        # Extract numerical metrics
         if toggle in ["Max", "Enrolled"]:
-            a = a[toggle].sum()
-            s = s[toggle].sum()
-            t = df[toggle].sum()
+            col = "Enrolled" if toggle == "Enrolled" else "Max"
+            val_a = pd.to_numeric(a[col], errors='coerce').sum() if col in a.columns else 0
+            val_s = pd.to_numeric(s[col], errors='coerce').sum() if col in s.columns else 0
+            val_t = pd.to_numeric(df[col], errors='coerce').sum() if col in df.columns else 0
 
-            fig = make_subplots(rows=2,
-                                cols=1,
-                                specs=[[{'type':'domain'}], [{'type':'domain'}]],
-                                vertical_spacing=0.15,
-                               )
-            fig.add_trace(go.Pie(labels=["Async", "Sync"],
-                                 values=[a, s],
-                                 marker_colors=['#00447c', '#d11242'],
-                                 name="Async vs Sync"),
-                          1, 1)
-            fig.add_trace(go.Pie(labels=["F2F", "Online"],
-                                 values=[t-(a+s), a+s],
-                                 marker_colors=['#00447c', '#d11242'],
-                                 name="F2F vs Online"),
-                          2, 1)
-            fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+            f2f_val = max(0, val_t - (val_a + val_s))
+            online_val = val_a + val_s
 
-            return fig.update_layout(
-                title_text=toggle +" Ratios",
-                showlegend=False,
-                annotations=[
-                    dict(
-                        text='Async<br />vs<br />Sync',
-                        x=0.5, y=0.785,
-                        font_size=10,
-                        showarrow=False,
-                        xanchor = "center",
-                        yanchor = "middle",
-                    ),
-                    dict(
-                        text='F2F<br />vs<br />Online',
-                        x=0.5, y=0.215,
-                        font_size=10,
-                        showarrow=False,
-                        xanchor = "center",
-                        yanchor = "middle",
-                    )
-                ]
-            )
+        elif toggle == "Section":
+            f2f_val = max(0, len(df) - (len(a) + len(s)))
+            online_val = len(a) + len(s)
 
-        if toggle in ["Section"]:
-            a = a[toggle].count()
-            s = s[toggle].count()
-            t = df[toggle].count()
+        # Initialize base canvas without subplot grid templates
+        new_fig = go.Figure()
 
-            fig = make_subplots(rows=2,
-                                cols=1,
-                                specs=[[{'type':'domain'}], [{'type':'domain'}]],
-                                vertical_spacing=0.15,
-                               )
-            fig.add_trace(go.Pie(labels=["F2F", "Online"],
-                                 values=[t-(a+s), a+s],
-                                 marker_colors=['#00447c', '#d11242'],
-                                 name="F2F vs Online"),
-                          2, 1)
-            fig.update_traces(hole=.7, hoverinfo="label+value+percent")
+        new_fig.add_trace(go.Pie(
+            values=[f2f_val, online_val],
+        ))
 
+        # SUCCESS LOCK: textinfo="none" guarantees no dynamic resizing can take place
+        new_fig.update_traces(
+            labels=["F2F", "Online"],
+            marker_colors=['#00447c', '#d11242'],
+            name="F2F vs Online",
+            hole=.7,
+            automargin=False,                         # Disables side text padding loops
+            domain=dict(x=[0.05, 0.95], y=[0.05, 0.95]),# Standard bounded square area mapping
+            hoverinfo="label+value+percent",
+            textinfo="none"                           # Hides on-slice labels; updates metrics on hover only
+        )
 
-            return fig.update_layout(
-                title_text=toggle +" Ratios",
-                showlegend=False,
-                annotations=[
-                    dict(
-                        text='',
-                        x=0.5, y=0.785,
-                        font_size=10,
-                        showarrow=False,
-                        xanchor = "center",
-                        yanchor = "middle",
-                    ),
-                    dict(
-                        text='F2F<br />vs<br />Online',
-                        x=0.5, y=0.215,
-                        font_size=10,
-                        showarrow=False,
-                        xanchor = "center",
-                        yanchor = "middle",
-                    )
-                ]
-            )
+        new_fig.update_layout(**fixed_layout)
+        return new_fig, display_title
+
     else:
-        return fig
+        blank_fig = go.Figure()
+        blank_fig.update_layout(**fixed_layout)
+        return blank_fig, display_title
 
 
 # Main
