@@ -304,11 +304,12 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                         html.Div(
                                             [
                                                 html.Button('Export Excel (All)', id='export-all-button', n_clicks=0, className='btn-secondary', style={'marginRight': '8px'}),
-                                                dcc.Download(id='datatable-download'),
+                                                # dcc.Download(id='datatable-download'),
                                                 html.Button('Export Excel (Filtered)', id='export-filtered-button', n_clicks=0, className='btn-secondary', style={'marginRight': '8px'}),
-                                                dcc.Download(id='datatable-filtered-download'),
+                                                # dcc.Download(id='datatable-filtered-download'),
                                                 html.Button('Export Excel (Stacked)', id='export-stacked-button', n_clicks=0, className='btn-secondary', style={'marginRight': '8px'}),
-                                                dcc.Download(id='datatable-stacked-download'),
+                                                # dcc.Download(id='datatable-stacked-download'),
+                                                dcc.Download(id='datatable-download'),
                                                 dbc.Button("Export PDF (Instructor)", id="btn-pdf-instructor",  className='btn-secondary', style={'marginRight': '8px'}),
                                                 dbc.Button("Export PDF (Course)", id="btn-pdf-course",  className='btn-secondary', style={'marginRight': '8px'}),
                                             ],
@@ -409,6 +410,12 @@ def data_loading(
         if _index:
             df.loc[_index, 'colorRec'] = slctd_color
 
+    sorted_columns = ['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'T', 'Title',
+       'Credit', 'Max', 'Enrolled', 'WCap', 'WLst', 'Days', 'Time', 'Loc',
+       'Rcap', '%Ful', 'Begin/End', 'Instructor', 'CHP', 'Ratio', 'Calc',
+       'Course', 'colorRec', 'SortKey']
+    df = df[sorted_columns].copy()
+
     # Regenerate datatable state matching current underlying dataset state
     data_children = create_datatable(df, filter_query)
 
@@ -506,45 +513,47 @@ def apply_query(n_clicks, n_submit, dropdown_value, input_value):
 @app.callback(
     Output('datatable-download', 'data'),
     [Input('export-all-button', 'n_clicks'),
-     State('datatable-interactivity', 'data')]
+     Input('export-filtered-button', 'n_clicks'),
+     Input('export-stacked-button', 'n_clicks')],
+    [State('datatable-interactivity', 'data'),
+     State('datatable-interactivity', 'derived_virtual_data')],
+    prevent_initial_call=True
 )
-def export_all(n_clicks, data):
-    df = pd.DataFrame(data)
-    if n_clicks > 0 and not df.empty:
-        report_term = detect_academic_term(df)
-        term_code = convert_term_title_to_code(report_term)
-        return {'base64': True,
-                'content': to_excel(df, report_term),
-                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+def handle_excel_downloads(all_clicks, filtered_clicks, stacked_clicks, all_data, filtered_data):
+    trigger_id = dash.ctx.triggered_id
+    if not trigger_id:
+        return dash.no_update
 
+    # Select the correct dataset based on which button was clicked
+    if trigger_id == 'export-filtered-button':
+        df = pd.DataFrame(filtered_data)
+        clicks = filtered_clicks
+        filename_suffix = "FILTERED"
+    else:
+        df = pd.DataFrame(all_data)
+        clicks = all_clicks if trigger_id == 'export-all-button' else stacked_clicks
+        filename_suffix = "STACKED" if trigger_id == 'export-stacked-button' else "ALL"
 
-@app.callback(
-    Output('datatable-filtered-download', 'data'),
-    [Input('export-filtered-button', 'n_clicks'),
-     State('datatable-interactivity', 'derived_virtual_data')]
-)
-def export_filtered(n_clicks, data):
-    df = pd.DataFrame(data)
-    if n_clicks > 0 and not df.empty:
-        report_term = detect_academic_term(df)
-        term_code = convert_term_title_to_code(report_term)
-        return {'base64': True,
-                'content': to_excel(df, report_term),
-                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+    # Guard clause against early initialization or empty structures
+    if clicks == 0 or df.empty:
+        return dash.no_update
 
-@app.callback(
-    Output('datatable-download', 'data'),
-    [Input('export-stacked-button', 'n_clicks'),
-     State('datatable-interactivity', 'data')]
-)
-def export_all(n_clicks, data):
-    df = pd.DataFrame(data)
-    if n_clicks > 0 and not df.empty:
-        report_term = detect_academic_term(df)
-        term_code = convert_term_title_to_code(report_term)
-        return {'base64': True,
-                'content': to_excel_stacked(df, report_term),
-                'filename': "SWRCGSR_{0}.xlsx".format(term_code)}
+    # Dynamically extract academic terms for custom spreadsheet filenames
+    report_term = detect_academic_term(df)
+    term_code = convert_term_title_to_code(report_term)
+
+    # Route data payload to the correct formatting generator engine
+    if trigger_id == 'export-stacked-button':
+        excel_content = to_excel_stacked(df, report_term)
+    else:
+        excel_content = to_excel(df, report_term)
+
+    return {
+        'base64': True,
+        'content': excel_content,
+        'filename': f"SWRCGSR_{term_code}_{filename_suffix}.xlsx"
+    }
+
 
 @dash.callback(
     Output('download-pdf-channel', 'data'),
