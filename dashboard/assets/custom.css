@@ -1,0 +1,116 @@
+@import url('https://googleapis.com');
+
+body { 
+    background-color: #f1f5f9; 
+    margin: 0; 
+    padding: 0; 
+    font-family: "Inter", sans-serif; 
+}
+
+.btn-primary { 
+    background-color: #0f172a; 
+    color: white; 
+    border: none; 
+    padding: 9px 16px; 
+    border-radius: 6px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    transition: background 0.15s ease; 
+    font-size: 1.5rem; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+.btn-primary:hover { 
+    background-color: #1e293b; 
+}
+
+.btn-secondary { 
+    background-color: white; 
+    color: #334155; 
+    border: 1px solid #cbd5e1; 
+    padding: 9px 16px; 
+    border-radius: 6px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    transition: all 0.15s ease; 
+    font-size: 1.5rem; 
+}
+
+.btn-secondary:hover { 
+    background-color: #f8fafc; 
+    border-color: #94a3b8; 
+}
+
+.btn-danger { 
+    background-color: #ef4444; 
+    color: white; 
+    border: none; 
+    padding: 9px 16px; 
+    border-radius: 6px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    transition: background 0.15s ease; 
+    font-size: 1.5rem; 
+}
+
+.btn-danger:hover { 
+    background-color: #dc2626; 
+}
+
+.control-card { 
+    background: white; 
+    border-radius: 12px; 
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); 
+    padding: 24px; 
+    margin-bottom: 24px; 
+    border: 1px solid #e2e8f0; 
+}
+
+.section-title { 
+    font-size: 2.25rem; 
+    font-weight: 600; 
+    color: #0f172a; 
+    margin: 0 0 16px 0; 
+    letter-spacing: -0.01em; 
+}
+
+.custom-dropdown .Select-control { 
+    border-radius: 6px; 
+    border-color: #cbd5e1; 
+    height: 38px; 
+}
+
+.custom-input { 
+    border-radius: 6px; 
+    border: 1px solid #cbd5e1; 
+    padding: 8px 12px; 
+    font-family: "Inter", sans-serif; 
+    font-size: 1.5rem; 
+    color: #334155; 
+}
+
+.custom-input:focus { 
+    outline: none; 
+    border-color: #0f172a; 
+    box-shadow: 0 0 0 1px #0f172a; 
+}
+
+/* 1. Recolor the radio buttons to the dark blue accent */
+input[type="radio"] {
+    accent-color: #00447c !important;
+}
+
+/* 2. Target the top border of the selected dcc.Tab component */
+.tab--selected, 
+#react-entry-point .tab--selected {
+    border-top-color: #00447c !important;
+}
+
+/* Target the radio button option labels on hover */
+.dcc_control label:hover {
+    color: #00447c !important;
+    cursor: pointer;
+    transition: color 0.15s ease-in-out;
+}
