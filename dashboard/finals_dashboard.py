@@ -19,7 +19,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable
 
-DEBUG = False
+DEBUG = True
 mathserver = False
 
 # Include pretty graph formatting
@@ -970,6 +970,7 @@ def parse_enrollment(contents, filename):#, date):
     df = df[df['Credit']>0]
     df = df[df['S']!='C']
     df['Time'] = df['Time'].apply(lambda x: convertAMPMtime(x))
+    df['CRN'] = pd.to_numeric(df['CRN'], errors='coerce').fillna(0)
     df = df[['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'Title', 'Credit', 'Max', 'Enrolled', 'Days', 'Time', 'Loc', 'Begin/End', 'Instructor', 'Class']].copy()
     return df
 
@@ -1038,7 +1039,7 @@ def parse_finals_csv(contents, CRNs):
         # only pick up classes for CRN listed in enrollment report
         try:
             Class = fields[1].split(' ')[0]
-            CRN = fields[1].split(' ')[1]
+            CRN = int(fields[1].split(' ')[1])
             if CRN in CRNs:
                 Loc = fields[3]
                 try:
@@ -1070,7 +1071,7 @@ def parse_finals_csv(contents, CRNs):
                     Days = "U"
 
                 rows.append([CRN, Class, Days, Time, Loc, Date])
-        except IndexError:
+        except (ValueError, IndexError):
             pass
 
     df = DataFrame(rows, columns=['CRN', 'Class', 'Days', 'Time', 'Loc', 'Date'])
@@ -2437,7 +2438,7 @@ def clear_upload_cache(n_clicks):
 
 # Main
 if __name__ == '__main__':
-    app.run_server(debug=DEBUG, port="8003")
+    app.run(debug=DEBUG, port="8003")
     # if mathserver:
         # app.run_server(debug=DEBUG)
     # else:

@@ -75,7 +75,7 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                         # NEW: Main Dashboard Navigation Tabs
                         dcc.Tabs(
                             id='main-dashboard-tabs',
-                            value='tab-schedule-grid',
+                            value='tab-analytics-plots',
                             children=[
 
                                 # TAB 1: Weekday Schedule Grid View
@@ -198,7 +198,7 @@ html.H1('MSU Denver MAST Schedule & Enrollment Analytics Portal',
                                             html.Div([html.Div([], id="chp_by_course", style={'width': '96%', 'display': 'block', 'margin': '0 auto'})], className="pretty_container four columns"),
                                             html.Div([
                                                 html.H6("Max Ratios", id="f2f-dynamic-title-header", style={'textAlign': 'center', 'marginBottom': '0px'}),
-                                                dcc.Graph(figure=blankFigure(), id="graph_f2f", style={'height': '285px', 'width': '100%'}, config={'displayModeBar': False}),
+                                                dcc.Graph(figure=blankFigure(), id="graph_f2f", style={'height': '270px', 'width': '100%'}, config={'displayModeBar': False}),
                                                 html.Label([
                                                     "Enrollment Split View:",
                                                     dcc.RadioItems(
@@ -580,16 +580,15 @@ def handle_pdf_exports(inst_clicks, course_clicks, filtered_data):
         df['Room'] = df['Loc'].astype(str).apply(lambda x: x.split()[1] if len(x.split()) > 1 else '')
 
     pdf_buffer = io.BytesIO()
+    report_term = detect_academic_term(df)
 
     # Run the dynamic visual block building loop directly from your previous standalone setup
     if trigger_id == 'btn-pdf-instructor':
-        report_term = detect_academic_term(df)
         build_grouped_replica_pdf(df, 'Instructor', report_term, pdf_buffer)
         pdf_buffer.seek(0)
         return dcc.send_bytes(pdf_buffer.read(), "Schedule_By_Instructor.pdf")
 
     elif trigger_id == 'btn-pdf-course':
-        report_term = detect_academic_term(df)
         build_grouped_replica_pdf(df, 'Class', report_term, pdf_buffer)
         pdf_buffer.seek(0)
         return dcc.send_bytes(pdf_buffer.read(), "Schedule_By_Course.pdf")
@@ -1198,7 +1197,10 @@ def graph_f2f(data, toggle, fig):
         ))
 
         # SUCCESS LOCK: textinfo="none" guarantees no dynamic resizing can take place
-        new_fig.update_traces(
+        new_fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',  # Fixed background transparency
+                plot_bgcolor='rgba(0,0,0,0)'
+        ).update_traces(
             labels=["F2F", "Online"],
             marker_colors=['#00447c', '#d11242'],
             name="F2F vs Online",

@@ -6,6 +6,9 @@ import datetime
 import numpy as np
 import pandas as pd
 
+import openpyxl
+from openpyxl.styles import PatternFill, Font
+
 import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
@@ -300,7 +303,9 @@ def parse_enrollment_file(file_content):
         if "Term:" in line and 'term' not in header_metadata:
             t_match = re.search(r'Term:\s*(\d+)', line)
             d_match = re.search(r'Dept:\s*([^\s-]+)', line)
-            if t_match: header_metadata['term'] = t_match.group(1)
+            if t_match:
+                header_metadata['year'] = t_match.group(1)[:-2]
+                header_metadata['term'] = t_match.group(1)[-2:]
             if d_match: header_metadata['dept'] = d_match.group(1)
 
     ignorable = ["SWRCGSR", "METROPOLITAN STATE", "Class Enrollment", "Term:",
@@ -540,6 +545,13 @@ def process_excel_import(file_content_bytes):
     df['Nmbr'] = df['Nmbr'].astype(str).str.strip()
 
     # --- POPULATE DERIVED VALUE COLUMNS IF THEY DON'T EXIST ---
+    # Set 'S' for Course status to 'A' for active
+    if 'S' not in df.columns:
+        df['S'] = 'A'
+
+    # Set 'Enrl' for Enrollment to zero
+    if 'Enrl' not in df.columns:
+        df['Enrl'] = 0;
 
     # A. Calculate 'Course' (Subj + Nmbr)
     if 'Course' not in df.columns:
@@ -601,6 +613,18 @@ def process_excel_import(file_content_bytes):
             else:
                 df[col] = ""
 
+    # Determine year
+    extracted_year = None
+    for val in df['Begin/End'].dropna():
+        # Looks for a 4-digit year pattern (e.g., /2026)
+        match = re.search(r'/(\d{4})\b', str(val))
+        if match:
+            extracted_year = match.group(1)
+            break  # Year found, stop scanning
+
+    if not extracted_year:
+        extracted_year = str(datetime.datetime.now().year)
+
     # Reorder columns to match standard layout, keeping extra excel columns at the end
     all_cols = expected_columns + [c for c in df.columns if c not in expected_columns]
     df = df[all_cols]
@@ -608,7 +632,7 @@ def process_excel_import(file_content_bytes):
     df = apply_custom_course_titles(df)
 
     # Dummy metadata for excel imports since there's no report header to parse
-    metadata = {'report_date': 'Excel Import', 'term': 'N/A', 'dept': 'N/A'}
+    metadata = {'report_date': 'Excel Import', 'term': 'N/A', 'dept': 'N/A', 'year': extracted_year}
 
     return metadata, df
 
@@ -837,10 +861,12 @@ def parse_contents_integrated(contents, filename):
 
     # 1. Leverage the superior engine from utils.py to process data
     if filename.endswith('.xlsx') or filename.endswith('.xls'):
-        _, df = process_excel_import(decoded)
+        header, df = process_excel_import(decoded)
     else:
         file_text = decoded.decode('utf-8', errors='ignore')
-        _, df = parse_enrollment_file(file_text)
+        header, df = parse_enrollment_file(file_text)
+
+    extracted_year = header['year']
 
     if df.empty:
         return pd.DataFrame()
@@ -868,9 +894,18 @@ def parse_contents_integrated(contents, filename):
     # if 'S' in df.columns:
         # df = df[df['S'] == 'A']
 
-    # 3. Clean up formatting and execute the explicit override rule
+    # 4. Clean up formatting and execute the explicit override rule
     # This cleanly acts on the data framework after all type conversions are finalized.
     df['S'] = df['S'].astype(str).str.strip()
+
+    # Append the year onto the dates, but prevent double appending if the year already exists
+    df['Begin/End'] = df['Begin/End'].apply(
+        lambda x: x if pd.isna(x) or extracted_year in str(x) else (
+            f"{str(x).split('-')[0]}/{extracted_year}-{str(x).split('-')[1]}/{extracted_year}"
+            if '-' in str(x) else x
+        )
+    )
+
 
     if 'Calc' in df.columns:
         df.loc[df['S'] == 'C', 'Calc'] = 'N'
@@ -878,7 +913,7 @@ def parse_contents_integrated(contents, filename):
     # Master dashboard schema fields configuration mapping
     dashboard_fields = ['Subject', 'Number', 'CRN', 'Section', 'S', 'Campus', 'T', 'Title', 'Credit',
        'Max', 'Enrolled', 'WCap', 'WLst', 'Days', 'Time', 'Loc', 'Rcap',
-       '%Ful', 'Begin/End', 'Instructor', 'Course', 'Ratio', 'Calc', 'CHP']
+       '%Ful', 'Instructor', 'Begin/End', 'Course', 'Ratio', 'Calc', 'CHP']
 
 
     # Secure defaults if field columns aren't filled via excel schema variant mappings
@@ -1158,9 +1193,11 @@ def update_grid(data, filtered_data, slctd_row_indices):
                     df.loc[row[k], 'xRec'] += k/len(row)
                     df.loc[row[k], 'wRec'] -= (len(row)-1)/len(row)
 
+        # FIXED: Initialize shapes as a standard list instead of a dict container
         fig = go.Figure()
-        ply_shapes = {}
+        ply_shapes = []  # Changed from {} to []
         ply_annotations = {}
+
         for row in df.index.tolist():
             wRec = df.loc[row, 'wRec']
             hRec = df.loc[row, 'hRec']
@@ -1170,15 +1207,24 @@ def update_grid(data, filtered_data, slctd_row_indices):
             colorRec = df.loc[row, 'colorRec']
             alphaRec = df.loc[row, 'alphaRec']
 
-            ply_shapes['shape_' + str(row)] = go.layout.Shape(
+            x0_val = min(yRec, yRec + hRec)
+            x1_val = max(yRec, yRec + hRec)
+            y0_val = min(xRec, xRec + wRec)
+            y1_val = max(xRec, xRec + wRec)
+
+            # FIXED: Append directly to the list container
+            ply_shapes.append(go.layout.Shape(
                 type='rect',
                 xref='x', yref='y',
-                y0 = xRec, x0 = yRec,
-                y1 = xRec + wRec, x1 = (yRec + hRec),
+                x0 = x0_val,
+                y0 = y0_val,
+                x1 = x1_val,
+                y1 = y1_val,
                 line=dict(color='LightGray', width=1),
                 fillcolor=colorRec,
                 opacity=alphaRec,
-            )
+            ))
+
             ply_annotations['annotation_' + str(row)] = go.layout.Annotation(
                 xref='x', yref='y',
                 y = xRec + wRec/2,
@@ -1194,14 +1240,20 @@ def update_grid(data, filtered_data, slctd_row_indices):
 
         for k in range(nLoc):
             fill = '#f8fafc' if k % 2 else 'white'
-            ply_shapes['shape_vertbar_' + str(k)] = go.layout.Shape(
+
+            # FIXED: Append vertical striping rows directly to the list container
+            ply_shapes.append(go.layout.Shape(
                 type='rect', xref='x', yref='y',
                 y0 = k, y1 = k+1, x0 = 0, x1 = 170,
-                fillcolor=fill, layer='below', line_width=0,
-            )
+                fillcolor=fill,
+                layer='below',
+                line_width=0,
+            ))
 
-        lst_shapes=list(ply_shapes.values())
-        lst_annotations=list(ply_annotations.values())
+        # FIXED: Strip out the duplicate value-mapping extraction array
+        lst_shapes = ply_shapes  # No longer need list(ply_shapes.values())
+        lst_annotations = list(ply_annotations.values())
+
 
         if nLoc:
             fig.update_layout(
@@ -1255,7 +1307,14 @@ def update_grid(data, filtered_data, slctd_row_indices):
             )
 
         fig.add_trace(
-            go.Scatter(x=[], y=[-0.8], xaxis='x2', hoverinfo='none', showlegend=False, marker={'opacity': 0})
+            go.Scatter(
+                x=[0],  # Changed from [] to [0]
+                y=[-0.8],
+                xaxis='x2',
+                hoverinfo='none',
+                showlegend=False,
+                marker=dict(opacity=0, color='rgba(0,0,0,0)')  # Clear, completely transparent anchor point
+            )
         )
         figs.append(fig)
 
@@ -1263,26 +1322,151 @@ def update_grid(data, filtered_data, slctd_row_indices):
 
 
 def to_excel(df, report_term):
-    _df = df.copy()
-    xlsx_io = io.BytesIO()
-    writer = pd.ExcelWriter(xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}})
-    _df.to_excel(writer, sheet_name=report_term, index=False)
-    writer.close()
-    xlsx_io.seek(0)
-    data = base64.b64encode(xlsx_io.read()).decode('utf-8')
-    return data
+    """
+    Generates an Excel file byte stream with replicated conditional styling formatting.
+    """
+    # Create an in-memory buffer to write Excel data into
+    output = io.BytesIO()
 
+    # Write using openpyxl engine
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name=f"Schedule Roster ({report_term})")
 
-def to_excel_stacked(df, report_term):
-    _df = df.copy()
-    _df = labs_combined(_df)
-    xlsx_io = io.BytesIO()
-    writer = pd.ExcelWriter(xlsx_io, engine='xlsxwriter', engine_kwargs={'options':{'strings_to_numbers': False}})
-    _df.to_excel(writer, sheet_name=report_term, index=False)
-    writer.close()
-    xlsx_io.seek(0)
-    data = base64.b64encode(xlsx_io.read()).decode('utf-8')
-    return data
+        # Access the active workbook and worksheet objects
+        workbook = writer.book
+        worksheet = writer.sheets[f"Schedule Roster ({report_term})"]
+
+        # Define styling fills based on dashboard rules
+        canceled_row_fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+        canceled_font = Font(color="9F1239")
+
+        waitlist_fill = PatternFill(start_color="FEFCBF", end_color="FEFCBF", fill_type="solid")
+        waitlist_font = Font(color="744210")
+
+        l_calc_fill = PatternFill(start_color="EBF8FF", end_color="EBF8FF", fill_type="solid")
+        l_calc_font = Font(color="2B6CB0")
+
+        n_calc_fill = PatternFill(start_color="FFE4E6", end_color="FFE4E6", fill_type="solid")
+        n_calc_font = Font(color="9F1239")
+
+        low_enrl_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        low_enrl_font = Font(color="9C0006")
+
+        ratio80_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        ratio80_font = Font(color="006100")
+
+        ratio94_fill = PatternFill(start_color="008000", end_color="008000", fill_type="solid")
+        ratio94_font = Font(color="FFFFFF")
+
+        no_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+        no_font = Font(color="000000")
+
+        # Build mapping for user-selected dropdown custom hex color records
+        # Converting 7-character CSS hex codes (e.g., #b3cde3) to openpyxl 6-character hex formats (e.g., b3cde3)
+        hex_colors = ['b3cde3', 'fbb4ae', 'ccebc5', 'decbe4', 'fed9a6', 'ffffcc', 'e5d8bd', 'fddaec', 'f2f2f2']
+
+        # Dynamically map dataframe columns back to 1-indexed Excel column IDs
+        col_map = {col_name: idx + 1 for idx, col_name in enumerate(df.columns)}
+
+        # Iterate over all data rows (Excel rows start at 2 to skip headers)
+        for i, row in enumerate(df.itertuples(index=False), start=2):
+            status = str(getattr(row, 'S', '')).strip().upper()
+
+            # --- Canceled Row Styling ('C') ---
+            if status == 'C':
+                for col_idx in range(1, len(df.columns) + 1):
+                    cell = worksheet.cell(row=i, column=col_idx)
+                    cell.fill = canceled_row_fill
+                    cell.font = canceled_font
+                continue  # Skip deeper analytics highlights for canceled rows
+
+            # --- Active Waitlist Formatting (WLst > 0) ---
+            if 'WLst' in col_map:
+                wlst_val = getattr(row, 'WLst', 0)
+                try:
+                    if int(wlst_val) > 0:
+                        cell = worksheet.cell(row=i, column=col_map['WLst'])
+                        cell.fill = waitlist_fill
+                        cell.font = waitlist_font
+                except (ValueError, TypeError):
+                    pass
+
+            # --- Calculation Type Formatting ('L' or 'N') ---
+            if 'Calc' in col_map:
+                calc = str(getattr(row, 'Calc', '')).strip().upper()
+                try:
+                    if calc == 'L':
+                        cell = worksheet.cell(row=i, column=col_map['Calc'])
+                        cell.fill = l_calc_fill
+                        cell.font = l_calc_font
+                    elif calc == 'N':
+                        cell = worksheet.cell(row=i, column=col_map['Calc'])
+                        cell.fill = n_calc_fill
+                        cell.font = n_calc_font
+                except (ValueError, TypeError):
+                    pass
+
+            styleApplied = False
+
+            # --- Enrollment Fills ---
+            if 'Enrolled' in col_map and 'Number' in col_map and 'Credit' in col_map and 'Subject' in col_map:
+
+                try:
+                    subj = str(getattr(row, 'Subject', '')).strip().upper()
+                    crs_num = int(str(getattr(row, 'Number', 0)).strip())
+                    enrolled = int(getattr(row, 'Enrolled', 0))
+                    credit = float(getattr(row, 'Credit', 0))
+                    ratio = float(getattr(row, 'Ratio', 0))
+
+                    # Target active baseline math courses matching dashboard validation criteria
+                    if credit > 0 and ('MTH' in subj or 'MTL' in subj) and crs_num not in (1082, 1101, 1116, 1312):
+                        is_low = (
+                            (enrolled < 15 and crs_num < 2000) or
+                            (enrolled < 15 and 2000 <= crs_num < 3000) or
+                            (enrolled < 10 and 3000 <= crs_num < 4000) or
+                            (enrolled < 10 and crs_num >= 4000)
+                        )
+                        if is_low:
+                            cell = worksheet.cell(row=i, column=col_map['Enrolled'])
+                            cell.fill = low_enrl_fill
+                            cell.font = low_enrl_font
+                            styleApplied = True
+                    if ratio > 80:
+                        cell = worksheet.cell(row=i, column=col_map['Enrolled'])
+                        cell.fill = ratio80_fill
+                        cell.font = ratio80_font
+                        styleApplied = True
+                    elif ratio > 94:
+                        cell = worksheet.cell(row=i, column=col_map['Enrolled'])
+                        cell.fill = ratio94_fill
+                        cell.font = ratio94_font
+                        styleApplied = True
+
+                    if not styleApplied:
+                        cell = worksheet.cell(row=i, column=col_map['Enrolled'])
+                        cell.fill = no_fill
+                        cell.font = no_font
+
+                except (ValueError, TypeError):
+                    pass
+
+            # --- Selected Row Grid Highlight Custom Accents ---
+            if 'colorRec' in col_map:
+                color_hex = str(getattr(row, 'colorRec', '')).replace('#', '').strip()
+                if len(color_hex) == 6 and color_hex in hex_colors:
+                    accent_fill = PatternFill(start_color=color_hex, end_color=color_hex, fill_type="solid")
+                    cell = worksheet.cell(row=i, column=col_map['colorRec'])
+                    cell.fill = accent_fill
+                    # Keep font matching grid view colors or let it remain visible in Excel
+
+        # --- Auto-Filter Dropdowns for Headers ---
+        # Get the Excel coordinate string for the entire data region (e.g., "A1:Z150")
+        max_col_letter = openpyxl.utils.get_column_letter(df.shape[1])
+        worksheet.auto_filter.ref = f"A1:{max_col_letter}{len(df) + 1}"
+
+    # Retrieve workbook contents and return to main callback handler
+    output.seek(0)
+    return output.getvalue()
 
 
 def labs_combined(df):

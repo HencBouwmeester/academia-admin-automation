@@ -114,3 +114,20 @@ input[type="radio"] {
     cursor: pointer;
     transition: color 0.15s ease-in-out;
 }
+
+/* 3. Base state: Keep all radio labels black and remove visited purple styling */
+.dcc_control label,
+.dcc_control label:link,
+.dcc_control label:visited {
+    color: rgb(50, 50, 50) !important; /* Matches your body text color */
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+}
+
+/* 4. Active state: Highlight ONLY the selected option text in dark blue */
+.dcc_control input[type="radio"]:checked + label,
+.dcc_control input[type="radio"]:checked ~ span {
+    color: #00447c !important;
+    font-weight: 500; /* Optional: adds a slight punch to the selected choice */
+}
+
