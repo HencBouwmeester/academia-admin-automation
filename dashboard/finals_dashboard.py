@@ -19,7 +19,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable
 
-DEBUG = True
+DEBUG = False
 mathserver = False
 
 # Include pretty graph formatting

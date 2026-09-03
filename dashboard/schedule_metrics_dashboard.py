@@ -787,7 +787,7 @@ app.layout = html.Div(
                                                             "value": "custom",
                                                         },
                                                         {
-                                                            "label": "Active Math Classes",
+                                                            "label": "Active Classes",
                                                             "value": "{S} contains A",
                                                         },
                                                         {
@@ -803,12 +803,12 @@ app.layout = html.Div(
                                                             "value": "{Subject} contains M && {S} contains A && ({Number} = 1081 || {Number} = 1111 || {Number} = 1115 || {Number} = 1311 || {Number} = 1082 || {Number} = 1101 || {Number} = 1116 || {Number} = 1312)",
                                                         },
                                                         {
-                                                            "label": "Math Lower Division",
-                                                            "value": "{Subject} contains M && {Number} < 3000 && {S} contains A",
+                                                            "label": "Lower Division",
+                                                            "value": "{Number} < 3000 && {S} contains A",
                                                         },
                                                         {
-                                                            "label": "Math Upper Division",
-                                                            "value": "{Subject} contains M && {Number} >= 3000 && {S} contains A",
+                                                            "label": "Upper Division",
+                                                            "value": "{Number} >= 3000 && {S} contains A",
                                                         },
                                                         {
                                                             "label": "Applied Group",
@@ -829,6 +829,30 @@ app.layout = html.Div(
                                                         {
                                                             "label": "Canceled CRNs",
                                                             "value": "{S} contains C",
+                                                        },
+                                                        {
+                                                            "label": "Department of Aviation and Aerospace Science",
+                                                            "value": "{Subject} s= 'AES' && {S} contains A",
+                                                        },
+                                                        {
+                                                            "label": "Advanced Manufacturing Sciences Institute",
+                                                            "value": "{Subject} s= 'AMS' && {S} contains A",
+                                                        },
+                                                        {
+                                                            "label": "Engineering & Engineering Technology Department",
+                                                            "value": "({Subject} s= 'ARCH' || {Subject} s= 'CEE' || {Subject} s= 'CET' || {Subject} s= 'CPE' || {Subject} s= 'CPM' || {Subject} s= 'EET' || {Subject} s= 'ELE' || {Subject} s= 'EVE' || {Subject} s= 'MET') && {S} contains A",
+                                                        },
+                                                        {
+                                                            "label": "Computer Science Department",
+                                                            "value": "({Subject} s= 'CS' || {Subject} s= 'CSEC' || {Subject} s= 'CSS' || {Subject} s= 'DSML') && {S} contains A",
+                                                        },
+                                                        {
+                                                            "label": "Department of Industrial Design",
+                                                            "value": "{Subject} s= 'IND' && {S} contains A",
+                                                        },
+                                                        {
+                                                            "label": "MAST Department",
+                                                            "value": "({Subject} s= 'MTH' || {Subject} s= 'MTL') && {S} contains A",
                                                         },
                                                     ],
                                                     placeholder="Select a baseline preset query rule",
@@ -1020,10 +1044,10 @@ app.layout = html.Div(
                                         },
                                         style_data={
                                             "whiteSpace": "nowrap",
-                                            "height": "auto",
+                                            # "height": "auto",
                                         },
                                         style_table={
-                                            "height": "600px",
+                                            # "height": "600px",
                                             # "overflowY": "auto",
                                             "overflowX": "auto",
                                             "minWidth": "100%",
@@ -1398,8 +1422,8 @@ app.clientside_callback(
             const isBaselineMatch = (
                 statusVal === 'A' &&
                 maxCapacity > 0 &&
-                (creditVal > 0 || calcVal === 'L') &&
-                (subjectVal.includes('MTH') || subjectVal.includes('MTL'))
+                (creditVal > 0 || calcVal === 'L')
+                // && (subjectVal.includes('MTH') || subjectVal.includes('MTL'))
             );
 
 

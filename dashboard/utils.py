@@ -339,7 +339,8 @@ def parse_enrollment_file(file_content):
 def reconstruct_records(cleaned_rows):
     logical_records = []
     current_record = None
-    valid_subject_pattern = re.compile(r'^(MTH|MTL|MTLM)\s+\d+')
+    # valid_subject_pattern = re.compile(r'^(MTH|MTL|MTLM)\s+\d+')
+    valid_subject_pattern = re.compile(r'^(AES|AMS|ARCH|CEE|CET|CPE|CPM|CS|CSEC|CSS|DSML|EET|ELE|EVE|IND|MET|MTH|MTL|MTLM)\s+\d+')
 
     for line in cleaned_rows:
         if valid_subject_pattern.match(line.lstrip()):
