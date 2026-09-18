@@ -170,6 +170,19 @@ app.layout = html.Div(
                                                                         html.Div(
                                                                             [
                                                                                 html.P(
+                                                                                    "FTE"
+                                                                                ),
+                                                                                html.H6(
+                                                                                    "0",
+                                                                                    id="total_FTE_text",
+                                                                                ),
+                                                                            ],
+                                                                            id="total_FTE",
+                                                                            className="mini_container",
+                                                                        ),
+                                                                        html.Div(
+                                                                            [
+                                                                                html.P(
                                                                                     "Average Enrollment by CRN"
                                                                                 ),
                                                                                 html.H6(
@@ -1712,6 +1725,7 @@ app.clientside_callback(
         let totalCredits = 0;
         let totalEnrolled = 0;
         let totalCHP = 0;
+        let totalFTE = 0;
 
         let sumEnrolledForAvg = 0;
         let validEnrolledRowsCount = 0;
@@ -1777,6 +1791,8 @@ app.clientside_callback(
             fillRatePercent = ((totalEnrolledForRatio / totalMaxSeatsForRatio) * 100).toFixed(2) + "%";
         }
 
+        totalFTE = totalCHP / 15.0;
+
         // Return updated string metrics directly to layout card text wrappers
         return [
             String(totalSections),
@@ -1784,6 +1800,7 @@ app.clientside_callback(
             String(totalCredits.toFixed(0)),
             String(totalEnrolled),
             String(totalCHP.toFixed(0)),
+            String(totalFTE.toFixed(1)),
             String(avgEnrollment),
             String(fillRatePercent),
             String(avgWaitlist)
@@ -1796,6 +1813,7 @@ app.clientside_callback(
         Output("total_credits_text", "children"),
         Output("total_enrollment_text", "children"),
         Output("total_CHP_text", "children"),
+        Output("total_FTE_text", "children"),
         Output("avg_enrollment_text", "children"),
         Output("avg_fill_rate_text", "children"),
         Output("avg_waitlist_text", "children"),
@@ -2569,6 +2587,18 @@ def render_clientside_course_table_bridge(data):
             sort_action="native",
         ),
     ]
+
+@app.callback(
+    Output("upload-data", "filename"),
+    Input("datatable-interactivity", "data"),
+    prevent_initial_call=True
+)
+def clear_schedule_upload_cache(table_data):
+    # As soon as data records are successfully stored inside the table,
+    # we erase the filename cache to make the same file instantly re-selectable.
+    if table_data:
+        return None
+    return dash.no_update
 
 
 # Link the clientside computations straight onto the internal grid elements generated above

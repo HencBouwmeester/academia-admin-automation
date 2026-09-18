@@ -825,7 +825,7 @@ def apply_query(n_clicks, n_submit, dropdown_value, input_value):
 
 # Main
 if __name__ == '__main__':
-    app.run_server(debug=DEBUG, port='8004')
+    app.run(debug=DEBUG, port='8004')
     # if mathserver:
         # app.run_server(debug=DEBUG)
     # else:

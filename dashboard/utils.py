@@ -801,7 +801,9 @@ def build_grouped_replica_pdf(dataframe, group_by_col, term_title, output_target
     headers = ['CRN', 'Days', 'Time', 'Class', 'Sec', 'CR', 'Title', 'Instructor', 'Bldg', 'Room']
     table_matrix = [[Paragraph(h, th_style) for h in headers]]
 
-    sorted_df = dataframe.sort_values(by=['Instructor', 'Class', 'Section'] if group_by_col == 'Instructor' else ['Class', 'Section', 'Instructor'])
+    # sorted_df = dataframe.sort_values(by=['Instructor', 'Class', 'Section'] if group_by_col == 'Instructor' else ['Class', 'Section', 'Instructor'])
+    sorted_df = dataframe.sort_values(by=['Instructor', 'Days', 'Time', 'Section'] if group_by_col == 'Instructor' else ['Class', 'Section', 'Instructor'])
+
     grouped = sorted_df.groupby(group_by_col)
 
     blank_row_indices = []
@@ -810,19 +812,31 @@ def build_grouped_replica_pdf(dataframe, group_by_col, term_title, output_target
     total_groups = len(grouped)
     for i, (group_name, group_data) in enumerate(grouped):
         for _, row in group_data.iterrows():
+
+            # --- SANITIZE 'nan' STRINGS TO BLANKS ---
+            days_val = str(row.get('Days', ''))
+            time_val = str(row.get('Time', ''))
+            room_val = str(row.get('Room', ''))
+
+            if days_val.strip().lower() in ['nan', 'none']: days_val = ""
+            if time_val.strip().lower() in ['nan', 'none']: time_val = ""
+            if room_val.strip().lower() in ['nan', 'none']: room_val = ""
+            # ----------------------------------------
+
             table_matrix.append([
                 Paragraph(str(row.get('CRN', '')).split('.')[0], td_style),
-                Paragraph(str(row.get('Days', '')), td_style),
-                Paragraph(str(row.get('Time', '')), td_style),
+                Paragraph(days_val, td_style),
+                Paragraph(time_val, td_style),
                 Paragraph(str(row.get('Class', '')), td_style),
                 Paragraph(str(row.get('Section', '')), td_style),
                 Paragraph(str(int(row.get('Credit', 3) if pd.notna(row.get('Credit')) else 3)), td_style),
                 Paragraph(str(row.get('Title', '')), td_style),
                 Paragraph(str(row.get('Instructor', 'TBA')), td_style),
                 Paragraph(str(row.get('Bldg', 'ONLI')), td_style),
-                Paragraph(str(row.get('Room', '')).split('.')[0], td_style)
+                Paragraph(room_val.split('.')[0], td_style)
             ])
             current_row_idx += 1
+
         if i < total_groups - 1:
             table_matrix.append([""] * len(headers))
             blank_row_indices.append(current_row_idx)

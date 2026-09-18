@@ -576,7 +576,7 @@ def update_grid(data):#toggle, data, filtered_data, slctd_row_indices):
         # setup the axes and tick marks
         if nLoc:
             fig.update_layout(
-                autosize=False,
+                autosize=True,
                 height=45*nLoc,
                 margin=dict(
                     l=50,
@@ -827,6 +827,12 @@ finals_grid = [
    '2','1', 'T R', '4:00pm', '5:50pm', 'R', '15:30-17:30',
    '2','1', 'T R', '6:00pm', '7:50pm', 'T', '17:00-19:00',
    '2','1', 'T R', '8:00pm', '9:50pm', 'T', '20:00-22:00',
+   '4','2', 'M W', '10:30am', '12:45pm', 'M', '11:00-13:00',
+   '4','2', 'M W', '1:00pm', '3:15pm', 'M', '14:00-16:00',
+   '4','2', 'M W', '3:30pm', '5:45pm', 'W', '15:30-17:30',
+   '4','2', 'T R', '10:30am', '12:45pm', 'T', '11:00-13:00',
+   '4','2', 'T R', '1:00pm', '3:15pm', 'T', '14:00-16:00',
+   '4','2', 'T R', '3:30pm', '5:45pm', 'R', '15:30-17:30',
 ]
 
 df_grid = DataFrame({'Credit': finals_grid[::7], 'Meetings': finals_grid[1::7],
@@ -1560,6 +1566,7 @@ app.layout = html.Div([
                 ],
                 style = {
                     'display': 'none',
+                    'width': '100%',
                 },
                 id='week-view-div'
             ),
