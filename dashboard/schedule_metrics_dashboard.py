@@ -1656,7 +1656,7 @@ app.clientside_callback(
                         size: Math.max(8, Math.min(Math.floor(0.6 * (positionXEnd - positionXStart)), 11)),
                         color: '#334155'
                     },
-                    hovertext: `Course: ${row.Subject || ''} ${row.Number || ''}<br>Title: ${row.Title || ''}<br>Time: ${timeStr}<br>Instructor: ${row.Instructor || ''}`
+                    hovertext: `Course: ${row.Subject || ''} ${row.Number || ''}-${row.Section || ''}<br>CRN: ${row.CRN || ''}<br>Title: ${row.Title || ''}<br>Time: ${timeStr}<br>Instructor: ${row.Instructor || ''}`
                 });
             });
 
